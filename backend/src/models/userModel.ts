@@ -6,6 +6,7 @@ export interface IUser extends Document {
   passwordHash: string;
   role: string;
   emailVerified: boolean;
+  isApproved: boolean;
 }
 
 const userSchema = new Schema<IUser>(
@@ -20,6 +21,7 @@ const userSchema = new Schema<IUser>(
       default: "attendee",
     },
     emailVerified: { type: Boolean, default: false },
+    isApproved: { type: Boolean, default: true },
   },
   { timestamps: true }
 );

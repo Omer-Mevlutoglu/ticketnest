@@ -6,6 +6,10 @@ import errorHandler from "./middleware/errorHandler";
 import session from "express-session";
 import MongoStore from "connect-mongo";
 import passport from "passport";
+import userModel from "./models/userModel";
+import { hashPassword } from "./utils/helperHash";
+import authRoutes from "./routes/authRoutes";
+import testRoutes from "./routes/testRoutes";
 dotenv.config();
 const app = express();
 mongoose
@@ -34,7 +38,33 @@ app.use(
 );
 app.use(passport.initialize());
 app.use(passport.session());
+
+app.use("/api/auth", authRoutes);
+app.use("/api/testAuth", testRoutes);
 app.get("/api/ping", (_req, res) => res.json({ status: "ok" }));
+(async () => {
+  const adminEmails: string[] = process.env.ADMIN_EMAILS
+    ? JSON.parse(process.env.ADMIN_EMAILS)
+    : [];
+  const missingAdmins = [];
+  for (const email of adminEmails) {
+    const exists = await userModel.findOne({ email, role: "admin" });
+    if (!exists) missingAdmins.push(email);
+  }
+  if (missingAdmins.length > 0) {
+    for (const email of missingAdmins) {
+      const pw = await hashPassword(process.env.ADMIN_INITIAL_PASSWORD!);
+      await userModel.create({
+        username: email.split("@")[0],
+        email,
+        passwordHash: pw,
+        role: "admin",
+        emailVerified: true,
+      });
+      console.log(`✅ Seeded admin account: ${email}`);
+    }
+  }
+})();
 
 app.use(errorHandler);
 app.listen(process.env.PORT || 5000, () => {
