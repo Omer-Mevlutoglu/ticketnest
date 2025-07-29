@@ -10,6 +10,7 @@ import userModel from "./models/userModel";
 import { hashPassword } from "./utils/helperHash";
 import authRoutes from "./routes/authRoutes";
 import testRoutes from "./routes/testRoutes";
+import adminRoutes from "./routes/adminRoutes";
 dotenv.config();
 const app = express();
 mongoose
@@ -41,6 +42,7 @@ app.use(passport.session());
 
 app.use("/api/auth", authRoutes);
 app.use("/api/testAuth", testRoutes);
+app.use("/api/admin", adminRoutes);
 app.get("/api/ping", (_req, res) => res.json({ status: "ok" }));
 (async () => {
   const adminEmails: string[] = process.env.ADMIN_EMAILS

@@ -2,6 +2,7 @@ import userModel, { IUser } from "../models/userModel";
 import { hashPassword } from "../utils/helperHash";
 import { Request } from "express";
 import passport from "passport";
+import { createApprovalRequest } from "./approvalService";
 
 export interface RegisterDTO {
   username: string;
@@ -39,6 +40,11 @@ export const registerUser = async (userData: RegisterDTO) => {
     emailVerified: false,
     ...(role === "organizer" && { isApproved: false }),
   });
+  if (role === "organizer") {
+    await createApprovalRequest(newUser.id);
+    
+  }
+
   const { passwordHash: _, ...safeUser } = newUser.toObject();
   return safeUser;
 };
