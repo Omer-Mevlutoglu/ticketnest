@@ -1,8 +1,8 @@
 // src/controllers/authController.ts
 import { Request, Response, NextFunction } from "express";
 import passport from "passport";
-import { logoutUser, registerUser } from "../services/authService";
-import "../strategies/local-strategy"
+import { getAllUsers, logoutUser, registerUser } from "../services/authService";
+import "../strategies/local-strategy";
 // POST /api/auth/register
 export const register = async (
   req: Request,
@@ -70,5 +70,18 @@ export const logout = async (
     return res.json({ message: "User logged out successfully" });
   } catch (err) {
     return next(err);
+  }
+};
+
+export const getUsers = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const users = await getAllUsers();
+    return res.status(200).json(users);
+  } catch (err) {
+    next(err);
   }
 };

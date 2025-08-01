@@ -7,6 +7,7 @@ import {
 } from "../controllers/adminController";
 import { ensureAuth } from "../middleware/ensureAuth";
 import { ensureRole } from "../middleware/ensureRole";
+import { getUsers } from "../controllers/authController";
 
 const router = Router();
 
@@ -21,5 +22,6 @@ router.put("/organizers/:organizerId/approve", approveOrganizer);
 
 // PUT  /api/admin/organizers/:organizerId/reject
 router.put("/organizers/:organizerId/reject", rejectOrganizer);
+router.get("/users", ensureRole(["admin"]), getUsers);
 
 export default router;

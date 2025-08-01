@@ -42,7 +42,6 @@ export const registerUser = async (userData: RegisterDTO) => {
   });
   if (role === "organizer") {
     await createApprovalRequest(newUser.id);
-    
   }
 
   const { passwordHash: _, ...safeUser } = newUser.toObject();
@@ -59,4 +58,13 @@ export const logoutUser = (req: Request): Promise<void> => {
       });
     });
   });
+};
+
+export const getAllUsers = async () => {
+  const users = await userModel
+    .find({ role: { $ne: "admin" } })
+    .select("-passwordHash")
+    .lean()
+    .exec();
+  return users;
 };
