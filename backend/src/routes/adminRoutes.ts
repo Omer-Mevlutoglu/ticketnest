@@ -1,27 +1,45 @@
 // src/routes/adminRoutes.ts
 import { Router } from "express";
+import { ensureAuth } from "../middleware/ensureAuth";
+import { ensureRole } from "../middleware/ensureRole";
+
+// Organizer approval controllers
 import {
   listPendingOrganizers,
   approveOrganizer,
   rejectOrganizer,
 } from "../controllers/adminController";
-import { ensureAuth } from "../middleware/ensureAuth";
-import { ensureRole } from "../middleware/ensureRole";
+
+// User management controller
 import { getUsers } from "../controllers/authController";
+
+// Venue management controllers
+import {
+  createVenueController,
+  updateVenueController,
+  getActiveVenues,
+  getVenueByIdController,
+  deleteVenueController,
+} from "../controllers/venueController";
 
 const router = Router();
 
-// All admin routes under /organizers
+// Apply to _all_ /api/admin/* routes:
 router.use(ensureAuth, ensureRole(["admin"]));
 
-// GET  /api/admin/organizers/pending
+// --- User Management ---
+router.get("/users", getUsers);
+
+// --- Organizer Approval ---
 router.get("/organizers/pending", listPendingOrganizers);
-
-// PUT  /api/admin/organizers/:organizerId/approve
 router.put("/organizers/:organizerId/approve", approveOrganizer);
-
-// PUT  /api/admin/organizers/:organizerId/reject
 router.put("/organizers/:organizerId/reject", rejectOrganizer);
-router.get("/users", ensureRole(["admin"]), getUsers);
+
+// --- Venue Management ---
+router.post("/venues", createVenueController);
+router.put("/venues/:id", updateVenueController);
+router.get("/venues", getActiveVenues);
+router.get("/venues/:id", getVenueByIdController);
+router.delete("/venues/:id", deleteVenueController);
 
 export default router;
