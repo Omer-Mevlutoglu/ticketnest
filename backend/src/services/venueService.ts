@@ -11,9 +11,7 @@ export interface CreateVenueDTO {
   images?: string[];
 }
 
-export const createVenue = async (
-  venueData: CreateVenueDTO
-): Promise<IVenue> => {
+export const createVenue = async (venueData: CreateVenueDTO) => {
   try {
     return await venueModel.create(venueData);
   } catch (err: any) {
@@ -27,7 +25,7 @@ export const createVenue = async (
   }
 };
 
-export const getVenues = async (): Promise<IVenue[]> => {
+export const getVenues = async () => {
   return (await venueModel.find({ isActive: true }).lean().exec()) as IVenue[];
 };
 
@@ -48,10 +46,7 @@ export const getVenueById = async (id: string): Promise<IVenue> => {
   return venue as IVenue;
 };
 
-export const updateVenue = async (
-  id: string,
-  venueData: CreateVenueDTO
-): Promise<IVenue> => {
+export const updateVenue = async (id: string, venueData: CreateVenueDTO) => {
   if (!Types.ObjectId.isValid(id)) {
     const err = new Error("Invalid venue ID");
     // @ts-ignore
@@ -84,7 +79,7 @@ export const updateVenue = async (
   }
 };
 
-export const deleteVenue = async (id: string): Promise<void> => {
+export const deleteVenue = async (id: string) => {
   if (!Types.ObjectId.isValid(id)) {
     const err = new Error("Invalid venue ID");
     // @ts-ignore

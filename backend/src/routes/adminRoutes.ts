@@ -21,6 +21,7 @@ import {
   getVenueByIdController,
   deleteVenueController,
 } from "../controllers/venueController";
+import { listAllEvents } from "../controllers/eventController";
 
 const router = Router();
 
@@ -42,4 +43,6 @@ router.get("/venues", getActiveVenues);
 router.get("/venues/:id", getVenueByIdController);
 router.delete("/venues/:id", deleteVenueController);
 
+// Events
+router.get("/events", listAllEvents);
 export default router;
