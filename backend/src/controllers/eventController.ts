@@ -2,8 +2,10 @@
 import { Request, Response, NextFunction } from "express";
 import {
   createEvent,
+  deleteEvent,
   getEventById,
   listEvents,
+  updateEvent,
 } from "../services/eventServices";
 
 export const createEventController = async (
@@ -105,5 +107,39 @@ export const getPublicEventById = async (
     return res.status(200).json(event);
   } catch (err: any) {
     return next(err);
+  }
+};
+
+export const updateEventController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    // Extract the authenticated user’s ID
+    const userId = (req.user as any)._id.toString();
+
+    // Delegate to service (which now checks ownership internally)
+    const event = await updateEvent(req.params.id, req.body, userId);
+
+    return res.status(200).json(event);
+  } catch (error: any) {
+    const status = error.status ?? 500;
+    return res.status(status).json({ message: error.message });
+  }
+};
+
+export const deleteEventController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const userId = (req.user as any)._id.toString();
+    await deleteEvent(req.params.id, userId);
+    return res.status(204).json({ message: "Event deleted successfully" });
+  } catch (err: any) {
+    const status = err.status ?? 500;
+    return res.status(status).json({ message: err.message });
   }
 };

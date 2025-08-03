@@ -3,10 +3,12 @@ import { ensureApproved } from "../middleware/ensureApproved";
 import { ensureRole } from "../middleware/ensureRole";
 import {
   createEventController,
+  deleteEventController,
   getMyEventById,
   getPublicEventById,
   listMyEvents,
   listPublicEvents,
+  updateEventController,
 } from "../controllers/eventController";
 import { ensureAuth } from "../middleware/ensureAuth";
 
@@ -40,4 +42,19 @@ router.post(
   createEventController
 );
 
+router.put(
+  "/:id",
+  ensureAuth,
+  ensureRole(["organizer"]),
+  ensureApproved,
+  updateEventController
+);
+
+router.delete(
+  "/:id",
+  ensureAuth,
+  ensureRole(["organizer"]),
+  ensureApproved,
+  deleteEventController
+);
 export default router;

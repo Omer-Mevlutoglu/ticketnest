@@ -170,3 +170,71 @@ export const getEventById = async (id: string): Promise<IEvent> => {
   }
   return event as IEvent;
 };
+
+export const updateEvent = async (
+  eventId: string,
+  data: CreateEventDTO,
+  userId: string
+): Promise<IEvent> => {
+  // 1) Validate eventId
+  if (!Types.ObjectId.isValid(eventId)) {
+    const err = new Error("Invalid event ID");
+    // @ts-ignore
+    err.status = 400;
+    throw err;
+  }
+
+  // 2) Fetch the existing event
+  const existing = await getEventById(eventId);
+
+  // 3) Ownership check
+  if (existing.organizerId.toString() !== userId) {
+    const err = new Error("Forbidden: you don’t own this event");
+    // @ts-ignore
+    err.status = 403;
+    throw err;
+  }
+
+  // 4) Perform the update with validators
+  try {
+    const updated = await eventModel.findByIdAndUpdate(eventId, data, {
+      new: true,
+      runValidators: true,
+    });
+    // (Since we know it existed, updated should never be null)
+    return updated as IEvent;
+  } catch (error: any) {
+    // 5) Handle validation / duplicate-key
+    if (error.name === "ValidationError") {
+      const e = new Error("Invalid event data");
+      // @ts-ignore
+      e.status = 400;
+      throw e;
+    }
+    if (error.code === 11000) {
+      const e = new Error("An event with those details already exists");
+      // @ts-ignore
+      e.status = 409;
+      throw e;
+    }
+    throw error;
+  }
+};
+export const deleteEvent = async (
+  eventId: string,
+  userId: string
+): Promise<void> => {
+  // 1) Fetch & validate
+  const existing = await getEventById(eventId);
+
+  // 2) Ownership
+  if (existing.organizerId.toString() !== userId) {
+    const e = new Error("Forbidden: you don’t own this event");
+    // @ts-ignore
+    e.status = 403;
+    throw e;
+  }
+
+  // 3) Delete
+  await eventModel.findByIdAndDelete(eventId).exec();
+};
