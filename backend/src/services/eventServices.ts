@@ -21,7 +21,6 @@ export interface CreateEventDTO {
 export const createEvent = async (
   eventData: CreateEventDTO
 ): Promise<IEvent> => {
-  console.log(eventData);
   if (eventData.venueType === "template") {
     if (!eventData.templateVenueId) {
       const e = new Error("templateVenueId is required for template venues");

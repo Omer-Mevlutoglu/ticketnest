@@ -11,6 +11,7 @@ import {
   updateEventController,
 } from "../controllers/eventController";
 import { ensureAuth } from "../middleware/ensureAuth";
+import { getSeatMapController, upsertSeatMapController } from "../controllers/seatMapController";
 
 const router = Router();
 
@@ -57,4 +58,20 @@ router.delete(
   ensureApproved,
   deleteEventController
 );
+router.get(
+  "/:id/seatmap",
+  ensureAuth,
+  ensureRole(["organizer"]),
+  ensureApproved,
+  getSeatMapController
+);
+
+router.put(
+  "/:id/seatmap",
+  ensureAuth,
+  ensureRole(["organizer"]),
+  ensureApproved,
+  upsertSeatMapController
+);
+
 export default router;

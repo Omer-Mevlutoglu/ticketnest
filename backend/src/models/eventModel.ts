@@ -33,7 +33,7 @@ const eventSchema = new Schema<IEvent>({
     ref: "User",
     required: true,
   },
-  venueType: { type: String, enum: ["Custom", "template"], required: true },
+  venueType: { type: String, enum: ["custom", "template"], required: true },
   templateVenueId: {
     type: Schema.Types.ObjectId,
     ref: "venues",
