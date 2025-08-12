@@ -12,6 +12,9 @@ import authRoutes from "./routes/authRoutes";
 import testRoutes from "./routes/testRoutes";
 import adminRoutes from "./routes/adminRoutes";
 import eventRoutes from "./routes/eventRoutes";
+import cartRoutes from "./routes/cartRoutes";
+import "./strategies/local-strategy";
+
 dotenv.config();
 const app = express();
 mongoose
@@ -45,6 +48,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/testAuth", testRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/events", eventRoutes);
+app.use("/api/cart", cartRoutes);
 // app.get("/api/ping", (_req, res) => res.json({ status: "ok" }));
 (async () => {
   const adminEmails: string[] = process.env.ADMIN_EMAILS

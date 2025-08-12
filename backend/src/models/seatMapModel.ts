@@ -1,13 +1,14 @@
 // src/models/seatMapModel.ts
 import mongoose, { Schema, Document, Model, Types } from "mongoose";
 
-// Interface for individual seats
 export interface ISeat {
   x: number;
   y: number;
   tier: string;
   price: number;
   status: "available" | "reserved" | "sold";
+  reservedBy?: Types.ObjectId; // who holds it (if reserved)
+  reservedUntil?: Date; // hold expiry (if reserved)
 }
 
 export interface ISeatMap extends Document {
@@ -30,6 +31,8 @@ const seatSchema = new Schema<ISeat>(
       default: "available",
       required: true,
     },
+    reservedBy: { type: Schema.Types.ObjectId, ref: "User" },
+    reservedUntil: { type: Date },
   },
   { _id: false }
 );
@@ -40,7 +43,7 @@ const seatMapSchema = new Schema<ISeatMap>(
       type: Schema.Types.ObjectId,
       ref: "Event",
       required: true,
-      unique: true, 
+      unique: true,
     },
     layoutType: {
       type: String,
@@ -64,9 +67,12 @@ const seatMapSchema = new Schema<ISeatMap>(
   { timestamps: true }
 );
 
+// Helpful indexes
+seatMapSchema.index({ eventId: 1 }, { unique: true });
 seatMapSchema.index({ "seats.status": 1 });
+seatMapSchema.index({ "seats.reservedUntil": 1 });
+seatMapSchema.index({ "seats.reservedBy": 1 });
 
-// Model export
 const SeatMapModel: Model<ISeatMap> = mongoose.model<ISeatMap>(
   "SeatMap",
   seatMapSchema

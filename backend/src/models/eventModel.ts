@@ -1,5 +1,4 @@
 import mongoose, { Schema, Document } from "mongoose";
-import { title } from "process";
 
 export interface IEvent extends Document {
   title: string;
@@ -36,16 +35,16 @@ const eventSchema = new Schema<IEvent>({
   venueType: { type: String, enum: ["custom", "template"], required: true },
   templateVenueId: {
     type: Schema.Types.ObjectId,
-    ref: "venues",
+    ref: "venue",
   },
   venueName: { type: String },
   venueAddress: { type: String },
   seatMapId: {
     type: Schema.Types.ObjectId,
-    ref: "seatMap",
+    ref: "SeatMap",
   },
   startTime: { type: Date, required: true },
   endTime: { type: Date, required: true },
 });
 
-export const eventModel = mongoose.model<IEvent>("Events", eventSchema);
+export const eventModel = mongoose.model<IEvent>("Event", eventSchema);

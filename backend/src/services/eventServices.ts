@@ -2,6 +2,7 @@
 import mongoose, { Types } from "mongoose";
 import { eventModel, IEvent } from "../models/eventModel";
 import venueModel from "../models/venueModel";
+import { upsertSeatMap } from "./seatMapService";
 
 export interface CreateEventDTO {
   title: string;
@@ -18,14 +19,26 @@ export interface CreateEventDTO {
   organizerId: string;
 }
 
+// src/services/eventService.ts
+
 export const createEvent = async (
   eventData: CreateEventDTO
 ): Promise<IEvent> => {
+  // 1) Validate venue fields
+  let existingVenue: any;
   if (eventData.venueType === "template") {
     if (!eventData.templateVenueId) {
       const e = new Error("templateVenueId is required for template venues");
       // @ts-ignore
       e.status = 400;
+      throw e;
+    }
+    const oid = new mongoose.Types.ObjectId(eventData.templateVenueId);
+    existingVenue = await venueModel.findById(oid).lean().exec();
+    if (!existingVenue) {
+      const e = new Error("Selected template venue not found");
+      // @ts-ignore
+      e.status = 404;
       throw e;
     }
   } else {
@@ -39,14 +52,28 @@ export const createEvent = async (
     }
   }
 
-  if (
-    eventData.status === "published" &&
-    (!eventData.seatMapId || eventData.seatMapId === "")
-  ) {
-    const e = new Error("Cannot publish an event without a seat map");
-    // @ts-ignore
-    e.status = 400;
-    throw e;
+  // If publishing on create, enforce real seat-map availability rules
+  if (eventData.status === "published") {
+    if (eventData.venueType === "template") {
+      const hasTemplateSeats =
+        !!existingVenue?.defaultSeatMap &&
+        existingVenue.defaultSeatMap.length > 0;
+      if (!hasTemplateSeats) {
+        const e = new Error(
+          "Cannot publish: selected template venue has no default seat map."
+        );
+        // @ts-ignore
+        e.status = 400;
+        throw e;
+      }
+    } else {
+      const e = new Error(
+        "Custom venues cannot be published at creation. Create as draft, add a seat map via PUT /api/events/:id/seatmap, then publish."
+      );
+      // @ts-ignore
+      e.status = 400;
+      throw e;
+    }
   }
 
   if (eventData.startTime >= eventData.endTime) {
@@ -55,7 +82,6 @@ export const createEvent = async (
     e.status = 400;
     throw e;
   }
-
   if (
     !Array.isArray(eventData.categories) ||
     !eventData.categories.every(
@@ -70,6 +96,7 @@ export const createEvent = async (
     throw e;
   }
 
+  // 3) Build payload for Event model (no seatMap details)
   const payload: any = {
     organizerId: new mongoose.Types.ObjectId(eventData.organizerId),
     title: eventData.title,
@@ -79,54 +106,40 @@ export const createEvent = async (
     venueType: eventData.venueType,
     startTime: eventData.startTime,
     endTime: eventData.endTime,
-    ...(eventData.seatMapId && {
-      seatMapId: new mongoose.Types.ObjectId(eventData.seatMapId),
+    ...(eventData.venueType === "custom" && {
+      venueName: eventData.venueName,
+      venueAddress: eventData.venueAddress,
+    }),
+    ...(eventData.venueType === "template" && {
+      templateVenueId: new mongoose.Types.ObjectId(eventData.templateVenueId!),
+      venueName: existingVenue.name,
+      venueAddress: existingVenue.address,
     }),
   };
 
-  if (eventData.venueType === "template") {
-    const oid = new mongoose.Types.ObjectId(eventData.templateVenueId!);
-    const existingVenue = await venueModel.findById(oid).lean().exec();
-    if (!existingVenue) {
-      const e = new Error("Selected template venue not found");
-      // @ts-ignore
-      e.status = 404;
-      throw e;
-    }
-    payload.templateVenueId = oid;
-    payload.venueName = existingVenue.name;
-    payload.venueAddress = existingVenue.address;
-    payload.layoutType = existingVenue.defaultLayoutType;
-    if (existingVenue.defaultSeatMap?.length) {
-      payload.defaultSeatMap = existingVenue.defaultSeatMap;
-    }
-  } else {
-    payload.venueName = eventData.venueName;
-    payload.venueAddress = eventData.venueAddress;
+  // 4) Persist the Event
+  const event = await eventModel.create(payload);
+
+  // 5) For template venues: auto‐generate the initial SeatMap
+  if (
+    eventData.venueType === "template" &&
+    existingVenue.defaultSeatMap?.length
+  ) {
+    await upsertSeatMap(
+      event.id, // eventId
+      existingVenue.defaultLayoutType, // layoutType
+      eventData.organizerId, // organizer owner
+      existingVenue.defaultSeatMap.map((s: any) => ({
+        x: s.x,
+        y: s.y,
+        tier: s.tier,
+        price: s.price,
+        status: "available",
+      }))
+    );
   }
 
-  try {
-    return await eventModel.create(payload);
-  } catch (error: any) {
-    console.error("🔥 createEvent Mongoose error:", error);
-    if (error.name === "ValidationError") {
-      // Log each invalid field
-      for (const [path, errObj] of Object.entries(error.errors)) {
-        console.error(`  • ${path}: ${(errObj as any).message}`);
-      }
-      const e = new Error("Invalid event data");
-      // @ts-ignore
-      e.status = 400;
-      throw e;
-    }
-    if (error.code === 11000) {
-      const e = new Error("An event with those details already exists");
-      // @ts-ignore
-      e.status = 409;
-      throw e;
-    }
-    throw error;
-  }
+  return event;
 };
 
 export interface ListEventsFilter {
