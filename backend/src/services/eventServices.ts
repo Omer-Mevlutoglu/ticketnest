@@ -127,7 +127,6 @@ export const createEvent = async (
   ) {
     await upsertSeatMap(
       event.id, // eventId
-      existingVenue.defaultLayoutType, // layoutType
       eventData.organizerId, // organizer owner
       existingVenue.defaultSeatMap.map((s: any) => ({
         x: s.x,

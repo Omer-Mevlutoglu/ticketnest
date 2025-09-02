@@ -4,7 +4,7 @@ export interface IVenue extends Document {
   name: string;
   address: string;
   capacity: number;
-  defaultLayoutType: "grid" | "freeform";
+  defaultLayoutType: "grid";
   defaultSeatMap?: Array<{ x: number; y: number; tier: string; price: number }>;
   description?: string;
   images?: Array<string>;
@@ -19,7 +19,8 @@ const venueSchema = new Schema<IVenue>(
     defaultLayoutType: {
       type: String,
       required: true,
-      enum: ["grid", "freeform"],
+      enum: ["grid"],
+      default: "grid",
     },
     defaultSeatMap: [
       {

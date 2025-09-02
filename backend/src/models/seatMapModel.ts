@@ -13,7 +13,7 @@ export interface ISeat {
 
 export interface ISeatMap extends Document {
   eventId: Types.ObjectId;
-  layoutType: "grid" | "freeform";
+  layoutType: "grid";
   seats: ISeat[];
   createdAt: Date;
   updatedAt: Date;
@@ -47,7 +47,7 @@ const seatMapSchema = new Schema<ISeatMap>(
     },
     layoutType: {
       type: String,
-      enum: ["grid", "freeform"],
+      enum: ["grid"],
       default: "grid",
       required: true,
     },

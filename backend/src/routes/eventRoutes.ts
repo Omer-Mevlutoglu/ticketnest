@@ -12,6 +12,7 @@ import {
 } from "../controllers/eventController";
 import { ensureAuth } from "../middleware/ensureAuth";
 import {
+  generateSeatMapFromSpecController,
   getSeatMapController,
   upsertSeatMapController,
 } from "../controllers/seatMapController";
@@ -70,4 +71,11 @@ router.put(
   upsertSeatMapController
 );
 
+router.post(
+  "/:id/seatmap/generate",
+  ensureAuth,
+  ensureRole(["organizer"]),
+  ensureApproved,
+  generateSeatMapFromSpecController
+);
 export default router;
