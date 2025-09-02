@@ -9,7 +9,27 @@ export const getSeatMapController = async (
 ) => {
   try {
     const seatmap = await getSeatMap(req.params.id);
-    res.status(200).json(seatmap);
+    const now = new Date();
+
+    const safe = {
+      ...seatmap,
+      seats: seatmap.seats.map((s: any) => {
+        const expired =
+          s.status === "reserved" &&
+          s.reservedUntil &&
+          new Date(s.reservedUntil) < now;
+        const effectiveStatus = expired ? "available" : s.status;
+        return {
+          x: s.x,
+          y: s.y,
+          tier: s.tier,
+          price: s.price,
+          status: effectiveStatus,
+        };
+      }),
+    };
+
+    res.status(200).json(safe);
   } catch (error: any) {
     return next(error);
   }
