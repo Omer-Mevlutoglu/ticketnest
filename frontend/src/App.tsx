@@ -10,10 +10,11 @@ import Favorite from "./pages/Favorite";
 import DashBoard from "./pages/admin/DashBoard";
 import VenueShow from "./pages/admin/VenueShow";
 import ListEvents from "./pages/admin/ListEvents";
-import ListRequests from "./pages/admin/ListRequests";
 import Footer from "./components/Footer";
 import Navbar from "./components/Navbar";
 import Layout from "./pages/admin/Layout";
+import OrganizerApprovals from "./pages/admin/OrganizerApprovals";
+import ListBookings from "./pages/admin/ListBookings";
 
 const App = () => {
   const isAdminRoute = useLocation().pathname.startsWith("/admin");
@@ -22,7 +23,9 @@ const App = () => {
     <>
       <Toaster />
       {!isAdminRoute && <Navbar />}
+
       <Routes>
+        {/* public */}
         <Route path="/" element={<Home />} />
         <Route path="/movies" element={<Events />} />
         <Route path="/movies/:id" element={<EventDetails />} />
@@ -30,8 +33,10 @@ const App = () => {
         <Route path="/my-bookings" element={<MyBookings />} />
         <Route path="/loading/:nextUrl" element={<Loading />} />
         <Route path="/favorite" element={<Favorite />} />
+
+        {/* admin */}
         <Route
-          path="/admin/*"
+          path="/admin"
           element={
             user ? (
               <Layout />
@@ -43,9 +48,10 @@ const App = () => {
           }
         >
           <Route index element={<DashBoard />} />
-          <Route path="add-show" element={<VenueShow />} />
-          <Route path="list-shows" element={<ListEvents />} />
-          <Route path="list-bookings" element={<ListRequests />} />
+          <Route path="add-venue" element={<VenueShow />} />
+          <Route path="list-events" element={<ListEvents />} />
+          <Route path="list-bookings" element={<ListBookings />} />
+          <Route path="requests" element={<OrganizerApprovals />} />
         </Route>
       </Routes>
       {!isAdminRoute && <Footer />}

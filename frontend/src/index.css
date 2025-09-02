@@ -1,23 +1,51 @@
-@import url("https://fonts.googleapis.com/css2?family=Cairo:slnt,wght@-11..11,200..1000&family=Outfit:wght@100..900&family=Roboto:ital,wght@0,100..900;1,100..900&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Cairo:slnt,wght@-11..11,200..1000&family=Outfit:wght@200..900&display=swap");
 @import "tailwindcss";
 
+/* Keep your Tailwind v4 @theme; add a ticket-gold accent */
 @theme {
-  /* --color-primary: #1e1e1e; */
-  --color-primary: #011f80;
-  --color-primary-dull: #02113f;
+  --color-primary: #011f80; /* brand blue */
+  --color-primary-dull: #02113f; /* hover/active */
+  --color-accent: #f59e0b; /* ticket gold for highlights/CTAs */
 }
 
+/* Global */
 * {
   font-family: "Cairo", sans-serif;
   scrollbar-width: thin;
-  scrollbar-color: #787777 #02113f;
+  scrollbar-color: #787777 var(--color-primary-dull);
 }
 
 body {
-  color: white;
+  color: #fff;
   background-color: #09090b;
+  /* subtle venue vibe using brand + accent */
+  background-image: radial-gradient(
+      1100px 520px at 85% -10%,
+      rgb(1 31 128 / 0.18),
+      transparent 60%
+    ),
+    radial-gradient(
+      900px 420px at -10% 100%,
+      rgb(245 158 11 / 0.1),
+      transparent 65%
+    );
 }
 
+/* Headings use display font for a premium hero/event look */
+h1,
+h2,
+h3 {
+  font-family: "Outfit", "Cairo", sans-serif;
+  letter-spacing: -0.01em;
+}
+
+/* Gold selection like tickets */
+::selection {
+  background: var(--color-accent);
+  color: #0b0b10;
+}
+
+/* Utilities you already use */
 .no-scrollbar {
   scrollbar-width: none;
 }
