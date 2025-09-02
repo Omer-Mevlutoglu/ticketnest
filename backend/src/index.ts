@@ -1,3 +1,4 @@
+// src/index.ts
 import dotenv from "dotenv";
 import express from "express";
 import cors from "cors";
@@ -15,11 +16,14 @@ import adminRoutes from "./routes/adminRoutes";
 import eventRoutes from "./routes/eventRoutes";
 import bookingRoutes from "./routes/bookingRoutes";
 
+import { expireOverdueBookings } from "./services/bookingService";
 import userModel from "./models/userModel";
 import { hashPassword } from "./utils/helperHash";
 import connectDB from "./configs/db";
 
 dotenv.config();
+
+const EXPIRE_JOB_MS = 60 * 1000; // run the sweep every 60s
 
 const app = express();
 
@@ -28,7 +32,7 @@ app.use(cors());
 app.use(express.json());
 
 async function bootstrap() {
-  // 1) Connect to MongoDB (Atlas or local replica set)
+  // 1) Connect to MongoDB (Atlas or local)
   await connectDB();
 
   // 2) Sessions (after DB is connected so MongoStore has a client)
@@ -44,8 +48,8 @@ async function bootstrap() {
       },
       store: MongoStore.create({
         client: mongoose.connection.getClient(),
-        // collectionName: "sessions", // optional
-        // ttl: 60 * 60 * 24 * 30,      // optional explicit TTL
+        // collectionName: "sessions",
+        // ttl: 60 * 60 * 24 * 30,
       }),
     })
   );
@@ -86,7 +90,37 @@ async function bootstrap() {
     }
   })();
 
-  // 6) Error handler & listen
+  // 6) Auto-expire unpaid bookings (runs every EXPIRE_JOB_MS)
+  const runExpireJob = async () => {
+    try {
+      const { expiredCount, releasedSeats } = await expireOverdueBookings();
+      if (expiredCount || releasedSeats) {
+        console.log(
+          `🕒 Auto-expire run → bookings expired: ${expiredCount}, seats released: ${releasedSeats}`
+        );
+      }
+    } catch (err) {
+      console.error("expireOverdueBookings error:", err);
+    }
+  };
+
+  // Optional: first sweep on boot
+  runExpireJob();
+
+  // Schedule recurring job
+  const expireTimer = setInterval(runExpireJob, EXPIRE_JOB_MS);
+
+  // Clean up on shutdown
+  process.on("SIGINT", () => {
+    clearInterval(expireTimer);
+    process.exit(0);
+  });
+  process.on("SIGTERM", () => {
+    clearInterval(expireTimer);
+    process.exit(0);
+  });
+
+  // 7) Error handler & listen
   app.use(errorHandler);
 
   const port = Number(process.env.PORT) || 5000;

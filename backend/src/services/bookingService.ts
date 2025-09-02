@@ -4,7 +4,7 @@ import BookingModel, { IBooking, IBookingItem } from "../models/bookingModel";
 import SeatMapModel from "../models/seatMapModel";
 import { eventModel } from "../models/eventModel";
 
-const HOLD_MS = 10 * 60 * 1000; // 10 minutes
+const HOLD_MS = 2 * 60 * 1000; // 10 minutes
 
 export interface CreateBookingDTO {
   eventId: string;
@@ -348,4 +348,64 @@ export const finalizeFailedBooking = async (bookingId: string) => {
   } finally {
     session.endSession();
   }
+};
+
+export const expireOverdueBookings = async () => {
+  const now = new Date();
+
+  // 1) Find overdue, unpaid bookings
+  const overdue = await BookingModel.find({
+    status: "unpaid",
+    expiresAt: { $lte: now },
+  })
+    .lean()
+    .exec();
+
+  let expiredCount = 0;
+  let releasedSeats = 0;
+
+  for (const b of overdue) {
+    // 2) Release any seats still held by this booking's user (and already expired)
+    if (b.items?.length) {
+      const bulkOps = b.items.map((item) => ({
+        updateOne: {
+          filter: {
+            eventId: b.eventId,
+            "seats.x": item.seatCoords.x,
+            "seats.y": item.seatCoords.y,
+            "seats.status": "reserved",
+            "seats.reservedBy": b.userId,
+            "seats.reservedUntil": { $lte: now },
+          },
+          update: {
+            $set: { "seats.$.status": "available" },
+            $unset: {
+              "seats.$.reservedBy": "",
+              "seats.$.reservedUntil": "",
+            },
+          },
+        },
+      }));
+
+      if (bulkOps.length) {
+        try {
+          const res = await SeatMapModel.bulkWrite(bulkOps, { ordered: false });
+          // @ts-ignore: bulk result varies by driver version
+          releasedSeats += res?.modifiedCount || 0;
+        } catch (err) {
+          console.error("SeatMap bulk release error:", err);
+        }
+      }
+    }
+
+    // 3) Mark booking expired (only if still unpaid)
+    const upd = await BookingModel.updateOne(
+      { _id: b._id, status: "unpaid" },
+      { $set: { status: "expired" } }
+    ).exec();
+
+    if (upd.modifiedCount === 1) expiredCount++;
+  }
+
+  return { expiredCount, releasedSeats };
 };
