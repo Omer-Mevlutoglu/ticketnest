@@ -28,7 +28,12 @@ const EXPIRE_JOB_MS = 60 * 1000; // run the sweep every 60s
 const app = express();
 
 // Core middleware (safe before DB)
-app.use(cors());
+app.use(
+  cors({
+    origin: ["http://localhost:5173", "http://127.0.0.1:5173"],
+    credentials: true,
+  })
+);
 app.use(express.json());
 
 async function bootstrap() {

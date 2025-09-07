@@ -1,15 +1,11 @@
-// src/components/booking/DateSelect.tsx
+// src/components/DateSelect.tsx
 import React, { useState } from "react";
+import BlurCircle from "./BlurCircle";
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
-import BlurCircle from "./BlurCircle";
 
-type DateSelectProps = {
-  /** keys should be ISO date strings, values can be any time slots/metadata */
-  dateTime: Record<string, unknown>;
-  id: string;
-};
+type DateSelectProps = { dateTime: Record<string, unknown>; id: string };
 
 const DateSelect: React.FC<DateSelectProps> = ({ dateTime, id }) => {
   const navigate = useNavigate();
@@ -20,7 +16,7 @@ const DateSelect: React.FC<DateSelectProps> = ({ dateTime, id }) => {
       toast("Please select a date");
       return;
     }
-    navigate(`/movies/${id}/${selected}`);
+    navigate(`/events/${id}/${selected}`);
     scrollTo(0, 0);
   };
 
@@ -29,6 +25,7 @@ const DateSelect: React.FC<DateSelectProps> = ({ dateTime, id }) => {
       <div className="flex flex-col md:flex-row items-center justify-between gap-10 relative bg-primary/10 p-8 border border-primary/20 rounded-lg">
         <BlurCircle top="-100px" left="-100px" />
         <BlurCircle top="100px" right="0px" />
+
         <div>
           <p className="text-lg font-semibold">Choose Date</p>
           <div className="flex items-center gap-6 text-sm mt-5">
@@ -56,6 +53,7 @@ const DateSelect: React.FC<DateSelectProps> = ({ dateTime, id }) => {
             <ChevronRightIcon width={28} />
           </div>
         </div>
+
         <button
           onClick={onBookNow}
           className="bg-primary text-white px-8 py-2 mt-6 rounded hover:bg-primary/90 transition-all cursor-pointer"

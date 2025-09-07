@@ -1,4 +1,5 @@
-import { Route, Routes, useLocation } from "react-router-dom";
+// src/App.tsx
+import { Route, Routes, useLocation, Navigate } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import Home from "./pages/Home";
 import Events from "./pages/Events";
@@ -12,39 +13,73 @@ import VenueShow from "./pages/admin/VenueShow";
 import ListEvents from "./pages/admin/ListEvents";
 import Footer from "./components/Footer";
 import Navbar from "./components/Navbar";
-import Layout from "./pages/admin/Layout";
+import AdminLayout from "./pages/admin/Layout";
 import OrganizerApprovals from "./pages/admin/OrganizerApprovals";
 import ListBookings from "./pages/admin/ListBookings";
+import Login from "./pages/auth/Login";
+import Register from "./pages/auth/Register";
+import MyEvents from "./pages/organizer/MyEvents";
+import EventCreate from "./pages/organizer/EventCreate";
+import EventEdit from "./pages/organizer/EventEdit";
+import SeatmapGenerate from "./pages/organizer/SeatmapGenerate";
+import OrganizerLayout from "./pages/organizer/Layout";
+import { RequireRole } from "./components/RouteGuards";
 
 const App = () => {
-  const isAdminRoute = useLocation().pathname.startsWith("/admin");
-  const user = true;
+  const pathname = useLocation().pathname;
+  const isAdminRoute = pathname.startsWith("/admin");
+  const isOrganizerRoute = pathname.startsWith("/organizer");
+
   return (
     <>
       <Toaster />
-      {!isAdminRoute && <Navbar />}
+      {/* Public navbar/footer are hidden inside admin & organizer shells */}
+      {!isAdminRoute && !isOrganizerRoute && <Navbar />}
 
       <Routes>
         {/* public */}
         <Route path="/" element={<Home />} />
-        <Route path="/movies" element={<Events />} />
-        <Route path="/movies/:id" element={<EventDetails />} />
-        <Route path="/movies/:id/:date" element={<SeatLayout />} />
-        <Route path="/my-bookings" element={<MyBookings />} />
+        <Route path="/events" element={<Events />} />
+        <Route path="/events/:id" element={<EventDetails />} />
+        <Route path="/events/:id/:date" element={<SeatLayout />} />
         <Route path="/loading/:nextUrl" element={<Loading />} />
         <Route path="/favorite" element={<Favorite />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
 
-        {/* admin */}
+        {/* attendee-only */}
+        <Route
+          path="/my-bookings"
+          element={
+            <RequireRole roles={["attendee"]}>
+              <MyBookings />
+            </RequireRole>
+          }
+        />
+
+        {/* organizer-only layout & routes */}
+        <Route
+          path="/organizer"
+          element={
+            <RequireRole roles={["organizer"]}>
+              <OrganizerLayout />
+            </RequireRole>
+          }
+        >
+          <Route index element={<Navigate to="myevents" replace />} />
+          <Route path="myevents" element={<MyEvents />} />
+          <Route path="events/new" element={<EventCreate />} />
+          <Route path="events/:id/edit" element={<EventEdit />} />
+          <Route path="events/:id/seatmap" element={<SeatmapGenerate />} />
+        </Route>
+
+        {/* admin-only layout & routes */}
         <Route
           path="/admin"
           element={
-            user ? (
-              <Layout />
-            ) : (
-              <div className="min-h-screen flex items-center justify-center">
-                <p>SSSS</p>
-              </div>
-            )
+            <RequireRole roles={["admin"]}>
+              <AdminLayout />
+            </RequireRole>
           }
         >
           <Route index element={<DashBoard />} />
@@ -53,8 +88,12 @@ const App = () => {
           <Route path="list-bookings" element={<ListBookings />} />
           <Route path="requests" element={<OrganizerApprovals />} />
         </Route>
+
+        {/* 404 */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-      {!isAdminRoute && <Footer />}
+
+      {!isAdminRoute && !isOrganizerRoute && <Footer />}
     </>
   );
 };
