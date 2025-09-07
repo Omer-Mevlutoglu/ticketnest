@@ -24,6 +24,7 @@ import EventEdit from "./pages/organizer/EventEdit";
 import SeatmapGenerate from "./pages/organizer/SeatmapGenerate";
 import OrganizerLayout from "./pages/organizer/Layout";
 import { RequireRole } from "./components/RouteGuards";
+import Users from "./pages/admin/Users";
 
 const App = () => {
   const pathname = useLocation().pathname;
@@ -87,6 +88,7 @@ const App = () => {
           <Route path="list-events" element={<ListEvents />} />
           <Route path="list-bookings" element={<ListBookings />} />
           <Route path="requests" element={<OrganizerApprovals />} />
+          <Route path="users" element={<Users />} />
         </Route>
 
         {/* 404 */}

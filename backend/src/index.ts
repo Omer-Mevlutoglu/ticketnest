@@ -6,7 +6,7 @@ import mongoose from "mongoose";
 import session from "express-session";
 import MongoStore from "connect-mongo";
 import passport from "passport";
-
+import path from "path";
 import errorHandler from "./middleware/errorHandler";
 import "./strategies/local-strategy";
 
@@ -15,7 +15,7 @@ import testRoutes from "./routes/testRoutes";
 import adminRoutes from "./routes/adminRoutes";
 import eventRoutes from "./routes/eventRoutes";
 import bookingRoutes from "./routes/bookingRoutes";
-
+import uploadRoutes from "./routes/uploadRoutes";
 import { expireOverdueBookings } from "./services/bookingService";
 import userModel from "./models/userModel";
 import { hashPassword } from "./utils/helperHash";
@@ -62,14 +62,14 @@ async function bootstrap() {
   // 3) Passport
   app.use(passport.initialize());
   app.use(passport.session());
-
+  app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
   // 4) Routes
   app.use("/api/auth", authRoutes);
   app.use("/api/testAuth", testRoutes);
   app.use("/api/admin", adminRoutes);
   app.use("/api/events", eventRoutes);
   app.use("/api/bookings", bookingRoutes);
-
+  app.use("/api/uploads", uploadRoutes);
   // 5) Seed admins once (after DB is connected)
   (async () => {
     const adminEmails: string[] = process.env.ADMIN_EMAILS

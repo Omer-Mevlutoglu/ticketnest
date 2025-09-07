@@ -2,83 +2,61 @@
 import React, { useEffect, useState } from "react";
 import Loading from "../../components/Loading";
 import Title from "../../components/admin/Title";
+import { AdminAPI } from "../../lib/api";
 
-type EventRow = {
-  title: string;
-  dateTime: string; // ISO
-  occupiedSeats: Record<string, true>;
-  price: number;
-};
+// const currency = "USD ";
 
-const currency = "USD ";
-
-const formatDateTime = (iso: string) =>
+const fmt = (iso: string) =>
   new Date(iso).toLocaleString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
+    year: "numeric", month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit",
   });
 
-const MOCK_EVENTS: EventRow[] = [
-  {
-    title: "The Silent Horizon – Premiere",
-    dateTime: new Date(Date.now() + 86400000).toISOString(),
-    occupiedSeats: { A1: true, A2: true, B3: true, C7: true },
-    price: 18,
-  },
-  {
-    title: "Crimson Alley – Evening Show",
-    dateTime: new Date(Date.now() + 2 * 86400000).toISOString(),
-    occupiedSeats: { D1: true, D2: true, D3: true, E4: true, E5: true },
-    price: 15,
-  },
-];
+type AdminEvent = Awaited<ReturnType<typeof AdminAPI.listEvents>>[number];
 
 const ListEvents: React.FC = () => {
-  const [events, setEvents] = useState<EventRow[]>([]);
+  const [events, setEvents] = useState<AdminEvent[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // simulate fetch
-    const t = setTimeout(() => {
-      setEvents(MOCK_EVENTS);
-      setLoading(false);
-    }, 400);
-    return () => clearTimeout(t);
+    (async () => {
+      try {
+        const data = await AdminAPI.listEvents();
+        setEvents(data);
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, []);
 
   return !loading ? (
     <>
       <Title text1="List" text2="Events" />
-
       <div className="max-w-4xl mt-6 overflow-x-auto">
         <table className="w-full border-collapse rounded-md overflow-hidden text-nowrap">
           <thead>
             <tr className="bg-primary/20 text-left text-white">
               <th className="p-2 font-medium pl-15">Event</th>
-              <th className="p-2 font-medium">Event Time</th>
-              <th className="p-2 font-medium">Total Bookings</th>
-              <th className="p-2 font-medium">Earnings</th>
+              <th className="p-2 font-medium">Status</th>
+              <th className="p-2 font-medium">Start</th>
+              <th className="p-2 font-medium">End</th>
+              <th className="p-2 font-medium">Venue</th>
             </tr>
           </thead>
           <tbody className="text-sm font-light">
-            {events.map((ev, index) => {
-              const totalBookings = Object.keys(ev.occupiedSeats).length;
-              const earnings = ev.price * totalBookings;
-              return (
-                <tr key={index} className="border-b border-primary/10 bg-primary/5 even:bg-primary/10">
-                  <td className="p-2">{ev.title}</td>
-                  <td className="p-2">{formatDateTime(ev.dateTime)}</td>
-                  <td className="p-2">{totalBookings}</td>
-                  <td className="p-2">
-                    {currency}
-                    {earnings}
-                  </td>
-                </tr>
-              );
-            })}
+            {events.map((ev) => (
+              <tr key={ev._id} className="border-b border-primary/10 bg-primary/5 even:bg-primary/10">
+                <td className="p-2">{ev.title}</td>
+                <td className="p-2 capitalize">{ev.status}</td>
+                <td className="p-2">{fmt(ev.startTime)}</td>
+                <td className="p-2">{fmt(ev.endTime)}</td>
+                <td className="p-2">
+                  {ev.venueType === "template" ? ev.venueName : ev.venueName || "Custom"}
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>

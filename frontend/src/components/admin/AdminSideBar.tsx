@@ -5,6 +5,7 @@ import {
   ListCollapseIcon,
   ListIcon,
   PlusSquareIcon,
+  User,
   type LucideIcon,
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
@@ -37,6 +38,11 @@ const AdminSideBar: React.FC = () => {
       name: "List Bookings",
       path: "/admin/list-bookings",
       icon: ListCollapseIcon,
+    },
+    {
+      name: "List Users",
+      path: "/admin/users",
+      icon: User,
     },
   ];
 
