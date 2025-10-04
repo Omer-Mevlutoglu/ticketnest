@@ -15,8 +15,7 @@ async function json<T>(path: string, init: JsonInit = {}): Promise<T> {
     const text = await res.text().catch(() => "");
     throw new Error(text || `HTTP ${res.status}`);
   }
-  // some 204s have empty body
-  if (res.status === 204) return null as unknown as T;
+  if (res.status === 204) return null as unknown as T; // handle empty body
   return res.json() as Promise<T>;
 }
 
@@ -79,7 +78,7 @@ export const AdminAPI = {
       }>
     >("/api/admin/users"),
 
-  // Venues
+  // Venues (admin CRUD)
   listVenues: () =>
     json<
       Array<{
@@ -134,18 +133,112 @@ export const AdminAPI = {
   deleteVenue: (id: string) =>
     json(`/api/admin/venues/${id}`, { method: "DELETE" }),
 
-  // ...existing methods
-
+  // File upload (if you wired /api/uploads/venue)
   uploadVenueImages: async (files: File[] | FileList): Promise<string[]> => {
     const fd = new FormData();
     Array.from(files as File[]).forEach((f) => fd.append("files", f));
     const res = await fetch(`${API_BASE}/api/uploads/venue`, {
       method: "POST",
       credentials: "include",
-      body: fd, // no Content-Type header; browser sets multipart boundary
+      body: fd,
     });
     if (!res.ok) throw new Error(await res.text());
     const data = await res.json(); // { urls: string[] }
     return data.urls as string[];
   },
+};
+
+/** ---------- Public Venues (read) ---------- */
+export const VenueAPI = {
+  listActive: () =>
+    json<
+      Array<{
+        _id: string;
+        name: string;
+        address: string;
+        capacity: number;
+        description?: string;
+        images?: string[];
+        defaultLayoutType: "grid";
+        defaultSeatMap?: Array<{
+          x: number;
+          y: number;
+          tier: string;
+          price: number;
+        }>;
+        isActive: boolean;
+      }>
+    >("/api/venues"),
+};
+
+/** ---------- Organizer ---------- */
+export type CreateEventDTO = {
+  title: string;
+  description: string;
+  categories: string[];
+  status: "draft" | "published" | "archived";
+  venueType: "custom" | "template";
+  templateVenueId?: string;
+  venueName?: string;
+  venueAddress?: string;
+  startTime: string; // ISO
+  endTime: string; // ISO
+};
+
+export const OrganizerAPI = {
+  myEvents: () =>
+    json<
+      Array<{
+        _id: string;
+        title: string;
+        description: string;
+        categories: string[];
+        status: "draft" | "published" | "archived";
+        organizerId: string;
+        venueType: "custom" | "template";
+        templateVenueId?: string;
+        venueName?: string;
+        venueAddress?: string;
+        startTime: string;
+        endTime: string;
+      }>
+    >("/api/events/mine"),
+
+  createEvent: (dto: CreateEventDTO) =>
+    json("/api/events", { method: "POST", body: dto }),
+
+  updateEvent: (id: string, patch: Partial<CreateEventDTO>) =>
+    json(`/api/events/${id}`, { method: "PUT", body: patch }),
+
+  deleteEvent: (id: string) => json(`/api/events/${id}`, { method: "DELETE" }),
+
+  // Seat map
+  getSeatMap: (eventId: string) => json(`/api/events/${eventId}/seatmap`),
+
+  upsertSeatMap: (
+    eventId: string,
+    seats: Array<{
+      x: number;
+      y: number;
+      tier: string;
+      price: number;
+      status: "available";
+    }>
+  ) =>
+    json(`/api/events/${eventId}/seatmap`, { method: "PUT", body: { seats } }),
+
+  generateSeatMapFromSpec: (
+    eventId: string,
+    spec: {
+      rows: number;
+      cols: number;
+      default: { tier: string; price: number };
+      rules?: Array<{ rows: number[]; tier: string; price: number }>;
+      blockedSeats?: Array<{ x: number; y: number }>;
+    }
+  ) =>
+    json(`/api/events/${eventId}/seatmap/generate`, {
+      method: "POST",
+      body: spec,
+    }),
 };

@@ -1,4 +1,3 @@
-// src/services/seatMapService.ts
 import { Types } from "mongoose";
 import SeatMapModel, { ISeatMap } from "../models/seatMapModel";
 import { eventModel } from "../models/eventModel";

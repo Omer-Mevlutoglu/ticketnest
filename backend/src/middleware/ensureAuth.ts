@@ -1,4 +1,3 @@
-// src/middleware/ensureAuth.ts
 import { Request, Response, NextFunction } from "express";
 
 export const ensureAuth = (req: Request, res: Response, next: NextFunction) => {

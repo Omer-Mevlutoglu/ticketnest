@@ -1,4 +1,3 @@
-// src/models/seatMapModel.ts
 import mongoose, { Schema, Document, Model, Types } from "mongoose";
 
 export interface ISeat {
@@ -7,8 +6,8 @@ export interface ISeat {
   tier: string;
   price: number;
   status: "available" | "reserved" | "sold";
-  reservedBy?: Types.ObjectId; // who holds it (if reserved)
-  reservedUntil?: Date; // hold expiry (if reserved)
+  reservedBy?: Types.ObjectId; 
+  reservedUntil?: Date; 
 }
 
 export interface ISeatMap extends Document {

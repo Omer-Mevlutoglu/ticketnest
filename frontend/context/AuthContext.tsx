@@ -1,11 +1,21 @@
-// src/context/AuthContext.tsx
 import React, { createContext, useContext, useEffect, useState } from "react";
 
-type Role = "attendee" | "organizer" | "admin";
-type User = { id: string; email: string; role: Role } | null;
+/** Reuse this type in RoleRoute etc. */
+export type Role = "attendee" | "organizer" | "admin";
+
+/** What we store in context/localStorage */
+export type AuthUser = {
+  id: string;
+  email: string;
+  role: Role;
+  /** Organizer-only gate; backend now returns this */
+  isApproved?: boolean;
+  /** Optional if your backend includes it */
+  username?: string;
+} | null;
 
 type AuthContextType = {
-  user: User;
+  user: AuthUser;
   loading: boolean;
   register: (p: {
     username: string;
@@ -20,15 +30,15 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const API_BASE = import.meta.env.VITE_API_BASE;
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const [user, setUser] = useState<User>(null);
+  const [user, setUser] = useState<AuthUser>(null);
   const [loading, setLoading] = useState(true);
 
-  const saveLocal = (u: User) => {
+  const saveLocal = (u: AuthUser) => {
     if (u) localStorage.setItem("cj_user", JSON.stringify(u));
     else localStorage.removeItem("cj_user");
   };
@@ -36,17 +46,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const hydrate = async () => {
     setLoading(true);
     try {
-      // If you expose a session endpoint, use it here:
+      // If you expose a session endpoint, prefer it:
       // const res = await fetch(`${API_BASE}/api/testAuth/me`, { credentials: "include" });
       // if (res.ok) {
       //   const data = await res.json();
-      //   setUser(data?.user ?? null);
-      //   saveLocal(data?.user ?? null);
+      //   const u: AuthUser = data?.user
+      //     ? {
+      //         id: data.user.id,
+      //         email: data.user.email,
+      //         role: data.user.role,
+      //         isApproved: data.user.isApproved,
+      //         username: data.user.username,
+      //       }
+      //     : null;
+      //   setUser(u);
+      //   saveLocal(u);
       //   return;
       // }
-      // Fallback: use localStorage snapshot
+
+      // Fallback: use last known snapshot
       const raw = localStorage.getItem("cj_user");
-      setUser(raw ? (JSON.parse(raw) as User) : null);
+      setUser(raw ? (JSON.parse(raw) as AuthUser) : null);
     } catch {
       setUser(null);
     } finally {
@@ -56,6 +76,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   useEffect(() => {
     hydrate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const register: AuthContextType["register"] = async (p) => {
@@ -69,7 +90,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       const t = await res.text();
       throw new Error(t || "Registration failed");
     }
-    // After register, user is not logged in; redirect to /login
+    // After register, user is not auto-logged-in; keep as-is
   };
 
   const login: AuthContextType["login"] = async (p) => {
@@ -83,9 +104,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       const t = await res.text();
       throw new Error(t || "Login failed");
     }
-    const data = await res.json(); // { user: { id, email, role } }
-    setUser(data.user);
-    saveLocal(data.user);
+    const data = await res.json();
+    // Normalize to AuthUser shape
+    const u: AuthUser = data?.user
+      ? {
+          id: data.user.id,
+          email: data.user.email,
+          role: data.user.role,
+          isApproved: data.user.isApproved, // ✅ now captured
+          username: data.user.username, // if present
+        }
+      : null;
+
+    setUser(u);
+    saveLocal(u);
   };
 
   const logout = async () => {

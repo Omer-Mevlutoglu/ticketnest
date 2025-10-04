@@ -20,6 +20,7 @@ import { expireOverdueBookings } from "./services/bookingService";
 import userModel from "./models/userModel";
 import { hashPassword } from "./utils/helperHash";
 import connectDB from "./configs/db";
+import venuePublicRoutes from "./routes/venuePublicRoutes";
 
 dotenv.config();
 
@@ -70,6 +71,7 @@ async function bootstrap() {
   app.use("/api/events", eventRoutes);
   app.use("/api/bookings", bookingRoutes);
   app.use("/api/uploads", uploadRoutes);
+  app.use("/api/venues", venuePublicRoutes);
   // 5) Seed admins once (after DB is connected)
   (async () => {
     const adminEmails: string[] = process.env.ADMIN_EMAILS

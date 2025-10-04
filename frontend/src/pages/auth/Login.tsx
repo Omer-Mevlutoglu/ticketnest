@@ -38,7 +38,7 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div className="relative px-6 md:px-16 lg:px-40 pt-30 md:pt-40 min-h-[80vh]">
+    <div className="relative px-6 md:px-16 lg:px-40 pt-30 md:pt-40 min-h-[100vh]">
       <BlurCircle top="40px" left="80px" />
       <h1 className="text-lg font-semibold mb-6">Log in</h1>
 

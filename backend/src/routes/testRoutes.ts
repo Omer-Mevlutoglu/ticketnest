@@ -1,4 +1,3 @@
-// src/routes/testRoutes.ts
 import { Router } from "express";
 import { ensureAuth } from "../middleware/ensureAuth";
 import { ensureRole } from "../middleware/ensureRole";

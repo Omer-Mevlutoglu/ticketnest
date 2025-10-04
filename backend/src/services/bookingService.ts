@@ -1,10 +1,9 @@
-// src/services/bookingService.ts
 import mongoose, { Types } from "mongoose";
 import BookingModel, { IBooking, IBookingItem } from "../models/bookingModel";
 import SeatMapModel from "../models/seatMapModel";
 import { eventModel } from "../models/eventModel";
 
-const HOLD_MS = 2 * 60 * 1000; // 10 minutes
+const HOLD_MS = 10 * 60 * 1000; 
 
 export interface CreateBookingDTO {
   eventId: string;
@@ -148,7 +147,7 @@ export const createBookingFromSelection = async (
         const e = new Error(`These seats are no longer available: ${list}`);
         // @ts-ignore
         e.status = 409;
-        throw e; // transaction aborts; any partial reserves roll back
+        throw e; 
       }
 
       const total = items.reduce((sum, i) => sum + i.price, 0);

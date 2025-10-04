@@ -1,4 +1,3 @@
-// src/middleware/ensureApproved.ts
 import { Request, Response, NextFunction } from "express";
 
 export const ensureApproved = (

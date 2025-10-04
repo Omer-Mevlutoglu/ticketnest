@@ -1,70 +1,40 @@
 // src/components/FeaturedSection.tsx
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { ArrowRightIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import BlurCircle from "./BlurCircle";
 import EventCard from "./EventCard";
 
-type Event = {
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
+
+type ApiEvent = {
   _id: string;
   title: string;
-  date: string; // ISO date
-  genre: string[];
-  duration: string; // e.g., "2h 8m"
-  rating: number; // 0-10
-  poster?: string; // left empty on purpose
+  categories?: string[];
+  startTime: string;
+  endTime: string;
+  venueName?: string;
+  venueAddress?: string;
+  poster?: string;
 };
-
-const MOCK_EVENTS: Event[] = [
-  {
-    _id: "e1",
-    title: "The Silent Horizon – Premiere",
-    date: new Date(Date.now() + 2 * 24 * 3600 * 1000).toISOString(),
-    genre: ["Concert", "Live"],
-    duration: "2h 10m",
-    rating: 8.4,
-    poster: "",
-  },
-  {
-    _id: "e2",
-    title: "Crimson Alley – Night Show",
-    date: new Date(Date.now() + 4 * 24 * 3600 * 1000).toISOString(),
-    genre: ["Festival", "EDM"],
-    duration: "1h 55m",
-    rating: 7.6,
-    poster: "",
-  },
-  {
-    _id: "e3",
-    title: "Paper Skies – Matinee",
-    date: new Date(Date.now() + 6 * 24 * 3600 * 1000).toISOString(),
-    genre: ["Theater", "Drama"],
-    duration: "2h 05m",
-    rating: 8.1,
-    poster: "",
-  },
-  {
-    _id: "e4",
-    title: "Laugh Line – Comedy Night",
-    date: new Date(Date.now() + 8 * 24 * 3600 * 1000).toISOString(),
-    genre: ["Comedy"],
-    duration: "1h 40m",
-    rating: 7.2,
-    poster: "",
-  },
-  {
-    _id: "e5",
-    title: "Underwave – Live Session",
-    date: new Date(Date.now() + 10 * 24 * 3600 * 1000).toISOString(),
-    genre: ["Indie", "Live"],
-    duration: "2h 00m",
-    rating: 8.0,
-    poster: "",
-  },
-];
 
 const FeaturedSection: React.FC = () => {
   const navigate = useNavigate();
+  const [events, setEvents] = useState<ApiEvent[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/events`, {
+          credentials: "include",
+        });
+        const data: ApiEvent[] = await res.json();
+        setEvents(data);
+      } catch {
+        setEvents([]);
+      }
+    })();
+  }, []);
 
   return (
     <div className="px-6 md:px-16 lg:px-24 xl:px-44 overflow-hidden">
@@ -80,8 +50,20 @@ const FeaturedSection: React.FC = () => {
       </div>
 
       <div className="flex flex-wrap gap-8 mt-8 max-sm:justify-center">
-        {MOCK_EVENTS.slice(0, 4).map((event) => (
-          <EventCard key={event._id} event={event} />
+        {events.slice(0, 4).map((e) => (
+          <EventCard
+            key={e._id}
+            event={{
+              _id: e._id,
+              title: e.title,
+              categories: e.categories,
+              startTime: e.startTime,
+              endTime: e.endTime,
+              venueName: e.venueName,
+              venueAddress: e.venueAddress,
+              poster: e.poster,
+            }}
+          />
         ))}
       </div>
 

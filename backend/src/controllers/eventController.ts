@@ -1,4 +1,3 @@
-// src/controllers/eventController.ts
 import { Request, Response, NextFunction } from "express";
 import {
   createEvent,

@@ -1,4 +1,3 @@
-// src/middleware/validateBody.ts
 import { Request, Response, NextFunction } from "express";
 
 type Rule =

@@ -1,4 +1,3 @@
-// src/services/eventService.ts
 import mongoose, { Types } from "mongoose";
 import { eventModel, IEvent } from "../models/eventModel";
 import venueModel from "../models/venueModel";
@@ -19,7 +18,6 @@ export interface CreateEventDTO {
   organizerId: string;
 }
 
-// src/services/eventService.ts
 
 export const createEvent = async (
   eventData: CreateEventDTO
@@ -182,12 +180,61 @@ export const getEventById = async (id: string): Promise<IEvent> => {
   return event as IEvent;
 };
 
+// export const updateEvent = async (
+//   eventId: string,
+//   data: CreateEventDTO,
+//   userId: string
+// ): Promise<IEvent> => {
+//   // 1) Validate eventId
+//   if (!Types.ObjectId.isValid(eventId)) {
+//     const err = new Error("Invalid event ID");
+//     // @ts-ignore
+//     err.status = 400;
+//     throw err;
+//   }
+
+//   // 2) Fetch the existing event
+//   const existing = await getEventById(eventId);
+
+//   // 3) Ownership check
+//   if (existing.organizerId.toString() !== userId) {
+//     const err = new Error("Forbidden: you don’t own this event");
+//     // @ts-ignore
+//     err.status = 403;
+//     throw err;
+//   }
+
+//   // 4) Perform the update with validators
+//   try {
+//     const updated = await eventModel.findByIdAndUpdate(eventId, data, {
+//       new: true,
+//       runValidators: true,
+//     });
+//     // (Since we know it existed, updated should never be null)
+//     return updated as IEvent;
+//   } catch (error: any) {
+//     // 5) Handle validation / duplicate-key
+//     if (error.name === "ValidationError") {
+//       const e = new Error("Invalid event data");
+//       // @ts-ignore
+//       e.status = 400;
+//       throw e;
+//     }
+//     if (error.code === 11000) {
+//       const e = new Error("An event with those details already exists");
+//       // @ts-ignore
+//       e.status = 409;
+//       throw e;
+//     }
+//     throw error;
+//   }
+// };
+
 export const updateEvent = async (
   eventId: string,
-  data: CreateEventDTO,
+  data: Partial<CreateEventDTO>,
   userId: string
 ): Promise<IEvent> => {
-  // 1) Validate eventId
   if (!Types.ObjectId.isValid(eventId)) {
     const err = new Error("Invalid event ID");
     // @ts-ignore
@@ -195,10 +242,8 @@ export const updateEvent = async (
     throw err;
   }
 
-  // 2) Fetch the existing event
   const existing = await getEventById(eventId);
 
-  // 3) Ownership check
   if (existing.organizerId.toString() !== userId) {
     const err = new Error("Forbidden: you don’t own this event");
     // @ts-ignore
@@ -206,16 +251,72 @@ export const updateEvent = async (
     throw err;
   }
 
-  // 4) Perform the update with validators
+  //publishing rules on UPDATE ----
+  const isPublishing =
+    typeof data.status === "string" &&
+    data.status === "published" &&
+    existing.status !== "published";
+
+  if (isPublishing) {
+    // Must have a seat map already linked
+    const hasSeatMap = !!existing.seatMapId;
+    if (!hasSeatMap) {
+      const e = new Error("Cannot publish without a seat map");
+      // @ts-ignore
+      e.status = 400;
+      throw e;
+    }
+
+    // Optional: disallow switching venue type at publish time
+    if (
+      typeof data.venueType !== "undefined" &&
+      data.venueType !== existing.venueType
+    ) {
+      const e = new Error("Cannot change venueType when publishing");
+      // @ts-ignore
+      e.status = 400;
+      throw e;
+    }
+
+    // Optional: re-check time sanity if updating dates together
+    if (data.startTime && data.endTime && data.startTime >= data.endTime) {
+      const e = new Error("Event startTime must be before endTime");
+      // @ts-ignore
+      e.status = 400;
+      throw e;
+    }
+  }
+  // ----------------------------------------
+
+  //whitelist mutable fields
+  const allowed: any = {
+    ...(typeof data.title !== "undefined" && { title: data.title }),
+    ...(typeof data.description !== "undefined" && {
+      description: data.description,
+    }),
+    ...(typeof data.categories !== "undefined" && {
+      categories: data.categories,
+    }),
+    ...(typeof data.status !== "undefined" && { status: data.status }),
+    // allow editing custom venue text fields:
+    ...(existing.venueType === "custom" &&
+      typeof data.venueName !== "undefined" && { venueName: data.venueName }),
+    ...(existing.venueType === "custom" &&
+      typeof data.venueAddress !== "undefined" && {
+        venueAddress: data.venueAddress,
+      }),
+    // (Deliberately NOT allowing organizerId / venueType changes here)
+    ...(typeof data.startTime !== "undefined" && { startTime: data.startTime }),
+    ...(typeof data.endTime !== "undefined" && { endTime: data.endTime }),
+  };
+
   try {
-    const updated = await eventModel.findByIdAndUpdate(eventId, data, {
+    const updated = await eventModel.findByIdAndUpdate(eventId, allowed, {
       new: true,
       runValidators: true,
     });
-    // (Since we know it existed, updated should never be null)
     return updated as IEvent;
   } catch (error: any) {
-    // 5) Handle validation / duplicate-key
     if (error.name === "ValidationError") {
       const e = new Error("Invalid event data");
       // @ts-ignore
@@ -231,6 +332,7 @@ export const updateEvent = async (
     throw error;
   }
 };
+
 export const deleteEvent = async (
   eventId: string,
   userId: string

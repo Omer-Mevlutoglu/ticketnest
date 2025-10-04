@@ -1,4 +1,3 @@
-// src/controllers/bookingController.ts
 import { Request, Response, NextFunction } from "express";
 import {
   cancelBooking,
@@ -59,7 +58,7 @@ export const markPaidController = async (
   next: NextFunction
 ) => {
   try {
-    // (Optionally) verify ownership here if you want only the owner to mark paid during tests
+    // verify ownership here if you want only the owner to mark paid during tests
     await finalizePaidBooking(req.params.id);
     return res.status(200).json({ message: "Booking marked as PAID" });
   } catch (err: any) {

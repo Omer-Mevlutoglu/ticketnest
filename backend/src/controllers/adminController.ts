@@ -1,4 +1,3 @@
-// src/controllers/adminController.ts
 import { Request, Response, NextFunction } from "express";
 import {
   getPendingRequests,

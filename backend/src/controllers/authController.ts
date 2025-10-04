@@ -1,4 +1,3 @@
-// src/controllers/authController.ts
 import { Request, Response, NextFunction } from "express";
 import passport from "passport";
 import { getAllUsers, logoutUser, registerUser } from "../services/authService";
@@ -43,6 +42,7 @@ export const login = (req: Request, res: Response, next: NextFunction) => {
           id: (user as any).id,
           email: (user as any).email,
           role: (user as any).role,
+          isApproved: (user as any).isApproved,
         },
       });
     });

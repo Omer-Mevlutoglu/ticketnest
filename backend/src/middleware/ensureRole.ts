@@ -1,4 +1,3 @@
-// src/middleware/ensureRole.ts
 import { Request, Response, NextFunction } from "express";
 
 /**

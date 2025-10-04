@@ -1,4 +1,3 @@
-// src/controllers/venueController.ts
 import { Request, Response, NextFunction } from "express";
 import {
   createVenue,

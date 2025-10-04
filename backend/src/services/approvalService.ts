@@ -1,4 +1,3 @@
-// src/services/approvalService.ts
 import ApprovalRequest, { IApprovalRequest } from "../models/approvalRequest";
 import userModel from "../models/userModel";
 
