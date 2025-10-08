@@ -1,11 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// src/components/layout/Navbar.tsx
 import React, { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { MenuIcon, Search, XIcon } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 
-// mock favorites (keep if you still need it)
 const favoriteEvents = ["1", "2"];
 
 function deriveFirstName(user: { email?: string } & Record<string, any>) {

@@ -17,7 +17,6 @@ const links = [
     path: "/organizer/events/new",
     icon: <PlusSquareIcon />,
   },
-  // Optional: a planning page you might add later
   {
     name: "Schedules",
     path: "/organizer/schedules",

@@ -67,7 +67,7 @@ const seatMapSchema = new Schema<ISeatMap>(
 );
 
 // Helpful indexes
-seatMapSchema.index({ eventId: 1 }, { unique: true });
+// seatMapSchema.index({ eventId: 1 }, { unique: true });
 seatMapSchema.index({ "seats.status": 1 });
 seatMapSchema.index({ "seats.reservedUntil": 1 });
 seatMapSchema.index({ "seats.reservedBy": 1 });

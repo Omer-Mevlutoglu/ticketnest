@@ -12,11 +12,11 @@ type ApiEvent = {
   _id: string;
   title: string;
   categories?: string[];
-  startTime: string; // ISO
-  endTime: string; // ISO
+  startTime: string; 
+  endTime: string; 
   venueName?: string;
   venueAddress?: string;
-  poster?: string; // optional; can be empty string
+  poster?: string; 
 };
 
 type EventCardProps = { event: ApiEvent };

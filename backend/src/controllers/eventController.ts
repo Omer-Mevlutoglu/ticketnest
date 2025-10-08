@@ -38,7 +38,7 @@ export const listPublicEvents = async (
   try {
     const events = await listEvents({
       status: "published",
-      upcomingOnly: true,
+      // upcomingOnly: true,
     });
     return res.status(200).json(events);
   } catch (err: any) {

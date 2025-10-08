@@ -1,4 +1,3 @@
-// src/components/admin/AdminSideBar.tsx
 import React from "react";
 import {
   LayoutDashboardIcon,
@@ -19,7 +18,7 @@ type User = {
 type AdminNavLink = {
   name: string;
   path: string;
-  icon: LucideIcon; // render as a component for clean TS types
+  icon: LucideIcon; 
 };
 
 const AdminSideBar: React.FC = () => {

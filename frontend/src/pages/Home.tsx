@@ -1,13 +1,13 @@
 import FeaturedSection from "../components/FeaturedSection";
 import HeroSection from "../components/HeroSection";
-import StartingSoonSection from "../components/StartingSoonSection";
+import UpcomingSection from "../components/UpcomingSection";
 
 const Home = () => {
   return (
     <div>
       <HeroSection />
       <FeaturedSection />
-      <StartingSoonSection />
+      <UpcomingSection />
     </div>
   );
 };

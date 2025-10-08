@@ -14,7 +14,7 @@ export const roleHomePath = (role: Role) => {
     case "admin":
       return "/admin";
     default:
-      return "/"; // attendee
+      return "/"; 
   }
 };
 
@@ -37,7 +37,6 @@ export const RequireRole: React.FC<{
   if (loading) return <Loading />;
   if (!user) return <Navigate to="/login" replace state={{ from: loc }} />;
 
-  // If user is authenticated but not allowed here, kick them to *their* home
   if (!roles.includes(user.role as Role)) {
     return (
       <Navigate

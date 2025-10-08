@@ -16,8 +16,8 @@ export interface CreateEventDTO {
   endTime: Date;
   seatMapId?: string;
   organizerId: string;
+  poster?: string;
 }
-
 
 export const createEvent = async (
   eventData: CreateEventDTO
@@ -104,6 +104,7 @@ export const createEvent = async (
     venueType: eventData.venueType,
     startTime: eventData.startTime,
     endTime: eventData.endTime,
+    poster: eventData.poster,
     ...(eventData.venueType === "custom" && {
       venueName: eventData.venueName,
       venueAddress: eventData.venueAddress,
@@ -305,7 +306,7 @@ export const updateEvent = async (
       typeof data.venueAddress !== "undefined" && {
         venueAddress: data.venueAddress,
       }),
-    // (Deliberately NOT allowing organizerId / venueType changes here)
+    ...(typeof data.poster !== "undefined" && { poster: data.poster }),
     ...(typeof data.startTime !== "undefined" && { startTime: data.startTime }),
     ...(typeof data.endTime !== "undefined" && { endTime: data.endTime }),
   };

@@ -1,4 +1,3 @@
-// src/components/common/Title.tsx
 import React from "react";
 
 type TitleProps = {

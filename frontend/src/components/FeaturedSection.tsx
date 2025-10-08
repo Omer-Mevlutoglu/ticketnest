@@ -1,40 +1,13 @@
 // src/components/FeaturedSection.tsx
-import React, { useEffect, useState } from "react";
 import { ArrowRightIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import BlurCircle from "./BlurCircle";
 import EventCard from "./EventCard";
-
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
-
-type ApiEvent = {
-  _id: string;
-  title: string;
-  categories?: string[];
-  startTime: string;
-  endTime: string;
-  venueName?: string;
-  venueAddress?: string;
-  poster?: string;
-};
+import useFeaturedEvents from "../hooks/useFeaturedEvents";
 
 const FeaturedSection: React.FC = () => {
   const navigate = useNavigate();
-  const [events, setEvents] = useState<ApiEvent[]>([]);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch(`${API_BASE}/api/events`, {
-          credentials: "include",
-        });
-        const data: ApiEvent[] = await res.json();
-        setEvents(data);
-      } catch {
-        setEvents([]);
-      }
-    })();
-  }, []);
+  const { events, loading, error } = useFeaturedEvents();
 
   return (
     <div className="px-6 md:px-16 lg:px-24 xl:px-44 overflow-hidden">
@@ -49,23 +22,51 @@ const FeaturedSection: React.FC = () => {
         </button>
       </div>
 
-      <div className="flex flex-wrap gap-8 mt-8 max-sm:justify-center">
-        {events.slice(0, 4).map((e) => (
-          <EventCard
-            key={e._id}
-            event={{
-              _id: e._id,
-              title: e.title,
-              categories: e.categories,
-              startTime: e.startTime,
-              endTime: e.endTime,
-              venueName: e.venueName,
-              venueAddress: e.venueAddress,
-              poster: e.poster,
-            }}
-          />
-        ))}
-      </div>
+      {/* === LOADING STATE === */}
+      {loading && (
+        <div className="flex flex-wrap gap-8 mt-8 max-sm:justify-center">
+          {[...Array(4)].map((_, i) => (
+            <div
+              key={i}
+              className="h-56 w-64 rounded-lg bg-white/5 border border-white/10 animate-pulse"
+            />
+          ))}
+        </div>
+      )}
+
+      {!loading && error && (
+        <div className="mt-10 text-center text-sm text-red-400">
+          Failed to load events. Please try again later.
+        </div>
+      )}
+
+      {/* === SUCCESS STATE === */}
+      {!loading && !error && events.length > 0 && (
+        <div className="flex flex-wrap gap-8 mt-8 max-sm:justify-center">
+          {events.slice(0, 4).map((e) => (
+            <EventCard
+              key={e._id}
+              event={{
+                _id: e._id,
+                title: e.title,
+                categories: e.categories,
+                startTime: e.startTime,
+                endTime: e.endTime,
+                venueName: e.venueName,
+                venueAddress: e.venueAddress,
+                poster: e.poster,
+              }}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* === EMPTY STATE === */}
+      {!loading && !error && events.length === 0 && (
+        <div className="mt-10 text-center text-gray-400 text-sm">
+          No events found right now. Check back soon!
+        </div>
+      )}
 
       <div className="flex justify-center items-center mt-20">
         <button

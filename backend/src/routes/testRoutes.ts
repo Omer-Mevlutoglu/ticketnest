@@ -1,25 +1,20 @@
 import { Router } from "express";
 import { ensureAuth } from "../middleware/ensureAuth";
-import { ensureRole } from "../middleware/ensureRole";
 
 const router = Router();
 
-/**
- * GET /api/testAuth/protected
- * A protected endpoint that returns the current user.
- * For testing only—delete when you’re done!
- */
-router.get(
-  "/protected",
-  ensureAuth,
-  ensureRole(["admin", "attendee"]),
-  (req, res) => {
-    // req.user was populated by Passport
-    res.json({
-      message: "Access granted 👍",
-      user: req.user,
-    });
-  }
-);
+router.get("/me", ensureAuth, (req, res) => {
+  const user = req.user as any; // typed via passport
+
+  res.json({
+    user: {
+      id: user._id.toString(),
+      email: user.email,
+      role: user.role,
+      isApproved: user.isApproved,
+      username: user.username,
+    },
+  });
+});
 
 export default router;

@@ -1,4 +1,6 @@
-// src/App.tsx
+import { RequireAuth } from "./components/RouteGuards";
+import Loading from "./components/Loading";
+
 import { Route, Routes, useLocation, Navigate } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import Home from "./pages/Home";
@@ -12,23 +14,48 @@ const App = () => {
   const pathname = useLocation().pathname;
   const isAdminRoute = pathname.startsWith("/admin");
   const isOrganizerRoute = pathname.startsWith("/organizer");
-  const { user } = useAuth();
+
+  // NEW: read loading from context
+  const { user, loading } = useAuth();
+
+  const isAuthPage = pathname === "/login" || pathname === "/register";
+  if (loading && !isAuthPage) {
+    return (
+      <>
+        <Toaster />
+        <Loading />
+      </>
+    );
+  }
+
   return (
     <>
       <Toaster />
-      {/* Public navbar/footer are hidden inside admin & organizer shells */}
+
       {!isAdminRoute && !isOrganizerRoute && user && <Navbar />}
 
       <Routes>
-        {/* public */}
-        <Route path="/" element={<Home />} />
+        <Route
+          path="/"
+          element={
+            <RequireAuth>
+              <Home />
+            </RequireAuth>
+          }
+        />
 
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-
-        {/* attendee-only */}
-
-        {/* admin-only layout & routes */}
+        {/* Public auth routes */}
+        <Route
+          path="/login"
+          element={
+            // optional: if already logged in, bounce to home
+            user ? <Navigate to="/" replace /> : <Login />
+          }
+        />
+        <Route
+          path="/register"
+          element={user ? <Navigate to="/" replace /> : <Register />}
+        />
 
         {/* 404 */}
         <Route path="*" element={<Navigate to="/" replace />} />
