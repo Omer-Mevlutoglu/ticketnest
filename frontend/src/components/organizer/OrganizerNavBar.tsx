@@ -37,7 +37,7 @@ const OrganizerNavBar: React.FC = () => {
 
   return (
     <div className="flex items-center justify-between px-6 md:px-10 h-16 border-b border-gray-300/30">
-      <Link to="/" className="font-semibold tracking-wide">
+      <Link to="/organizer/myevents" className="font-semibold tracking-wide">
         CrowdJoy <span className="text-primary">Organizer</span>
       </Link>
 
@@ -47,6 +47,7 @@ const OrganizerNavBar: React.FC = () => {
           className="flex items-center gap-2"
           aria-haspopup="menu"
           aria-expanded={open}
+          aria-label="Account menu"
         >
           <span className="w-9 h-9 rounded-full bg-primary text-white grid place-items-center font-semibold">
             {initial}

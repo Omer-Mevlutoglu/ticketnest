@@ -21,6 +21,7 @@ import userModel from "./models/userModel";
 import { hashPassword } from "./utils/helperHash";
 import connectDB from "./configs/db";
 import venuePublicRoutes from "./routes/venuePublicRoutes";
+import organizerRoutes from "./routes/organizerRoutes";
 
 dotenv.config();
 
@@ -72,6 +73,7 @@ async function bootstrap() {
   app.use("/api/bookings", bookingRoutes);
   app.use("/api/uploads", uploadRoutes);
   app.use("/api/venues", venuePublicRoutes);
+  app.use("/api/organizer", organizerRoutes);
   // 5) Seed admins once (after DB is connected)
   (async () => {
     const adminEmails: string[] = process.env.ADMIN_EMAILS

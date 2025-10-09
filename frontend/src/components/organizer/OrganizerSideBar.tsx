@@ -1,33 +1,28 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
-import {
-  LayoutDashboardIcon,
-  PlusSquareIcon,
-  CalendarRangeIcon,
-} from "lucide-react";
+import { LayoutDashboardIcon, PlusSquareIcon, HomeIcon } from "lucide-react";
 
 const links = [
   {
+    name: "Dashboard",
+    path: "/organizer/dashboard",
+    icon: <HomeIcon className="w-5 h-5" />,
+  },
+  {
     name: "My Events",
     path: "/organizer/myevents",
-    icon: <LayoutDashboardIcon />,
+    icon: <LayoutDashboardIcon className="w-5 h-5" />,
   },
   {
     name: "Create Event",
     path: "/organizer/events/new",
-    icon: <PlusSquareIcon />,
-  },
-  {
-    name: "Schedules",
-    path: "/organizer/schedules",
-    icon: <CalendarRangeIcon />,
+    icon: <PlusSquareIcon className="w-5 h-5" />,
   },
 ];
 
 const OrganizerSideBar: React.FC = () => {
   return (
     <div className="h-[calc(100vh-64px)] md:flex flex-col items-center pt-8 w-[3.25rem] md:w-60 border-r border-gray-300/20 text-sm">
-      {/* Avatar placeholder (no external assets) */}
       <div className="rounded-full h-9 md:h-14 w-9 md:w-14 mx-auto grid place-items-center bg-white/10 text-sm font-semibold">
         O
       </div>
@@ -47,9 +42,7 @@ const OrganizerSideBar: React.FC = () => {
           >
             {({ isActive }) => (
               <>
-                {React.cloneElement(link.icon as React.ReactElement, {
-                //   className: "w-5 h-5",
-                })}
+                {link.icon}
                 <p className="hidden md:block">{link.name}</p>
                 <span
                   className={`w-1.5 h-10 rounded-l right-0 absolute ${
