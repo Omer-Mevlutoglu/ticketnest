@@ -1,4 +1,4 @@
-import { RequireAuth } from "./components/RouteGuards";
+import { RequireAuth, RequireRole } from "./components/RouteGuards";
 import Loading from "./components/Loading";
 
 import { Route, Routes, useLocation, Navigate } from "react-router-dom";
@@ -9,6 +9,11 @@ import Navbar from "./components/Navbar";
 import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
 import { useAuth } from "../context/AuthContext";
+import Events from "./pages/Events";
+import EventDetails from "./pages/EventDetails";
+import SeatMapPage from "./pages/SeatMapPage";
+import MyBookings from "./pages/MyBookings";
+import CheckoutPage from "./pages/CheckoutPage";
 
 const App = () => {
   const pathname = useLocation().pathname;
@@ -33,8 +38,8 @@ const App = () => {
       <Toaster />
 
       {!isAdminRoute && !isOrganizerRoute && user && <Navbar />}
-
       <Routes>
+        {/* Home (protected for all logged-in users) */}
         <Route
           path="/"
           element={
@@ -44,13 +49,61 @@ const App = () => {
           }
         />
 
+        {/* ✅ Attendee-only routes */}
+        <Route
+          path="/events"
+          element={
+            <RequireAuth>
+              <RequireRole roles={["attendee"]}>
+                <Events />
+              </RequireRole>
+            </RequireAuth>
+          }
+        />
+
+        <Route
+          path="/my-bookings"
+          element={
+            <RequireAuth>
+              <RequireRole roles={["attendee"]}>
+                <MyBookings />
+              </RequireRole>
+            </RequireAuth>
+          }
+        />
+
+        <Route
+          path="/events/:id"
+          element={
+            <RequireAuth>
+              <RequireRole roles={["attendee"]}>
+                <EventDetails />
+              </RequireRole>
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/events/:id/seatmap"
+          element={
+            <RequireAuth>
+              <RequireRole roles={["attendee"]}>
+                <SeatMapPage />
+              </RequireRole>
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/checkout/:id"
+          element={
+            <RequireAuth>
+              <CheckoutPage />
+            </RequireAuth>
+          }
+        />
         {/* Public auth routes */}
         <Route
           path="/login"
-          element={
-            // optional: if already logged in, bounce to home
-            user ? <Navigate to="/" replace /> : <Login />
-          }
+          element={user ? <Navigate to="/" replace /> : <Login />}
         />
         <Route
           path="/register"

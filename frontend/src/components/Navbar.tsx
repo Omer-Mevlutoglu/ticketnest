@@ -67,12 +67,7 @@ const Navbar: React.FC = () => {
         <Link onClick={() => setIsOpen(false)} to="/events">
           Events
         </Link>
-        <Link onClick={() => setIsOpen(false)} to="/theater">
-          Theater
-        </Link>
-        <Link onClick={() => setIsOpen(false)} to="/releases">
-          Releases
-        </Link>
+
         {favoriteEvents.length > 0 && (
           <Link onClick={() => setIsOpen(false)} to="/favorite">
             Favorite
