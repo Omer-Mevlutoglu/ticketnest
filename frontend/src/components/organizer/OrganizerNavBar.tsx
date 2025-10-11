@@ -61,7 +61,7 @@ const OrganizerNavBar: React.FC = () => {
         {open && (
           <div
             role="menu"
-            className="absolute right-0 mt-2 min-w-[180px] rounded-lg border border-white/10 bg-zinc-900/95 backdrop-blur p-1 shadow-xl"
+            className="absolute right-0 mt-2 min-w-[180px] rounded-lg border border-white/10 bg-zinc-900/95 backdrop-blur p-1 shadow-xl z-10"
           >
             <button
               className="w-full text-left px-3 py-2 rounded-md text-sm hover:bg-white/10"

@@ -29,22 +29,27 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const API_BASE =
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (import.meta as any).env.VITE_API_BASE || "http://localhost:5000";
-const LS_KEY = "cj_user";
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const [user, setUser] = useState<AuthUser>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true); // only for initial boot
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [refreshing, setRefreshing] = useState(false);
 
-  const saveLocal = (u: AuthUser) =>
-    u
-      ? localStorage.setItem(LS_KEY, JSON.stringify(u))
-      : localStorage.removeItem(LS_KEY);
+  const saveLocal = (u: AuthUser) => {
+    if (u) localStorage.setItem("cj_user", JSON.stringify(u));
+    else localStorage.removeItem("cj_user");
+  };
 
-  // Server-first hydrate; fallback to local only on network errors
-  const hydrate = async () => {
-    setLoading(true);
+  // server-first hydrate; support silent mode
+  const hydrate = async (opts?: { silent?: boolean }) => {
+    const silent = !!opts?.silent;
+
+    if (silent) setRefreshing(true);
+    else setLoading(true);
+
     try {
       const res = await fetch(`${API_BASE}/api/testAuth/me`, {
         credentials: "include",
@@ -66,29 +71,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         setUser(null);
         saveLocal(null);
       } else {
-        // Non-401 error: treat as unauth
         setUser(null);
         saveLocal(null);
       }
     } catch {
-      // Network error → offline fallback
-      const raw = localStorage.getItem(LS_KEY);
+      // offline fallback
+      const raw = localStorage.getItem("cj_user");
       setUser(raw ? (JSON.parse(raw) as AuthUser) : null);
     } finally {
-      setLoading(false);
+      if (silent) setRefreshing(false);
+      else setLoading(false);
     }
   };
 
   useEffect(() => {
+    // initial boot: blocking
     hydrate();
-    // Optional niceties:
-    const onFocus = () => hydrate(); // refresh on tab focus
+
+    // refresh on focus: silent (doesn't unmount anything)
+    const onFocus = () => hydrate({ silent: true });
     window.addEventListener("focus", onFocus);
+
+    // keep other tabs in sync
     const onStorage = (e: StorageEvent) => {
-      if (e.key === LS_KEY)
+      if (e.key === "cj_user")
         setUser(e.newValue ? (JSON.parse(e.newValue) as AuthUser) : null);
     };
     window.addEventListener("storage", onStorage);
+
     return () => {
       window.removeEventListener("focus", onFocus);
       window.removeEventListener("storage", onStorage);
