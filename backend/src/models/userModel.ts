@@ -1,4 +1,4 @@
-import mongoose, { Schema, Document, model } from "mongoose";
+import mongoose, { Schema, Document, model, Types } from "mongoose";
 
 export interface IUser extends Document {
   username: string;
@@ -7,6 +7,7 @@ export interface IUser extends Document {
   role: string;
   emailVerified: boolean;
   isApproved: boolean;
+  favorites?: Types.ObjectId[];
 }
 
 const userSchema = new Schema<IUser>(
@@ -22,6 +23,7 @@ const userSchema = new Schema<IUser>(
     },
     emailVerified: { type: Boolean, default: false },
     isApproved: { type: Boolean, default: true },
+    favorites: [{ type: Schema.Types.ObjectId, ref: "Event", default: [] }],
   },
   { timestamps: true }
 );

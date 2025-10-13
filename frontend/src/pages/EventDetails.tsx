@@ -8,6 +8,7 @@ import BlurCircle from "../components/BlurCircle";
 import DateSelect from "../components/DateSelect";
 import EventCard from "../components/EventCard";
 import Loading from "../components/Loading";
+import { useFavorites } from "../hooks/useFavorites";
 
 function formatDateRange(startISO?: string, endISO?: string) {
   if (!startISO || !endISO) return "";
@@ -29,9 +30,12 @@ function formatDateRange(startISO?: string, endISO?: string) {
 }
 
 const EventDetails: React.FC = () => {
+  const { ids: favoriteIds, toggle } = useFavorites();
+
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const { event, venue, loading, error } = useEventDetails(id);
+  const isFav = !!(event && favoriteIds.includes(event._id));
 
   // Other events to recommend (exclude current)
   const { events: allEvents } = useFeaturedEvents();
@@ -123,9 +127,16 @@ const EventDetails: React.FC = () => {
 
             <button
               className="bg-gray-700 p-2.5 rounded-full transition cursor-pointer active:scale-95"
-              title="Add to favorites"
+              title={isFav ? "Remove from favorites" : "Add to favorites"}
+              onClick={() => event && toggle(event._id)}
             >
-              <HeartIcon className="w-5 h-5 text-gray-300 hover:text-primary transition" />
+              <HeartIcon
+                className={`w-5 h-5 transition ${
+                  isFav
+                    ? "text-primary fill-primary"
+                    : "text-gray-300 hover:text-primary"
+                }`}
+              />
             </button>
           </div>
         </div>

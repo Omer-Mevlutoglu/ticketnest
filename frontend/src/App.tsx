@@ -30,6 +30,8 @@ import OrganizerApprovals from "./pages/admin/OrganizerApprovals";
 import VenueEditor from "./pages/admin/VenueEditor";
 import VenuesList from "./pages/admin/VenuesList";
 import AdminBookings from "./pages/admin/AdminBookings";
+import AdminUsers from "./pages/admin/AdminUsers";
+import Favorites from "./pages/Favorites";
 
 const App = () => {
   const pathname = useLocation().pathname;
@@ -74,6 +76,16 @@ const App = () => {
             <RequireAuth>
               <RequireRole roles={["attendee"]}>
                 <Events />
+              </RequireRole>
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/favorite"
+          element={
+            <RequireAuth>
+              <RequireRole roles={["attendee"]}>
+                <Favorites />
               </RequireRole>
             </RequireAuth>
           }
@@ -152,6 +164,7 @@ const App = () => {
           <Route path="venue-list" element={<VenuesList />} />
           <Route path="venue-create" element={<VenueEditor />} />
           <Route path="list-bookings" element={<AdminBookings />} />
+          <Route path="users" element={<AdminUsers />} />
         </Route>
 
         {/* Auth pages */}

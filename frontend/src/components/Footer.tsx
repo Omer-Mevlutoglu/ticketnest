@@ -3,8 +3,8 @@ import React from "react";
 const COMPANY = {
   blurb:
     "Lorem Ipsum has been the industry's standard dummy text ever since the 1500s. It survived not only five centuries, but also the leap into electronic typesetting.",
-  phone: "+1-234-567-890",
-  email: "contact@example.com",
+  phone: "+905538375529",
+  email: "omermevlutoglu33@gmail.com",
   name: "omarAli",
 };
 
