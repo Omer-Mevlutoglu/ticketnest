@@ -150,7 +150,6 @@ export const listEvents = async (
   filter: ListEventsFilter
 ): Promise<IEvent[]> => {
   const query: any = {};
-  console.log(query);
   if (filter.organizerId) {
     query.organizerId = new mongoose.Types.ObjectId(filter.organizerId);
   }

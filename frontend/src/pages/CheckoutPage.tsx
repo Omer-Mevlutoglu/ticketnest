@@ -25,7 +25,7 @@ const CheckoutPage: React.FC = () => {
     isExpired,
     countdown,
     mockPay,
-    mockFail,
+    // mockFail,
     refetch,
   } = useCheckout(id);
 
@@ -75,18 +75,18 @@ const CheckoutPage: React.FC = () => {
     }
   }
 
-  async function onMockFail() {
-    if (!canPay) return;
-    try {
-      await simulatePaymentDelay();
-      await mockFail();
-      toast("Payment failed (mock)");
-      await refetch();
-      navigate("/my-bookings", { replace: true });
-    } catch (e: any) {
-      toast.error(e?.message || "Operation failed");
-    }
-  }
+  // async function onMockFail() {
+  //   if (!canPay) return;
+  //   try {
+  //     await simulatePaymentDelay();
+  //     await mockFail();
+  //     toast("Payment failed (mock)");
+  //     await refetch();
+  //     navigate("/my-bookings", { replace: true });
+  //   } catch (e: any) {
+  //     toast.error(e?.message || "Operation failed");
+  //   }
+  // }
 
   return (
     <div className="relative px-6 md:px-16 lg:px-40 pt-30 md:pt-40 min-h-[80vh]">
@@ -226,14 +226,14 @@ const CheckoutPage: React.FC = () => {
               {submitting || posting === "pay" ? "Processing…" : "Pay"}
             </button>
 
-            <button
+            {/* <button
               type="button"
               onClick={onMockFail}
               disabled={disabled}
               className="px-5 py-2 rounded-md bg-white/10 hover:bg-white/20 transition disabled:opacity-50"
             >
-              {submitting || posting === "fail" ? "Processing…" : "Fail (Mock)"}
-            </button>
+              {submitting || posting === "fail" ? "Processing…" : "Fail)"}
+            </button> */}
 
             <button
               type="button"

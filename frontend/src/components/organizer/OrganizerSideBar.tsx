@@ -5,7 +5,7 @@ import { LayoutDashboardIcon, PlusSquareIcon, HomeIcon } from "lucide-react";
 const links = [
   {
     name: "Dashboard",
-    path: "/organizer/dashboard",
+    path: "/organizer",
     icon: <HomeIcon className="w-5 h-5" />,
   },
   {

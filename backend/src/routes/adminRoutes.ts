@@ -21,6 +21,8 @@ import {
   deleteVenueController,
 } from "../controllers/venueController";
 import { listAllEvents } from "../controllers/eventController";
+import { getStatsController } from "../controllers/adminStatsController";
+import { listAllBookingsController } from "../controllers/adminBookingController";
 
 const router = Router();
 
@@ -41,7 +43,8 @@ router.put("/venues/:id", updateVenueController);
 router.get("/venues", getActiveVenues);
 router.get("/venues/:id", getVenueByIdController);
 router.delete("/venues/:id", deleteVenueController);
-
+router.get("/stats", getStatsController);
 // Events
 router.get("/events", listAllEvents);
+router.get("/bookings", listAllBookingsController);
 export default router;

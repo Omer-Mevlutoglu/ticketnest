@@ -165,7 +165,7 @@ const MyEventsPage: React.FC = () => {
 
             <div className="flex md:flex-col items-start md:items-end gap-2 md:text-right p-2">
               <Link
-                to={`/organizer/events/${ev._id}`}
+                to={`/organizer/events/${ev._id}/manage`}
                 className="inline-flex items-center gap-1 px-3 py-1.5 rounded border border-white/15 hover:bg-white/10 transition text-sm"
                 title="Manage"
               >

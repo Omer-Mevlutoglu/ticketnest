@@ -17,7 +17,6 @@ export const createEventController = async (
     if (!user || !user._id) {
       return res.status(401).json({ message: "Not authenticated" });
     }
-    console.log(user._id.toString());
     const dto = {
       ...req.body,
       organizerId: user._id.toString(),

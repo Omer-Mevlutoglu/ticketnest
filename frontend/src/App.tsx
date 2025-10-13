@@ -1,34 +1,40 @@
+// src/App.tsx
 import { Route, Routes, useLocation, Navigate } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
-
-import { useAuth } from "../context/AuthContext";
-import { RequireAuth, RequireRole } from "./components/RouteGuards";
-import Loading from "./components/Loading";
-
-import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
+import Navbar from "./components/Navbar";
+import Login from "./pages/auth/Login";
+import Register from "./pages/auth/Register";
+import { useAuth } from "../context/AuthContext";
+import {
+  RequireAuth,
+  RequireRole,
+  roleHomePath,
+} from "./components/RouteGuards";
 
-import Home from "./pages/Home";
+import Home from "./pages/Home"; // ⬅️ add this import
 import Events from "./pages/Events";
 import EventDetails from "./pages/EventDetails";
 import SeatMapPage from "./pages/SeatMapPage";
 import MyBookings from "./pages/MyBookings";
 import CheckoutPage from "./pages/CheckoutPage";
-import PendingApproval from "./pages/organizer/PendingApproval";
-import RequireOrganizerApproved from "./components/organizer/RequireOrganizerApproved";
 import OrganizerLayout from "./pages/organizer/layout/OrganizerLayout";
-import MyEvents from "./pages/organizer/MyEvents";
-import Login from "./pages/auth/Login";
-import Register from "./pages/auth/Register";
-import CreateEvent from "./pages/organizer/CreateEventPage";
-import EditEvent from "./pages/organizer/ManageEventPage";
+import AdminLayout from "./pages/admin/layout/AdminLayout";
+import AdminDashboard from "./pages/admin/AdminDashboard";
+import Loading from "./components/Loading";
 import Dashboard from "./pages/organizer/Dashboard";
+import MyEventsPage from "./pages/organizer/MyEvents";
+import CreateEventPage from "./pages/organizer/CreateEventPage";
+import ManageEventPage from "./pages/organizer/ManageEventPage";
+import OrganizerApprovals from "./pages/admin/OrganizerApprovals";
+import VenueEditor from "./pages/admin/VenueEditor";
+import VenuesList from "./pages/admin/VenuesList";
+import AdminBookings from "./pages/admin/AdminBookings";
 
 const App = () => {
   const pathname = useLocation().pathname;
   const isAdminRoute = pathname.startsWith("/admin");
   const isOrganizerRoute = pathname.startsWith("/organizer");
-
   const { user, loading } = useAuth();
 
   const isAuthPage = pathname === "/login" || pathname === "/register";
@@ -41,18 +47,15 @@ const App = () => {
     );
   }
 
-  const showPublicChrome =
-    // show navbar/footer only for logged-in attendees on non-admin/non-organizer routes
-    !!user && user.role === "attendee" && !isAdminRoute && !isOrganizerRoute;
-
   return (
     <>
       <Toaster />
 
-      {showPublicChrome && <Navbar />}
+      {/* Hide public navbar/footer inside admin & organizer shells */}
+      {!isAdminRoute && !isOrganizerRoute && user && <Navbar />}
 
       <Routes>
-        {/* Attendee Home ONLY */}
+        {/* ✅ Home is now attendees-only */}
         <Route
           path="/"
           element={
@@ -64,7 +67,7 @@ const App = () => {
           }
         />
 
-        {/* ---------- Attendee-only area ---------- */}
+        {/* ---------------- Attendee-only ---------------- */}
         <Route
           path="/events"
           element={
@@ -75,7 +78,6 @@ const App = () => {
             </RequireAuth>
           }
         />
-
         <Route
           path="/events/:id"
           element={
@@ -86,7 +88,6 @@ const App = () => {
             </RequireAuth>
           }
         />
-
         <Route
           path="/events/:id/seatmap"
           element={
@@ -97,7 +98,6 @@ const App = () => {
             </RequireAuth>
           }
         />
-
         <Route
           path="/my-bookings"
           element={
@@ -108,7 +108,6 @@ const App = () => {
             </RequireAuth>
           }
         />
-
         <Route
           path="/checkout/:id"
           element={
@@ -120,41 +119,64 @@ const App = () => {
           }
         />
 
-        {/* ---------- Organizer area (unchanged) ---------- */}
-        <Route path="/organizer/pending" element={<PendingApproval />} />
+        {/* ---------------- Organizer-only ---------------- */}
         <Route
           path="/organizer"
           element={
-            <RequireOrganizerApproved>
-              <OrganizerLayout />
-            </RequireOrganizerApproved>
+            <RequireAuth>
+              <RequireRole roles={["organizer"]}>
+                <OrganizerLayout />
+              </RequireRole>
+            </RequireAuth>
           }
         >
-          {/* Default route now points to dashboard */}
-          <Route index element={<Navigate to="dashboard" replace />} />
-
-          {/* Dashboard route */}
-          <Route path="dashboard" element={<Dashboard />} />
-          <Route path="myevents" element={<MyEvents />} />
-          <Route path="events/new" element={<CreateEvent />} />
-          <Route path="events/:id" element={<EditEvent />} />
+          <Route index element={<Dashboard />} />
+          <Route path="myevents" element={<MyEventsPage />} />
+          <Route path="events/new" element={<CreateEventPage />} />
+          <Route path="events/:id/manage" element={<ManageEventPage />} />
         </Route>
 
-        {/* ---------- Auth (public) ---------- */}
+        {/* ---------------- Admin-only ---------------- */}
+        <Route
+          path="/admin"
+          element={
+            <RequireAuth>
+              <RequireRole roles={["admin"]}>
+                <AdminLayout />
+              </RequireRole>
+            </RequireAuth>
+          }
+        >
+          <Route index element={<AdminDashboard />} />
+          <Route path="requests" element={<OrganizerApprovals />} />
+          <Route path="venue-list" element={<VenuesList />} />
+          <Route path="venue-create" element={<VenueEditor />} />
+          <Route path="list-bookings" element={<AdminBookings />} />
+        </Route>
+
+        {/* Auth pages */}
         <Route
           path="/login"
-          element={user ? <Navigate to="/" replace /> : <Login />}
+          element={
+            user ? <Navigate to={roleHomePath(user.role)} replace /> : <Login />
+          }
         />
         <Route
           path="/register"
-          element={user ? <Navigate to="/" replace /> : <Register />}
+          element={
+            user ? (
+              <Navigate to={roleHomePath(user.role)} replace />
+            ) : (
+              <Register />
+            )
+          }
         />
 
-        {/* 404 */}
+        {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 
-      {showPublicChrome && <Footer />}
+      {!isAdminRoute && !isOrganizerRoute && user && <Footer />}
     </>
   );
 };

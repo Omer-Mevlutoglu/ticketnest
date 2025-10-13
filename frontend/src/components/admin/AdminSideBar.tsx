@@ -1,61 +1,52 @@
 import React from "react";
+import { NavLink } from "react-router-dom";
 import {
   LayoutDashboardIcon,
-  ListCollapseIcon,
   ListIcon,
   PlusSquareIcon,
-  User,
-  type LucideIcon,
+  ClipboardListIcon,
+  UsersIcon,
 } from "lucide-react";
-import { NavLink } from "react-router-dom";
-
-type User = {
-  firstName: string;
-  lastName: string;
-  imageUrl: string;
-};
+import { useAuth } from "../../../context/AuthContext";
 
 type AdminNavLink = {
   name: string;
   path: string;
-  icon: LucideIcon; 
+  icon: React.ComponentType<{ className?: string }>;
 };
 
-const AdminSideBar: React.FC = () => {
-  const user: User = {
-    firstName: "Admin",
-    lastName: "Omer",
-    imageUrl: "/vite.svg" as string,
-  };
+function deriveFirstName(email?: string, username?: string) {
+  const base = username ?? (email ? email.split("@")[0] : "Admin");
+  const first = base.split(/[.\-_ ]+/)[0] || base;
+  return first.charAt(0).toUpperCase() + first.slice(1);
+}
 
+const AdminSideBar: React.FC = () => {
+  const { user } = useAuth();
+  const firstName = deriveFirstName(user?.email, user?.username);
+  const initial = firstName[0]?.toUpperCase() ?? "A";
+
+  /** keep routes consistent with App.tsx plan */
   const adminNavLinks: AdminNavLink[] = [
     { name: "Dashboard", path: "/admin", icon: LayoutDashboardIcon },
-    { name: "Add-venue", path: "/admin/add-venue", icon: PlusSquareIcon },
-    { name: "List Events", path: "/admin/list-events", icon: ListIcon },
-    { name: "Requests", path: "/admin/requests", icon: ListIcon },
     {
-      name: "List Bookings",
-      path: "/admin/list-bookings",
-      icon: ListCollapseIcon,
+      name: "Organizer Requests",
+      path: "/admin/requests",
+      icon: ClipboardListIcon,
     },
-    {
-      name: "List Users",
-      path: "/admin/users",
-      icon: User,
-    },
+    { name: "List Venues", path: "/admin/venue-list", icon: ListIcon },
+    { name: "Add Venue", path: "/admin/venue-create", icon: PlusSquareIcon },
+    { name: "Bookings", path: "/admin/list-bookings", icon: ClipboardListIcon }, // placeholder
+    { name: "Users", path: "/admin/users", icon: UsersIcon }, // placeholder
   ];
 
   return (
     <div className="h-[calc(100vh-64px)] md:flex flex-col items-center pt-8 w-[3.25rem] md:w-60 border-r border-gray-300/20 text-sm">
-      <img
-        src={user.imageUrl}
-        alt={`${user.firstName} ${user.lastName}`}
-        className="rounded-full h-9 md:h-14 w-9 md:w-14 mx-auto"
-      />
-
-      <p className="mt-2 text-base hidden md:block">
-        {user.firstName} {user.lastName}
-      </p>
+      {/* circular avatar */}
+      <div className="rounded-full h-9 md:h-14 w-9 md:w-14 mx-auto grid place-items-center bg-white/10 text-sm font-semibold">
+        {initial}
+      </div>
+      <p className="mt-2 text-base hidden md:block">{firstName}</p>
 
       <div className="w-full">
         {adminNavLinks.map(({ name, path, icon: Icon }) => (
