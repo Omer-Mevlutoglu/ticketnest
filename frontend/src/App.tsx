@@ -1,4 +1,3 @@
-// src/App.tsx
 import { Route, Routes, useLocation, Navigate } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import Footer from "./components/Footer";
@@ -12,7 +11,7 @@ import {
   roleHomePath,
 } from "./components/RouteGuards";
 
-import Home from "./pages/Home"; // ⬅️ add this import
+import Home from "./pages/Home";
 import Events from "./pages/Events";
 import EventDetails from "./pages/EventDetails";
 import SeatMapPage from "./pages/SeatMapPage";
@@ -136,7 +135,8 @@ const App = () => {
           path="/organizer"
           element={
             <RequireAuth>
-              <RequireRole roles={["organizer"]}>
+              {/* --- UPDATED: Added requireApproval={true} --- */}
+              <RequireRole roles={["organizer"]} requireApproval={true}>
                 <OrganizerLayout />
               </RequireRole>
             </RequireAuth>
@@ -153,6 +153,7 @@ const App = () => {
           path="/admin"
           element={
             <RequireAuth>
+              {/* Admins don't need approval, so no prop is needed */}
               <RequireRole roles={["admin"]}>
                 <AdminLayout />
               </RequireRole>

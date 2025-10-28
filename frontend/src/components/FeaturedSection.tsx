@@ -1,13 +1,14 @@
-// src/components/FeaturedSection.tsx
 import { ArrowRightIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import BlurCircle from "./BlurCircle";
 import EventCard from "./EventCard";
-import useFeaturedEvents from "../hooks/useFeaturedEvents";
+// 1. Import the new consolidated hook
+import useEvents from "../hooks/useEvents";
 
 const FeaturedSection: React.FC = () => {
   const navigate = useNavigate();
-  const { events, loading, error } = useFeaturedEvents();
+  // 2. Use the new hook
+  const { events, loading, error } = useEvents();
 
   return (
     <div className="px-6 md:px-16 lg:px-24 xl:px-44 overflow-hidden">
@@ -34,6 +35,7 @@ const FeaturedSection: React.FC = () => {
         </div>
       )}
 
+      {/* === ERROR STATE === */}
       {!loading && error && (
         <div className="mt-10 text-center text-sm text-red-400">
           Failed to load events. Please try again later.
@@ -43,6 +45,7 @@ const FeaturedSection: React.FC = () => {
       {/* === SUCCESS STATE === */}
       {!loading && !error && events.length > 0 && (
         <div className="flex flex-wrap gap-8 mt-8 max-sm:justify-center">
+          {/* 3. The component still handles its own filtering (slice) */}
           {events.slice(0, 4).map((e) => (
             <EventCard
               key={e._id}

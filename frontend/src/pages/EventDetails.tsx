@@ -3,12 +3,14 @@ import { useEffect, useMemo, useState } from "react";
 
 import { StarIcon, HeartIcon } from "lucide-react";
 import { useEventDetails } from "../hooks/useEventDetails";
-import useFeaturedEvents from "../hooks/useFeaturedEvents";
+// 1. Import the new consolidated hook
+import useEvents from "../hooks/useEvents";
 import BlurCircle from "../components/BlurCircle";
-import DateSelect from "../components/DateSelect";
 import EventCard from "../components/EventCard";
-import Loading from "../components/Loading";
 import { useFavorites } from "../hooks/useFavorites";
+import Loading from "../components/Loading";
+import EventTimeWidget from "../components/EventTimeWidget";
+// 2. Ensure this is the correct path to your new component
 
 function formatDateRange(startISO?: string, endISO?: string) {
   if (!startISO || !endISO) return "";
@@ -37,8 +39,8 @@ const EventDetails: React.FC = () => {
   const { event, venue, loading, error } = useEventDetails(id);
   const isFav = !!(event && favoriteIds.includes(event._id));
 
-  // Other events to recommend (exclude current)
-  const { events: allEvents } = useFeaturedEvents();
+  // 3. Use the new hook for recommendations
+  const { events: allEvents } = useEvents();
   const recommendations = useMemo(
     () => allEvents.filter((e) => e._id !== id).slice(0, 4),
     [allEvents, id]
@@ -168,7 +170,13 @@ const EventDetails: React.FC = () => {
 
       {/* Date selector (for now, single startTime; later you can pass more dates) */}
       <div className="max-w-6xl mx-auto mt-16" id="dateSelectWrapper">
-        <DateSelect eventId={event._id} dates={[event.startTime]} />
+        {/* We are using the new component */}
+        <EventTimeWidget
+          eventId={event._id}
+          startTime={event.startTime}
+          endTime={event.endTime}
+          scrollTargetId="seatmap"
+        />
       </div>
 
       {/* You may also like */}

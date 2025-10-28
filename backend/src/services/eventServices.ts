@@ -156,6 +156,7 @@ export const listEvents = async (
   if (filter.status) {
     query.status = filter.status;
   }
+  query.isCancelled = { $ne: true };
   if (filter.upcomingOnly) {
     query.startTime = { $gte: new Date() };
   }
@@ -349,5 +350,8 @@ export const deleteEvent = async (
   }
 
   // 3) Delete
-  await eventModel.findByIdAndDelete(eventId).exec();
+  await eventModel.findByIdAndUpdate(eventId, {
+    isCancelled: true,
+    status: "archived",
+  });
 };

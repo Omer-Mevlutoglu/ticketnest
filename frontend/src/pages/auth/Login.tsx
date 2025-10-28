@@ -1,13 +1,16 @@
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import BlurCircle from "../../components/BlurCircle";
 import { useAuth } from "../../../context/AuthContext";
 import toast from "react-hot-toast";
-import { roleHomePath } from "../../components/RouteGuards";
 
+/**
+ * Login Page Component
+ * Handles user login by calling the AuthContext.
+ * Relies on App.tsx to handle redirection after the `user` state is set.
+ */
 const Login: React.FC = () => {
-  const nav = useNavigate();
-  const { login } = useAuth();
+  const { login, user } = useAuth(); // Get user state from context
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -17,24 +20,23 @@ const Login: React.FC = () => {
     e.preventDefault();
     setBusy(true);
     try {
-      // login() sets context.user with { id, email, role } from backend
+      // 1. Await the login. AuthContext will update its internal state.
       await login({ email, password });
 
-      // Pull the role from localStorage snapshot (AuthContext saves it there)
-      const raw = localStorage.getItem("cj_user");
-      const role = raw
-        ? (JSON.parse(raw).role as "attendee" | "organizer" | "admin")
-        : "attendee";
-
+      // 2. Show success toast.
       toast.success("Welcome back!");
-      nav(roleHomePath(role), { replace: true });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
+      // 3. App.tsx will now detect the `user` change and handle navigation.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       toast.error(err?.message || "Login failed");
     } finally {
       setBusy(false);
     }
   };
+
+  // Prevent flash of login form if user state is already set
+  if (user) return null;
 
   return (
     <div className="relative px-6 md:px-16 lg:px-40 pt-30 md:pt-40 min-h-[100vh]">
@@ -46,6 +48,7 @@ const Login: React.FC = () => {
           <label className="text-sm text-gray-300">Email</label>
           <input
             type="email"
+            autoComplete="email"
             className="w-full mt-1 rounded-md border border-white/10 bg-white/5 px-3 py-2 outline-none"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -55,6 +58,7 @@ const Login: React.FC = () => {
           <label className="text-sm text-gray-300">Password</label>
           <input
             type="password"
+            autoComplete="current-password"
             className="w-full mt-1 rounded-md border border-white/10 bg-white/5 px-3 py-2 outline-none"
             value={password}
             onChange={(e) => setPassword(e.target.value)}

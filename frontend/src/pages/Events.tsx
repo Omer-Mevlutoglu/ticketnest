@@ -1,9 +1,16 @@
 import BlurCircle from "../components/BlurCircle";
 import EventCard from "../components/EventCard";
-import useFeaturedEvents from "../hooks/useFeaturedEvents";
+// 1. Import the new consolidated hook
+import useEvents from "../hooks/useEvents";
 
+/**
+ * This page displays ALL published events.
+ * It now uses the same `useEvents` hook as the home page
+ * to avoid a redundant API call.
+ */
 const Events = () => {
-  const { events, loading, error } = useFeaturedEvents();
+  // 2. Use the new hook
+  const { events, loading, error } = useEvents();
 
   // 🌀 1. Loading state
   if (loading) {
@@ -33,6 +40,7 @@ const Events = () => {
       <BlurCircle top="50px" right="50px" />
       <h1 className="text-lg font-medium my-4">Now Showing</h1>
       <div className="flex flex-wrap max-sm:justify-center gap-8">
+        {/* 3. This page shows ALL events, not just a slice */}
         {events.map((event) => (
           <EventCard key={event._id} event={event} />
         ))}

@@ -16,6 +16,7 @@ export interface IEvent extends Document {
   createdAt: Date;
   updatedAt: Date;
   poster?: string;
+  isCancelled: boolean;
 }
 
 const eventSchema = new Schema<IEvent>(
@@ -48,6 +49,7 @@ const eventSchema = new Schema<IEvent>(
     poster: { type: String },
     startTime: { type: Date, required: true },
     endTime: { type: Date, required: true },
+    isCancelled: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

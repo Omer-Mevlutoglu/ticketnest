@@ -1,40 +1,39 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import BlurCircle from "./BlurCircle";
-import useUpcomingEvents from "../hooks/useUpcomingEvents";
+// 1. Import the new consolidated hook and event type
+// FIX: Use 'import type' for type-only imports
+import useEvents, { type ApiEvent } from "../hooks/useEvents";
 
-type EventWithImage = {
-  _id: string;
-  title: string;
-  venueName?: string;
-  venueAddress?: string;
-  venueImages?: string[];
-  poster?: string;
-  startTime: string;
-};
+// The event type from the hook already includes poster and venueImages
+type EventWithImage = ApiEvent;
 
 const UpcomingSection: React.FC = () => {
-  const { events, loading, error } = useUpcomingEvents();
+  // 2. Use the new hook
+  const { events, loading, error } = useEvents();
   const navigate = useNavigate();
 
-  const visualEvents: EventWithImage[] = useMemo(
-    () =>
-      events
-        .filter(
-          (e) =>
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            Array.isArray((e as any).venueImages) ||
-            typeof e.poster === "string"
-        )
-        .slice(0, 4), // show only 4
-    [events]
-  );
+  // 3. Filter for upcoming events that have visuals
+  const visualEvents: EventWithImage[] = useMemo(() => {
+    const now = Date.now();
+    return events
+      .filter(
+        (e) =>
+          new Date(e.startTime).getTime() >= now &&
+          (Array.isArray(e.venueImages) || typeof e.poster === "string")
+      )
+      .sort(
+        (a, b) =>
+          new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+      )
+      .slice(0, 4); // show only 4
+  }, [events]);
 
-  const [current, setCurrent] = useState<EventWithImage | null>(
-    visualEvents[0] || null
-  );
+  const [current, setCurrent] = useState<EventWithImage | null>(null);
 
-  useMemo(() => {
+  // 4. FIX: Use a useEffect to set the default current event
+  // This runs *after* the data has arrived and visualEvents is populated.
+  useEffect(() => {
     if (visualEvents.length > 0 && !current) {
       setCurrent(visualEvents[0]);
     }
@@ -70,7 +69,6 @@ const UpcomingSection: React.FC = () => {
   const goToDetails = () => {
     if (!current) return;
     navigate(`/events/${current._id}`);
-    // ensure top on details page
     window.scrollTo(0, 0);
   };
 
