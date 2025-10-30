@@ -11,26 +11,32 @@ import {
   roleHomePath,
 } from "./components/RouteGuards";
 
+// --- Page Imports ---
 import Home from "./pages/Home";
 import Events from "./pages/Events";
 import EventDetails from "./pages/EventDetails";
 import SeatMapPage from "./pages/SeatMapPage";
 import MyBookings from "./pages/MyBookings";
 import CheckoutPage from "./pages/CheckoutPage";
+import Favorites from "./pages/Favorites";
+// Organizer
 import OrganizerLayout from "./pages/organizer/layout/OrganizerLayout";
-import AdminLayout from "./pages/admin/layout/AdminLayout";
-import AdminDashboard from "./pages/admin/AdminDashboard";
-import Loading from "./components/Loading";
 import Dashboard from "./pages/organizer/Dashboard";
-import MyEventsPage from "./pages/organizer/MyEvents";
 import CreateEventPage from "./pages/organizer/CreateEventPage";
 import ManageEventPage from "./pages/organizer/ManageEventPage";
+import PendingApprovalPage from "./pages/organizer/PendingApprovalPage"; // Ensure this import exists
+// Admin
+import AdminLayout from "./pages/admin/layout/AdminLayout";
+import AdminDashboard from "./pages/admin/AdminDashboard";
 import OrganizerApprovals from "./pages/admin/OrganizerApprovals";
 import VenueEditor from "./pages/admin/VenueEditor";
 import VenuesList from "./pages/admin/VenuesList";
 import AdminBookings from "./pages/admin/AdminBookings";
 import AdminUsers from "./pages/admin/AdminUsers";
-import Favorites from "./pages/Favorites";
+import Loading from "./components/Loading";
+import MyEventsPage from "./pages/organizer/MyEvents";
+// Common
+// --- End Page Imports ---
 
 const App = () => {
   const pathname = useLocation().pathname;
@@ -39,6 +45,7 @@ const App = () => {
   const { user, loading } = useAuth();
 
   const isAuthPage = pathname === "/login" || pathname === "/register";
+
   if (loading && !isAuthPage) {
     return (
       <>
@@ -52,11 +59,10 @@ const App = () => {
     <>
       <Toaster />
 
-      {/* Hide public navbar/footer inside admin & organizer shells */}
       {!isAdminRoute && !isOrganizerRoute && user && <Navbar />}
 
       <Routes>
-        {/* ✅ Home is now attendees-only */}
+        {/* === Attendee Routes === */}
         <Route
           path="/"
           element={
@@ -67,8 +73,6 @@ const App = () => {
             </RequireAuth>
           }
         />
-
-        {/* ---------------- Attendee-only ---------------- */}
         <Route
           path="/events"
           element={
@@ -80,7 +84,7 @@ const App = () => {
           }
         />
         <Route
-          path="/favorite"
+          path="/favorite" // Consider plural "/favorites"
           element={
             <RequireAuth>
               <RequireRole roles={["attendee"]}>
@@ -130,30 +134,43 @@ const App = () => {
           }
         />
 
-        {/* ---------------- Organizer-only ---------------- */}
+        {/* === Organizer Routes === */}
+        {/* --- PENDING ROUTE - SIMPLIFIED GUARD --- */}
+        <Route
+          path="/organizer/pending"
+          element={
+            // Only require authentication
+            <RequireAuth>
+              <PendingApprovalPage />
+            </RequireAuth>
+          }
+        />
+        {/* --- END PENDING ROUTE --- */}
+
         <Route
           path="/organizer"
           element={
             <RequireAuth>
-              {/* --- UPDATED: Added requireApproval={true} --- */}
+              {/* This guard redirects unapproved to /organizer/pending */}
               <RequireRole roles={["organizer"]} requireApproval={true}>
                 <OrganizerLayout />
               </RequireRole>
             </RequireAuth>
           }
         >
+          {/* Index route for approved organizers */}
           <Route index element={<Dashboard />} />
           <Route path="myevents" element={<MyEventsPage />} />
           <Route path="events/new" element={<CreateEventPage />} />
           <Route path="events/:id/manage" element={<ManageEventPage />} />
+          <Route path="*" element={<Navigate to="/organizer" replace />} />
         </Route>
 
-        {/* ---------------- Admin-only ---------------- */}
+        {/* === Admin Routes === */}
         <Route
           path="/admin"
           element={
             <RequireAuth>
-              {/* Admins don't need approval, so no prop is needed */}
               <RequireRole roles={["admin"]}>
                 <AdminLayout />
               </RequireRole>
@@ -164,11 +181,13 @@ const App = () => {
           <Route path="requests" element={<OrganizerApprovals />} />
           <Route path="venue-list" element={<VenuesList />} />
           <Route path="venue-create" element={<VenueEditor />} />
+          <Route path="venue-edit/:id" element={<VenueEditor />} />
           <Route path="list-bookings" element={<AdminBookings />} />
           <Route path="users" element={<AdminUsers />} />
+          <Route path="*" element={<Navigate to="/admin" replace />} />
         </Route>
 
-        {/* Auth pages */}
+        {/* === Auth Pages === */}
         <Route
           path="/login"
           element={
@@ -186,8 +205,19 @@ const App = () => {
           }
         />
 
-        {/* Fallback */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        {/* === Global Fallback === */}
+        <Route
+          path="*"
+          element={
+            <RequireAuth>
+              {user ? (
+                <Navigate to={roleHomePath(user.role)} replace />
+              ) : (
+                <Navigate to="/login" replace />
+              )}
+            </RequireAuth>
+          }
+        />
       </Routes>
 
       {!isAdminRoute && !isOrganizerRoute && user && <Footer />}
