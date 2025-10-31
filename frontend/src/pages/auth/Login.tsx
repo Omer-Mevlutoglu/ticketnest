@@ -75,7 +75,14 @@ const Login: React.FC = () => {
             disabled={isDisabled}
           />
         </div>
-
+        <div className="text-right">
+          <Link
+            to="/forgot-password"
+            className="text-xs text-gray-400 hover:text-primary"
+          >
+            Forgot Password?
+          </Link>
+        </div>
         <button
           disabled={isDisabled}
           className="px-4 py-2 rounded-md bg-primary hover:bg-primary-dull transition disabled:opacity-60"

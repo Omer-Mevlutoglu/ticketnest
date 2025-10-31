@@ -26,7 +26,6 @@ import organizerRoutes from "./routes/organizerRoutes";
 import favoritesRoutes from "./routes/favoritesRoutes";
 
 dotenv.config();
-
 const EXPIRE_JOB_MS = 60 * 1000; // run the sweep every 60s
 
 const app = express();

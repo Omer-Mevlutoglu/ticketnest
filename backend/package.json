@@ -11,6 +11,7 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@sendgrid/mail": "^8.1.6",
     "@types/cookie-parser": "^1.4.9",
     "@types/cors": "^2.8.19",
     "bcrypt": "^6.0.0",
@@ -22,6 +23,7 @@
     "express": "^5.1.0",
     "express-session": "^1.18.2",
     "express-validator": "^7.2.1",
+    "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.16.5",
     "multer": "^2.0.2",
     "multer-storage-cloudinary": "^4.0.0",
@@ -38,6 +40,7 @@
     "@types/express": "^5.0.3",
     "@types/express-session": "^1.18.2",
     "@types/express-validator": "^2.20.33",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/mongoose": "^5.11.96",
     "@types/multer": "^2.0.0",
     "@types/node": "^24.1.0",

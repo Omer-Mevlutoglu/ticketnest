@@ -31,6 +31,12 @@ export default passport.use(
           });
         }
 
+        if (!user.emailVerified) {
+          return done(null, false, {
+            message:
+              "Please verify your email to log in. (Check your inbox for a link.)",
+          });
+        }
         const isPasswordValid = await comparePassword(
           password,
           user.passwordHash

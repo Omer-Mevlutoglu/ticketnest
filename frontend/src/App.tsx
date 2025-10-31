@@ -35,6 +35,10 @@ import AdminBookings from "./pages/admin/AdminBookings";
 import AdminUsers from "./pages/admin/AdminUsers";
 import Loading from "./components/Loading";
 import MyEventsPage from "./pages/organizer/MyEvents";
+import CheckEmailPage from "./pages/auth/CheckEmailPage";
+import VerifyEmailPage from "./pages/auth/VerifyEmailPage";
+import ForgotPasswordPage from "./pages/auth/ForgotPasswordPage";
+import ResetPasswordPage from "./pages/auth/ResetPasswordPage";
 // Common
 
 const App = () => {
@@ -204,6 +208,10 @@ const App = () => {
           }
         />
 
+        <Route path="/check-email" element={<CheckEmailPage />} />
+        <Route path="/verify-email" element={<VerifyEmailPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         {/* === Global Fallback === */}
         <Route
           path="*"

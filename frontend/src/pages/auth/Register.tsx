@@ -21,8 +21,7 @@ const Register: React.FC = () => {
     setBusy(true);
     try {
       await register({ username, email, password, role });
-      toast.success("Registered! Please log in.");
-      nav("/login");
+      nav("/check-email");
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       toast.error(err?.message || "Registration failed");

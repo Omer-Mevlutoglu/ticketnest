@@ -3,7 +3,8 @@ import { hashPassword } from "../utils/helperHash";
 import { Request } from "express";
 import passport from "passport";
 import { createApprovalRequest } from "./approvalService";
-
+import { sendVerificationEmail } from "./emailService";
+import jwt from "jsonwebtoken";
 export interface RegisterDTO {
   username: string;
   email: string;
@@ -38,12 +39,26 @@ export const registerUser = async (userData: RegisterDTO) => {
     passwordHash,
     role,
     emailVerified: false,
-    ...(role === "organizer" && { isApproved: false }),
+    isApproved: role === "attendee",
   });
   if (role === "organizer") {
+    // Organizers are not approved by default
+    await userModel.findByIdAndUpdate(newUser.id, { isApproved: false });
     await createApprovalRequest(newUser.id);
   }
+  try {
+    const emailToken = jwt.sign(
+      { userId: newUser._id, intent: "verify-email" },
+      process.env.EMAIL_VERIFY_TOKEN_SECRET as string,
+      { expiresIn: "1h" } // Token expires in 1 hour
+    );
 
+    await sendVerificationEmail(newUser.email, emailToken);
+  } catch (err) {
+    console.error("Error sending verification email:", err);
+    // This is a common issue. We'll still let the user be created,
+    // but we can add a "Resend Verification" button later.
+  }
   const { passwordHash: _, ...safeUser } = newUser.toObject();
   return safeUser;
 };
