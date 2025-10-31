@@ -1,10 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import BookingModel from "../models/bookingModel";
 
-/**
- * GET /api/admin/bookings
- * Optional query: ?status=paid|unpaid|expired|failed
- */
 export const listAllBookingsController = async (
   req: Request,
   res: Response,

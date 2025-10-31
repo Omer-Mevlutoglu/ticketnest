@@ -6,7 +6,7 @@ import { getVenueById, saveVenue, type Venue } from "./hooks/useVenues"; // Ensu
 import toast from "react-hot-toast";
 import Loading from "../../components/Loading";
 import BlurCircle from "../../components/BlurCircle";
-
+import MultiImageUploader from "../../components/admin/MultiImageUploader";
 
 const emptyVenue: Venue = {
   name: "",
@@ -140,25 +140,15 @@ const VenueEditor: React.FC = () => {
           />
         </label>
 
-        <label className="text-xs sm:text-sm font-medium">
-          Image URLs (comma separated)
-          <input
-            type="text"
-            name="images"
-            value={venue.images?.join(", ") || ""}
-            onChange={(e) =>
-              setVenue((prev) => ({
-                ...prev,
-                // Split by comma, trim whitespace, filter empty strings
-                images: e.target.value
-                  .split(",")
-                  .map((s) => s.trim())
-                  .filter(Boolean),
-              }))
-            }
-            className="w-full mt-1 p-2 rounded bg-black/20 border border-white/10 text-sm sm:text-base"
-          />
-        </label>
+        <MultiImageUploader
+          label="Venue Images"
+          values={venue.images || []}
+          onChange={(urls) => {
+            setVenue((prev) => ({ ...prev, images: urls }));
+          }}
+          endpoint="/api/admin/uploads/venue-images"
+          uploadField="images"
+        />
 
         {/* Added isActive toggle */}
         <label className="text-sm font-medium flex items-center gap-2 cursor-pointer">

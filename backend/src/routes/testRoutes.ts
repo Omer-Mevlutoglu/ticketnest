@@ -4,7 +4,7 @@ import { ensureAuth } from "../middleware/ensureAuth";
 const router = Router();
 
 router.get("/me", ensureAuth, (req, res) => {
-  const user = req.user as any; // typed via passport
+  const user = req.user as any; 
 
   res.json({
     user: {

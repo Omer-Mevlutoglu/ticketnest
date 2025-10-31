@@ -6,6 +6,7 @@ import { CalendarIcon } from "lucide-react";
 import { useTemplateVenues } from "./hooks/useTemplateVenues"; // Assuming hooks are in ./hooks/
 import BlurCircle from "../../components/BlurCircle";
 import Loading from "../../components/Loading";
+import SingleImageUploader from "../../components/organizer/SingleImageUploader";
 
 const API_BASE =
   (import.meta as any).env?.VITE_API_BASE || "http://localhost:5000";
@@ -329,16 +330,12 @@ const CreateEventPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div>
-                  <label className="text-xs text-gray-400 block">
-                    Poster URL (Optional)
-                  </label>
-                  <input
-                    className="mt-1 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 outline-none text-sm"
+                <div className="mt-3 sm:mt-4">
+                  <SingleImageUploader
+                    label="Poster"
                     value={poster}
-                    onChange={(e) => setPoster(e.target.value)}
-                    placeholder="https://..."
-                    type="url"
+                    onChange={setPoster}
+                    endpoint="/api/organizer/uploads/poster"
                   />
                 </div>
               </div>

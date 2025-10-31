@@ -7,6 +7,7 @@ import { RocketIcon, ShieldOffIcon } from "lucide-react";
 import { useMyEvent } from "./hooks/useMyEvent"; // Assuming hooks are in ./hooks/
 import Loading from "../../components/Loading";
 import BlurCircle from "../../components/BlurCircle";
+import SingleImageUploader from "../../components/organizer/SingleImageUploader";
 
 const API_BASE =
   (import.meta as any).env?.VITE_API_BASE || "http://localhost:5000";
@@ -294,15 +295,11 @@ const ManageEventPage: React.FC = () => {
             </div>
 
             <div className="mt-3 sm:mt-4">
-              <label className="text-xs text-gray-400 block mb-1">
-                Poster (URL)
-              </label>
-              <input
-                className="w-full rounded-md border border-white/10 bg-white/5 px-2.5 sm:px-3 py-1.5 sm:py-2 outline-none text-sm sm:text-base"
+              <SingleImageUploader
+                label="Poster"
                 value={poster}
-                onChange={(e) => setPoster(e.target.value)}
-                placeholder="https://..."
-                disabled={isSaving}
+                onChange={setPoster}
+                endpoint="/api/organizer/uploads/poster"
               />
             </div>
           </div>
