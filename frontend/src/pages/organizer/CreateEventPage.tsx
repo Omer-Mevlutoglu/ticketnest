@@ -1,12 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
+
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
-import { CalendarIcon } from "lucide-react";
-import { useTemplateVenues } from "./hooks/useTemplateVenues"; // Assuming hooks are in ./hooks/
+import { CalendarIcon, Loader2Icon } from "lucide-react"; // Added Loader2Icon
+import { useTemplateVenues } from "./hooks/useTemplateVenues"; // Import TemplateVenue
+import SingleImageUploader from "../../components/organizer/SingleImageUploader"; // Adjust path as needed
 import BlurCircle from "../../components/BlurCircle";
 import Loading from "../../components/Loading";
-import SingleImageUploader from "../../components/organizer/SingleImageUploader";
 
 const API_BASE =
   (import.meta as any).env?.VITE_API_BASE || "http://localhost:5000";
@@ -30,7 +31,7 @@ const CreateEventPage: React.FC = () => {
     error: venuesError,
   } = useTemplateVenues();
 
-  // form state remains the same
+  // form state
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [categoriesInput, setCategoriesInput] = useState("");
@@ -44,7 +45,9 @@ const CreateEventPage: React.FC = () => {
   const [startTime, setStartTime] = useState(""); // ISO string
   const [endTime, setEndTime] = useState(""); // ISO string
   const [poster, setPoster] = useState("");
+  const [submitting, setSubmitting] = useState(false); // Added submitting state
 
+  // grid spec (only for custom)
   const [grid, setGrid] = useState<GridSpec>({
     rows: 10,
     cols: 10,
@@ -52,7 +55,6 @@ const CreateEventPage: React.FC = () => {
     defaultPrice: 100,
     blocked: "",
   });
-  const [submitting, setSubmitting] = useState(false);
 
   const categories = useMemo(
     () =>
@@ -64,64 +66,63 @@ const CreateEventPage: React.FC = () => {
   );
 
   const isTemplate = venueType === "template";
-  const selectedTemplate = useMemo(() => {
+  // const canPublishOnCreate = isTemplate; // --- FIX: REMOVED UNUSED VARIABLE ---
+
+  // --- New Derived State ---
+  const selectedTemplateVenue = useMemo(() => {
     return venues.find((v) => v._id === templateVenueId);
   }, [venues, templateVenueId]);
-  const templateHasSeats = !!(
-    selectedTemplate?.defaultSeatMap &&
-    selectedTemplate.defaultSeatMap.length > 0
-  );
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const canPublishOnCreate = isTemplate && templateHasSeats;
 
-  // Reset status to draft if switching to a template without seats while 'published' is selected
-  React.useEffect(() => {
-    if (isTemplate && status === "published" && !templateHasSeats) {
-      setStatus("draft");
-      toast.error("Selected template has no seats, status reset to draft.", {
-        duration: 3000,
-      });
-    }
-    // Also reset status if switching from template to custom while published selected
-    if (!isTemplate && status === "published") {
-      setStatus("draft");
-      toast.error("Custom venues must be draft, status reset.", {
-        duration: 3000,
-      });
-    }
-  }, [venueType, templateVenueId, templateHasSeats, status, isTemplate]);
+  const templateHasSeats = useMemo(() => {
+    return (selectedTemplateVenue?.defaultSeatMap?.length || 0) > 0;
+  }, [selectedTemplateVenue]);
 
-  // onSubmit logic remains largely the same, validation already improved
+  // Disable "Published" option if template is chosen but has no seats
+  useEffect(() => {
+    if (isTemplate && !templateHasSeats && status === "published") {
+      setStatus("draft"); // Demote to draft
+    }
+  }, [isTemplate, templateHasSeats, status]);
+  // --- End New Derived State ---
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setSubmitting(true);
 
     // Validate minimal fields
     if (!title || !description || !startTime || !endTime) {
+      setSubmitting(false);
       return toast.error("Title, description, and dates are required.");
     }
-    if (new Date(startTime) >= new Date(endTime)) {
-      return toast.error("Start time must be before end time.");
+    if (startTime >= endTime) {
+      setSubmitting(false);
+      return toast.error("End time must be after start time.");
     }
     if (venueType === "template" && !templateVenueId) {
+      setSubmitting(false);
       return toast.error("Please select a template venue.");
     }
     if (venueType === "custom" && (!venueName || !venueAddress)) {
+      setSubmitting(false);
       return toast.error("Please fill custom venue name and address.");
+    }
+    // Check backend rules on client-side
+    if (venueType === "custom" && status === "published") {
+      setSubmitting(false);
+      return toast.error("Custom venues must be created as draft first.");
     }
     if (
       venueType === "template" &&
-      status === "published" &&
-      !templateHasSeats
+      !templateHasSeats &&
+      status === "published"
     ) {
+      setSubmitting(false);
       return toast.error(
-        "Cannot publish: selected template venue has no default seat map defined by admin."
+        "This template venue has no seats and cannot be published."
       );
     }
-    if (venueType === "custom" && status === "published") {
-      return toast.error("Custom venues must be created as draft first.");
-    }
 
-    setSubmitting(true);
+    // 1) Create the event
     try {
       const payload: any = {
         title,
@@ -136,13 +137,10 @@ const CreateEventPage: React.FC = () => {
 
       if (isTemplate) {
         payload.templateVenueId = templateVenueId;
-        if (status === "published" && !templateHasSeats) {
-          payload.status = "draft";
-        }
       } else {
         payload.venueName = venueName;
         payload.venueAddress = venueAddress;
-        payload.status = "draft";
+        payload.status = "draft"; // enforce on client too for clarity
       }
 
       const res = await fetch(`${API_BASE}/api/events`, {
@@ -152,11 +150,12 @@ const CreateEventPage: React.FC = () => {
         body: JSON.stringify(payload),
       });
       if (!res.ok) {
-        const txt = await res.text();
+        const txt = (await res.json())?.message || (await res.text());
         throw new Error(txt || "Failed to create event");
       }
       const ev = await res.json();
 
+      // 2) If custom → immediately generate a seat map using grid spec
       if (!isTemplate) {
         const blockedSeats: Array<{ x: number; y: number }> = [];
         if (grid.blocked && grid.blocked.trim().length > 0) {
@@ -170,17 +169,11 @@ const CreateEventPage: React.FC = () => {
               const y = parseInt(ys, 10);
               if (
                 Number.isInteger(x) &&
-                Number.isInteger(y) &&
                 x > 0 &&
+                Number.isInteger(y) &&
                 y > 0
               ) {
                 blockedSeats.push({ x, y });
-              } else {
-                console.warn(`Invalid blocked seat format ignored: ${pair}`);
-                toast.error(
-                  `Invalid format for blocked seat ignored: ${pair}`,
-                  { duration: 4000 }
-                );
               }
             });
         }
@@ -202,7 +195,7 @@ const CreateEventPage: React.FC = () => {
           }
         );
         if (!genRes.ok) {
-          const txt = await genRes.text();
+          const txt = (await genRes.json())?.message || (await genRes.text());
           toast.error(
             "Event created, but seat map generation failed: " + (txt || "")
           );
@@ -212,13 +205,13 @@ const CreateEventPage: React.FC = () => {
 
       toast.success(
         isTemplate
-          ? payload.status === "published"
+          ? templateHasSeats && status === "published"
             ? "Event created & published!"
             : "Event created!"
           : "Event created (draft) & seat map generated!"
       );
 
-      nav(`/organizer/events/${ev._id}/manage`, { replace: true });
+      nav(`/organizer/events/${ev._id}/manage`, { replace: true }); // Go to manage page
     } catch (e: any) {
       toast.error(e?.message || "Failed to create event");
     } finally {
@@ -227,385 +220,312 @@ const CreateEventPage: React.FC = () => {
   }
 
   return (
-    // Reduced base padding
-    <div className="relative p-4 sm:p-6 md:p-8 overflow-x-hidden">
+    <div className="relative p-2 py-4 sm:px-6 md:px-8 overflow-x-hidden">
       <BlurCircle top="-60px" left="-80px" />
       <BlurCircle bottom="-40px" right="-60px" />
 
-      {/* Ensure full width */}
-      <div className="w-full max-w-full">
-        <h1 className="text-xl sm:text-2xl font-semibold">Create Event</h1>
-        <p className="text-sm text-gray-400 max-w-2xl mt-1">
-          Set up your event details below. Seat maps for templates are added
-          automatically if available.
-        </p>
+      <h1 className="text-base xs:text-lg sm:text-xl md:text-2xl font-semibold">
+        Create Event
+      </h1>
+      <p className="text-xs sm:text-sm text-gray-400 mt-1">
+        Set up your event; we’ll handle seat maps for templates automatically.
+      </p>
 
-        {venuesLoading ? (
-          <div className="mt-6">
-            <Loading />
-          </div>
-        ) : venuesError ? (
-          <div className="mt-6 rounded-lg border border-rose-400/30 bg-rose-500/10 p-3">
-            <p className="text-rose-300 text-sm break-words">{venuesError}</p>
-          </div>
-        ) : null}
+      {venuesLoading ? (
+        <div className="mt-6">
+          <Loading />
+        </div>
+      ) : venuesError ? (
+        <div className="mt-6 rounded-lg border border-rose-400/30 bg-rose-500/10 p-3">
+          <p className="text-rose-300 text-sm">{venuesError}</p>
+        </div>
+      ) : null}
 
-        <form
-          onSubmit={onSubmit}
-          // Use gap-4 for slightly less spacing on mobile
-          className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-4"
-        >
-          {/* Left column */}
-          <div className="lg:col-span-2 space-y-4">
-            {/* Basics Card */}
-            <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-              <p className="text-sm font-medium mb-3">Event Details</p>
-              {/* Use space-y-3 for consistent spacing */}
-              <div className="space-y-3">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs text-gray-400 block">Title</label>
-                    <input
-                      className="mt-1 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 outline-none text-sm" // Ensure text size consistency
-                      value={title}
-                      onChange={(e) => setTitle(e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-gray-400 block">
-                      Categories (comma separated)
-                    </label>
-                    <input
-                      className="mt-1 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 outline-none text-sm"
-                      value={categoriesInput}
-                      onChange={(e) => setCategoriesInput(e.target.value)}
-                      placeholder="music, live, festival"
-                    />
-                  </div>
-                </div>
+      <form
+        onSubmit={onSubmit}
+        className="mt-4 sm:mt-6 grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6"
+      >
+        {/* Left column */}
+        <div className="lg:col-span-2 space-y-4 sm:space-y-6">
+          <div className="rounded-xl border border-white/10 bg-white/5 p-3 sm:p-4">
+            <p className="text-sm font-medium mb-3">Basics</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+              <div>
+                <label className="text-xs text-gray-400 block mb-1">
+                  Title
+                </label>
+                <input
+                  className="w-full rounded-md border border-white/10 bg-white/5 px-2.5 sm:px-3 py-1.5 sm:py-2 outline-none text-sm sm:text-base"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 block mb-1">
+                  Categories (comma separated)
+                </label>
+                <input
+                  className="w-full rounded-md border border-white/10 bg-white/5 px-2.5 sm:px-3 py-1.5 sm:py-2 outline-none text-sm sm:text-base"
+                  value={categoriesInput}
+                  onChange={(e) => setCategoriesInput(e.target.value)}
+                  placeholder="music, live, festival"
+                />
+              </div>
+            </div>
 
-                <div>
-                  <label className="text-xs text-gray-400 block">
-                    Description
-                  </label>
-                  <textarea
-                    className="mt-1 w-full min-h-[90px] rounded-md border border-white/10 bg-white/5 px-3 py-2 outline-none text-sm" // Reduced min-height slightly
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
+            <div className="mt-3 sm:mt-4">
+              <label className="text-xs text-gray-400 block mb-1">
+                Description
+              </label>
+              <textarea
+                className="w-full min-h-[90px] sm:min-h-[110px] rounded-md border border-white/10 bg-white/5 px-2.5 sm:px-3 py-1.5 sm:py-2 outline-none text-sm sm:text-base"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="mt-3 sm:mt-4 grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+              <div>
+                <label className="text-xs text-gray-400 block mb-1">
+                  Start
+                </label>
+                <div className="relative flex items-center">
+                  <CalendarIcon className="w-4 h-4 opacity-75 absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type="datetime-local"
+                    className="w-full rounded-md border border-white/10 bg-white/5 pl-8 px-2.5 sm:px-3 py-1.5 sm:py-2 outline-none text-sm sm:text-base appearance-none"
+                    value={startTime}
+                    onChange={(e) => setStartTime(e.target.value)}
                     required
                   />
                 </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs text-gray-400 block">
-                      Start Time
-                    </label>
-                    <div className="mt-1 relative">
-                      <CalendarIcon className="w-4 h-4 opacity-75 pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2" />
-                      <input
-                        type="datetime-local"
-                        className="w-full rounded-md border border-white/10 bg-white/5 pl-8 pr-3 py-2 outline-none text-sm" // Adjusted padding
-                        value={startTime}
-                        onChange={(e) => setStartTime(e.target.value)}
-                        required
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-xs text-gray-400 block">
-                      End Time
-                    </label>
-                    <div className="mt-1 relative">
-                      <CalendarIcon className="w-4 h-4 opacity-75 pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2" />
-                      <input
-                        type="datetime-local"
-                        className="w-full rounded-md border border-white/10 bg-white/5 pl-8 pr-3 py-2 outline-none text-sm" // Adjusted padding
-                        value={endTime}
-                        onChange={(e) => setEndTime(e.target.value)}
-                        required
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-3 sm:mt-4">
-                  <SingleImageUploader
-                    label="Poster"
-                    value={poster}
-                    onChange={setPoster}
-                    endpoint="/api/organizer/uploads/poster"
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 block mb-1">End</label>
+                <div className="relative flex items-center">
+                  <CalendarIcon className="w-4 h-4 opacity-75 absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type="datetime-local"
+                    className="w-full rounded-md border border-white/10 bg-white/5 pl-8 px-2.5 sm:px-3 py-1.5 sm:py-2 outline-none text-sm sm:text-base appearance-none"
+                    value={endTime}
+                    onChange={(e) => setEndTime(e.target.value)}
+                    required
                   />
                 </div>
               </div>
             </div>
 
-            {/* Venue Card */}
-            <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-              <p className="text-sm font-medium mb-3">Venue Setup</p>
+            <div className="mt-3 sm:mt-4">
+              <SingleImageUploader
+                label="Poster"
+                value={poster}
+                onChange={setPoster}
+                endpoint="/api/organizer/uploads/poster"
+              />
+            </div>
+          </div>
 
-              <div className="flex flex-wrap gap-x-6 gap-y-2 items-center mb-3">
-                <label className="inline-flex items-center gap-2 text-sm">
-                  {" "}
-                  {/* Added text-sm */}
-                  <input
-                    type="radio"
-                    checked={venueType === "template"}
-                    onChange={() => setVenueType("template")}
-                    name="venueType" // Add name for radio group
-                  />
-                  Use Template Venue
-                </label>
-                <label className="inline-flex items-center gap-2 text-sm">
-                  {" "}
-                  {/* Added text-sm */}
-                  <input
-                    type="radio"
-                    checked={venueType === "custom"}
-                    onChange={() => setVenueType("custom")}
-                    name="venueType" // Add name for radio group
-                  />
-                  Use Custom Venue
-                </label>
-              </div>
+          <div className="rounded-xl border border-white/10 bg-white/5 p-3 sm:p-4">
+            <p className="text-sm font-medium mb-3">Venue</p>
 
-              {venueType === "template" ? (
-                // Template Venue Fields
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs text-gray-400 block">
-                      Select Template
-                    </label>
-                    <select
-                      className="mt-1 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 outline-none appearance-none bg-no-repeat bg-right pr-8 text-sm" // Added text-sm
-                      style={{
-                        backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
-                        backgroundPosition: "right 0.5rem center",
-                        backgroundSize: "1.5em 1.5em",
-                      }}
-                      value={templateVenueId}
-                      onChange={(e) => setTemplateVenueId(e.target.value)}
-                      required
-                    >
-                      <option value="">-- Select a venue --</option>
-                      {venues.map((v) => (
-                        <option key={v._id} value={v._id}>
-                          {v.name} ({v.address})
-                        </option>
-                      ))}
-                    </select>
-                    {!venuesLoading && venues.length === 0 && (
-                      <p className="text-xs text-yellow-400 mt-1">
-                        No template venues available. Ask admin to create one.
-                      </p>
-                    )}
-                  </div>
+            <div className="flex gap-4 xs:gap-6 items-center">
+              <label className="inline-flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  checked={venueType === "template"}
+                  onChange={() => setVenueType("template")}
+                />
+                Template
+              </label>
+              <label className="inline-flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  checked={venueType === "custom"}
+                  onChange={() => setVenueType("custom")}
+                />
+                Custom
+              </label>
+            </div>
 
-                  <div>
-                    <label className="text-xs text-gray-400 block">
-                      Status
-                    </label>
-                    <select
-                      className="mt-1 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 outline-none appearance-none bg-no-repeat bg-right pr-8 text-sm" // Added text-sm
-                      style={{
-                        backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
-                        backgroundPosition: "right 0.5rem center",
-                        backgroundSize: "1.5em 1.5em",
-                      }}
-                      value={status}
-                      onChange={(e) => setStatus(e.target.value as any)}
-                      disabled={!templateVenueId} // Keep disabled until venue selected
-                    >
-                      <option value="draft">Draft</option>
-                      {templateHasSeats && (
-                        <option value="published">Published</option>
-                      )}
-                      <option value="archived">Archived</option>
-                    </select>
-                    <p className="text-xs text-gray-400 mt-1 h-8">
-                      {" "}
-                      {/* Reserve space for message */}
-                      {
-                        templateVenueId && !templateHasSeats
-                          ? "Template has no seats defined, cannot publish yet."
-                          : templateVenueId && templateHasSeats
-                          ? "Publishing allowed for this template."
-                          : "" // No message if nothing selected
-                      }
-                    </p>
-                  </div>
+            {venueType === "template" ? (
+              <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                <div>
+                  <label className="text-xs text-gray-400 block mb-1">
+                    Select Template Venue
+                  </label>
+                  <select
+                    className="w-full rounded-md border border-white/10 bg-white/5 px-2.5 sm:px-3 py-1.5 sm:py-2 outline-none text-sm sm:text-base"
+                    value={templateVenueId}
+                    onChange={(e) => setTemplateVenueId(e.target.value)}
+                    disabled={venuesLoading}
+                  >
+                    <option value="">-- choose --</option>
+                    {venues.map((v) => (
+                      <option key={v._id} value={v._id}>
+                        {v.name} • {v.address}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-              ) : (
-                // Custom Venue Section
-                <div className="space-y-4 pt-2">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-xs text-gray-400 block">
-                        Custom Venue Name
-                      </label>
-                      <input
-                        className="mt-1 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 outline-none text-sm"
-                        value={venueName}
-                        onChange={(e) => setVenueName(e.target.value)}
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-400 block">
-                        Custom Venue Address
-                      </label>
-                      <input
-                        className="mt-1 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 outline-none text-sm"
-                        value={venueAddress}
-                        onChange={(e) => setVenueAddress(e.target.value)}
-                        required
-                      />
-                    </div>
-                  </div>
 
-                  {/* Seat Map Generation Section */}
-                  <div className="pt-2 space-y-3">
-                    <p className="text-xs text-gray-400 font-medium">
-                      Generate Grid Seat Map (Required for Custom Venue)
-                    </p>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      <div>
-                        <label className="text-xs text-gray-400 block">
-                          Rows
-                        </label>
-                        <input
-                          type="number"
-                          min={1}
-                          max={200}
-                          required
-                          className="mt-1 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 outline-none text-sm"
-                          value={grid.rows}
-                          onChange={(e) =>
-                            setGrid({
-                              ...grid,
-                              rows: Math.max(1, Number(e.target.value)),
-                            })
-                          }
-                        />
-                      </div>
-                      <div>
-                        <label className="text-xs text-gray-400 block">
-                          Seats/Row
-                        </label>
-                        <input
-                          type="number"
-                          min={1}
-                          max={200}
-                          required
-                          className="mt-1 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 outline-none text-sm"
-                          value={grid.cols}
-                          onChange={(e) =>
-                            setGrid({
-                              ...grid,
-                              cols: Math.max(1, Number(e.target.value)),
-                            })
-                          }
-                        />
-                      </div>
-                      <div>
-                        <label className="text-xs text-gray-400 block">
-                          Default Tier
-                        </label>
-                        <input
-                          className="mt-1 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 outline-none text-sm"
-                          value={grid.defaultTier}
-                          required
-                          onChange={(e) =>
-                            setGrid({ ...grid, defaultTier: e.target.value })
-                          }
-                        />
-                      </div>
-                      <div>
-                        <label className="text-xs text-gray-400 block">
-                          Default Price
-                        </label>
-                        <input
-                          type="number"
-                          min={0}
-                          step="0.01"
-                          required
-                          className="mt-1 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 outline-none text-sm"
-                          value={grid.defaultPrice}
-                          onChange={(e) =>
-                            setGrid({
-                              ...grid,
-                              defaultPrice: Math.max(0, Number(e.target.value)),
-                            })
-                          }
-                        />
-                      </div>
-                    </div>
+                <div>
+                  <label className="text-xs text-gray-400 block mb-1">
+                    Status
+                  </label>
+                  <select
+                    className="w-full rounded-md border border-white/10 bg-white/5 px-2.5 sm:px-3 py-1.5 sm:py-2 outline-none text-sm sm:text-base disabled:opacity-50"
+                    value={status}
+                    onChange={(e) => setStatus(e.target.value as any)}
+                    disabled={!templateVenueId} // Disable until venue is selected
+                  >
+                    <option value="draft">Draft</option>
+                    <option value="published" disabled={!templateHasSeats}>
+                      {" "}
+                      {/* Disable if no seats */}
+                      Published {!templateHasSeats ? "(No seats)" : ""}
+                    </option>
+                    <option value="archived">Archived</option>
+                  </select>
+                  <p className="text-[10px] sm:text-xs text-gray-400 mt-1">
+                    Templates can publish if they have a seat map.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                <div>
+                  <label className="text-xs text-gray-400 block mb-1">
+                    Venue Name
+                  </label>
+                  <input
+                    className="w-full rounded-md border border-white/10 bg-white/5 px-2.5 sm:px-3 py-1.5 sm:py-2 outline-none text-sm sm:text-base"
+                    value={venueName}
+                    onChange={(e) => setVenueName(e.target.value)}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 block mb-1">
+                    Venue Address
+                  </label>
+                  <input
+                    className="w-full rounded-md border border-white/10 bg-white/5 px-2.5 sm:px-3 py-1.5 sm:py-2 outline-none text-sm sm:text-base"
+                    value={venueAddress}
+                    onChange={(e) => setVenueAddress(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="md:col-span-2 mt-2">
+                  <p className="text-xs text-gray-400 mb-2">
+                    We’ll generate a <b>grid</b> seat map right away.
+                  </p>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <div>
-                      <label className="text-xs text-gray-400 block">
-                        Blocked Seats (Optional) - Format:{" "}
-                        <code className="text-[11px]">row,col; row,col</code>
+                      <label className="text-xs text-gray-400 block mb-1">
+                        Rows
                       </label>
                       <input
-                        className="mt-1 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 outline-none text-sm"
-                        placeholder="e.g., 1,5; 2,7 (1-based index)"
-                        value={grid.blocked}
+                        type="number"
+                        min={1}
+                        className="w-full rounded-md border border-white/10 bg-white/5 px-2.5 sm:px-3 py-1.5 sm:py-2 outline-none text-sm sm:text-base"
+                        value={grid.rows}
                         onChange={(e) =>
-                          setGrid({ ...grid, blocked: e.target.value })
+                          setGrid({ ...grid, rows: Number(e.target.value) })
+                        }
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-400 block mb-1">
+                        Cols
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        className="w-full rounded-md border border-white/10 bg-white/5 px-2.5 sm:px-3 py-1.5 sm:py-2 outline-none text-sm sm:text-base"
+                        value={grid.cols}
+                        onChange={(e) =>
+                          setGrid({ ...grid, cols: Number(e.target.value) })
+                        }
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-400 block mb-1">
+                        Default Tier
+                      </label>
+                      <input
+                        className="w-full rounded-md border border-white/10 bg-white/5 px-2.5 sm:px-3 py-1.5 sm:py-2 outline-none text-sm sm:text-base"
+                        value={grid.defaultTier}
+                        onChange={(e) =>
+                          setGrid({ ...grid, defaultTier: e.target.value })
+                        }
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-400 block mb-1">
+                        Default Price
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        className="w-full rounded-md border border-white/10 bg-white/5 px-2.5 sm:px-3 py-1.5 sm:py-2 outline-none text-sm sm:text-base"
+                        value={grid.defaultPrice}
+                        onChange={(e) =>
+                          setGrid({
+                            ...grid,
+                            defaultPrice: Number(e.target.value),
+                          })
                         }
                       />
                     </div>
                   </div>
 
-                  <div className="!mt-4 rounded-md border border-yellow-400/30 bg-yellow-500/10 p-3 text-xs text-yellow-200">
-                    Custom events are created as <b>draft</b>. After the seat
-                    map is generated, you can manage and publish the event.
+                  <div className="mt-3">
+                    <label className="text-xs text-gray-400 block mb-1">
+                      Blocked seats (optional) — <code>row,col; row,col</code>
+                    </label>
+                    <input
+                      className="w-full rounded-md border border-white/10 bg-white/5 px-2.5 sm:px-3 py-1.5 sm:py-2 outline-none text-sm sm:text-base"
+                      placeholder="1,5; 2,7"
+                      value={grid.blocked}
+                      onChange={(e) =>
+                        setGrid({ ...grid, blocked: e.target.value })
+                      }
+                    />
+                  </div>
+
+                  <div className="mt-3 rounded-md border border-yellow-400/30 bg-yellow-500/10 p-2 sm:p-3 text-xs text-yellow-200">
+                    Custom venue events are created as <b>draft</b>.
                   </div>
                 </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right column (actions) */}
+        <div className="space-y-4 sm:space-y-6 lg:sticky lg:top-20 h-max">
+          <div className="rounded-xl border border-white/10 bg-white/5 p-3 sm:p-4">
+            <p className="text-sm font-medium mb-2">Review & Create</p>
+            <p className="text-xs text-gray-400">
+              Double-check your details. You can always edit later.
+            </p>
+            <button
+              type="submit"
+              className="mt-4 w-full px-4 py-2 rounded-md bg-primary hover:bg-primary-dull transition disabled:opacity-50"
+              disabled={submitting || venuesLoading}
+            >
+              {submitting ? (
+                <Loader2Icon className="w-4 h-4 mx-auto animate-spin" />
+              ) : (
+                "Create Event"
               )}
-            </div>
+            </button>
           </div>
-
-          {/* Right column (actions) - Sticky */}
-          {/* Ensure the parent grid column allows this to be sticky */}
-          <div className="lg:sticky lg:top-20 h-max space-y-4">
-            <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-              <p className="text-sm font-medium mb-2">Actions</p>
-              <p className="text-xs text-gray-400 mb-3">
-                Review your details before creating the event.
-              </p>
-              <button
-                type="submit"
-                disabled={submitting || venuesLoading}
-                className="w-full px-4 py-2 rounded-md bg-primary hover:bg-primary-dull transition disabled:opacity-50 text-sm font-medium" // Added text-sm, font-medium
-              >
-                {submitting ? "Creating Event..." : "Create Event"}
-              </button>
-            </div>
-
-            {/* Conditional Info Boxes */}
-            {isTemplate && templateVenueId && (
-              <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-                <p className="text-sm font-medium mb-2">Template Venue Info</p>
-                <p className="text-xs text-gray-400">
-                  {templateHasSeats
-                    ? "This template has default seats defined. You can choose to publish immediately if desired."
-                    : "This template has no default seats. The event will be created as a draft, and you'll need to define a seat map manually."}
-                </p>
-              </div>
-            )}
-            {!isTemplate && (
-              <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-                <p className="text-sm font-medium mb-2">Custom Venue Info</p>
-                <p className="text-xs text-gray-400">
-                  A seat map will be generated using your grid specifications.
-                  The event will start in <b>draft</b> status.
-                </p>
-              </div>
-            )}
-          </div>
-        </form>
-      </div>
+        </div>
+      </form>
     </div>
   );
 };

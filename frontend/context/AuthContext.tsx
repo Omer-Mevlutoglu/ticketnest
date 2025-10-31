@@ -1,4 +1,3 @@
-/* eslint-disable react-refresh/only-export-components */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { createContext, useContext, useEffect, useState } from "react";
 
@@ -36,20 +35,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const [user, setUser] = useState<AuthUser>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true); // only for initial boot
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [refreshing, setRefreshing] = useState(false);
+  // const [refreshing, setRefreshing] = useState(false); // --- FIX: REMOVED UNUSED VARIABLE ---
 
   const saveLocal = (u: AuthUser) => {
     if (u) localStorage.setItem("cj_user", JSON.stringify(u));
     else localStorage.removeItem("cj_user");
   };
 
+  // server-first hydrate; support silent mode
   const hydrate = async (opts?: { silent?: boolean }) => {
     const silent = !!opts?.silent;
 
-    if (silent) setRefreshing(true);
-    else setLoading(true);
+    if (silent) {
+      // setRefreshing(true); // This variable was removed
+    } else {
+      setLoading(true);
+    }
 
     let u: AuthUser = null;
     try {
@@ -80,8 +83,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       u = raw ? (JSON.parse(raw) as AuthUser) : null;
       setUser(u);
     } finally {
-      if (silent) setRefreshing(false);
-      else setLoading(false);
+      if (silent) {
+        // setRefreshing(false); // This variable was removed
+      } else {
+        setLoading(false);
+      }
     }
     return u;
   };
@@ -180,6 +186,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error("useAuth must be used inside <AuthProvider>");
