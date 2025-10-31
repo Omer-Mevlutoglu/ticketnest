@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom"; // Import useNavigate
@@ -126,8 +125,7 @@ const GridGenerator: React.FC<{
 
 const ManageEventPage: React.FC = () => {
   const { id } = useParams();
-  const { event, seatMap, seatSummary, loading, error, refetch } =
-    useMyEvent(id);
+  const { event, seatSummary, loading, error, refetch } = useMyEvent(id);
   const navigate = useNavigate(); // Added navigate
 
   // local form state mirrors event
