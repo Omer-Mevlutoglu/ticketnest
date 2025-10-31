@@ -34,9 +34,9 @@ const app = express();
 app.use(
   cors({
     origin: [
+      "https://ticketnest-iota.vercel.app",
       "http://localhost:5173",
       "http://127.0.0.1:5173",
-      "https_://ticketnest-iota.vercel.app",
     ],
     credentials: true,
   })
