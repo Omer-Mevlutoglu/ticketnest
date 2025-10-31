@@ -1,7 +1,8 @@
 import React from "react";
-import BlurCircle from "../../components/BlurCircle";
-import Loading from "../../components/Loading";
+
 import { useAdminBookings, type BookingStatus } from "./hooks/useAdminBookings";
+import Loading from "../../components/Loading";
+import BlurCircle from "../../components/BlurCircle";
 
 const STATUS_OPTIONS: (BookingStatus | "all")[] = [
   "all",
@@ -36,12 +37,16 @@ function Badge({ status }: { status: BookingStatus }) {
     expired: "border-gray-400 text-red-600",
     failed: "border-rose-400 text-rose-300",
   };
+  // Base text-[9px], px-1.5
   return (
-    <span className={`text-xs px-2 py-0.5 rounded-full border ${map[status]}`}>
+    <span
+      className={`text-[9px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded-full border whitespace-nowrap ${map[status]}`}
+    >
       {status}
     </span>
   );
 }
+// --- End Helper Components ---
 
 const AdminBookings: React.FC = () => {
   const { bookings, status, setStatus, loading, error, refetch } =
@@ -50,21 +55,24 @@ const AdminBookings: React.FC = () => {
   if (loading) return <Loading />;
 
   return (
-    <div className="relative">
-      {/* soften visuals on small / mid screens */}
+    // Base padding px-2 py-4
+    <div className="relative px-2 py-4 sm:px-6 lg:px-10 overflow-x-hidden">
       <div className="hidden md:block">
         <BlurCircle top="0" right="-100px" />
       </div>
 
-      {/* container tuned for tablets */}
-      <div className="mx-auto max-w-[100rem] px-4 sm:px-6 lg:px-10 pt-6 sm:pt-8 pb-16">
+      <div className="mx-auto max-w-[100rem]">
         {/* Header + Controls with wrap support */}
-        <div className="flex flex-col gap-3 md:gap-4 lg:gap-0 lg:flex-row lg:items-center lg:justify-between">
-          <h1 className="text-lg sm:text-xl font-semibold">Bookings</h1>
+        {/* Stacks vertically on mobile, horizontal on lg+ */}
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
+          <h1 className="text-base xs:text-lg sm:text-xl font-semibold w-full lg:w-auto">
+            Bookings
+          </h1>
 
+          {/* Filters stack vertically on mobile, horizontal on sm+ */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full lg:w-auto">
             <select
-              className="rounded-md bg-black/30 border border-white/15 px-3 py-2 text-sm w-full sm:w-auto"
+              className="rounded-md bg-black/30 border border-white/15 px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm w-full sm:w-auto" // Full width on mobile
               value={status}
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               onChange={(e) => setStatus(e.target.value as any)}
@@ -78,7 +86,7 @@ const AdminBookings: React.FC = () => {
 
             <button
               onClick={refetch}
-              className="px-3 py-2 text-sm rounded-md border border-white/15 hover:bg-white/10 transition w-full sm:w-auto"
+              className="px-3 py-1.5 sm:py-2 text-xs sm:text-sm rounded-md border border-white/15 hover:bg-white/10 transition w-full sm:w-auto" // Full width on mobile
             >
               Refresh
             </button>
@@ -88,14 +96,16 @@ const AdminBookings: React.FC = () => {
         {error && <p className="mt-4 text-red-400">{error}</p>}
 
         {bookings.length === 0 ? (
-          <p className="mt-8 text-gray-400">No bookings found.</p>
+          <p className="mt-8 text-gray-400 text-sm sm:text-base">
+            No bookings found.
+          </p>
         ) : (
           <>
-            {/* lg+ TABLE (kept compact for tablets in landscape) */}
-            <div className="hidden lg:block mt-6 overflow-x-auto">
+            {/* lg+ TABLE */}
+            <div className="hidden lg:block mt-4 sm:mt-6 overflow-x-auto">
               <table className="min-w-[900px] w-full text-sm border border-white/10 rounded-lg overflow-hidden">
                 <thead className="bg-white/5">
-                  <tr className="[&>th]:text-left [&>th]:px-4 [&>th]:py-2">
+                  <tr className="[&>th]:text-left [&>th]:px-3 [&>th]:sm:px-4 [&>th]:py-2">
                     <th>Created</th>
                     <th>User</th>
                     <th>Event</th>
@@ -124,31 +134,35 @@ const AdminBookings: React.FC = () => {
                     return (
                       <tr
                         key={b._id}
-                        className="[&>td]:px-4 [&>td]:py-2 align-top"
+                        className="[&>td]:px-3 [&>td]:sm:px-4 [&>td]:py-2 align-top"
                       >
-                        <td className="whitespace-nowrap">{created}</td>
-                        <td className="max-w-[240px]">
-                          <span className="block truncate">{userLabel}</span>
+                        <td className="whitespace-nowrap text-xs">{created}</td>
+                        <td className="max-w-[200px] xl:max-w-[240px]">
+                          <span className="block truncate text-xs sm:text-sm">
+                            {userLabel}
+                          </span>
                         </td>
-                        <td className="max-w-[360px]">
-                          <div className="font-medium truncate">
+                        <td className="max-w-[280px] xl:max-w-[360px]">
+                          <div className="font-medium truncate text-xs sm:text-sm">
                             {b.eventId?.title || "—"}
                           </div>
-                          <div className="text-xs text-gray-400 truncate">
+                          <div className="text-[10px] sm:text-xs text-gray-400 truncate">
                             {b.eventId?.venueName}
                             {b.eventId?.venueAddress
                               ? ` • ${b.eventId.venueAddress}`
                               : ""}
                           </div>
                         </td>
-                        <td className="whitespace-nowrap">{when}</td>
-                        <td>
-                          <div>{seatCount} tickets</div>
-                          <div className="text-xs text-gray-400 break-words">
+                        <td className="whitespace-nowrap text-xs">{when}</td>
+                        <td className="max-w-[150px]">
+                          <div className="text-xs sm:text-sm">
+                            {seatCount} tickets
+                          </div>
+                          <div className="text-[10px] sm:text-xs text-gray-400 break-words">
                             {seats}
                           </div>
                         </td>
-                        <td className="whitespace-nowrap">
+                        <td className="whitespace-nowrap text-xs sm:text-sm">
                           {b.total.toFixed(2)}
                         </td>
                         <td className="whitespace-nowrap">
@@ -162,7 +176,7 @@ const AdminBookings: React.FC = () => {
             </div>
 
             {/* < lg (phones + tablets): Stacked Cards */}
-            <div className="lg:hidden mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+            <div className="lg:hidden mt-4 sm:mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               {bookings.map((b) => {
                 const seatCount = b.items?.length || 0;
                 const seats = b.items
@@ -178,11 +192,11 @@ const AdminBookings: React.FC = () => {
                 return (
                   <div
                     key={b._id}
-                    className="rounded-xl border border-white/10 bg-white/5 backdrop-blur p-3 sm:p-4"
+                    className="rounded-xl border border-white/10 bg-white/5 backdrop-blur p-3" // Base padding p-3
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="text-[11px] sm:text-xs text-gray-400">
+                        <p className="text-[10px] sm:text-[11px] text-gray-400">
                           {created}
                         </p>
                         <p className="mt-1 font-medium text-sm sm:text-base line-clamp-2">
@@ -200,23 +214,35 @@ const AdminBookings: React.FC = () => {
 
                     <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
                       <div className="rounded-md bg-black/20 px-2 py-1">
-                        <p className="text-[11px] text-gray-400">User</p>
-                        <p className="truncate">{userLabel}</p>
+                        <p className="text-[10px] sm:text-[11px] text-gray-400">
+                          User
+                        </p>
+                        <p className="truncate text-xs sm:text-sm">
+                          {userLabel}
+                        </p>
                       </div>
                       <div className="rounded-md bg-black/20 px-2 py-1 text-right">
-                        <p className="text-[11px] text-gray-400">Total</p>
-                        <p className="font-semibold">{b.total.toFixed(2)}</p>
+                        <p className="text-[10px] sm:text-[11px] text-gray-400">
+                          Total
+                        </p>
+                        <p className="font-semibold text-xs sm:text-sm">
+                          {b.total.toFixed(2)}
+                        </p>
                       </div>
                       <div className="rounded-md bg-black/20 px-2 py-1 col-span-2">
-                        <p className="text-[11px] text-gray-400">When</p>
-                        <p className="text-sm">{when || "—"}</p>
+                        <p className="text-[10px] sm:text-[11px] text-gray-400">
+                          When
+                        </p>
+                        <p className="text-xs sm:text-sm">{when || "—"}</p>
                       </div>
                       <div className="rounded-md bg-black/20 px-2 py-1 col-span-2">
-                        <p className="text-[11px] text-gray-400">Seats</p>
-                        <p className="text-sm">
+                        <p className="text-[10px] sm:text-[11px] text-gray-400">
+                          Seats
+                        </p>
+                        <p className="text-xs sm:text-sm">
                           {seatCount} tickets
                           {seats ? (
-                            <span className="text-xs text-gray-400">
+                            <span className="text-[10px] sm:text-xs text-gray-400">
                               {" "}
                               — {seats}
                             </span>
@@ -236,4 +262,3 @@ const AdminBookings: React.FC = () => {
 };
 
 export default AdminBookings;
-//           </div>

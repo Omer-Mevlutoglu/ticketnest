@@ -2,7 +2,6 @@ import { useState, useMemo, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import BlurCircle from "./BlurCircle";
 // 1. Import the new consolidated hook and event type
-// FIX: Use 'import type' for type-only imports
 import useEvents, { type ApiEvent } from "../hooks/useEvents";
 
 // The event type from the hook already includes poster and venueImages

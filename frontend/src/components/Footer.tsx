@@ -1,6 +1,5 @@
 import React from "react";
-import { Link } from "react-router-dom"; // Import Link
-
+import { Link } from "react-router-dom"; 
 const COMPANY = {
   blurb:
     "Lorem Ipsum has been the industry's standard dummy text ever since the 1500s. It survived not only five centuries, but also the leap into electronic typesetting.",

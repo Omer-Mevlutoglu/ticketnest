@@ -1,6 +1,8 @@
+/* eslint-disable react-refresh/only-export-components */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { createContext, useContext, useEffect, useState } from "react";
 
-export type Role = "attendee" | "organizer" | "admin";
+export type Role = "attendee" | "organizer" | "admin" | undefined; // Allow undefined
 
 export type AuthUser = {
   id: string;
@@ -21,7 +23,7 @@ type AuthContextType = {
   }) => Promise<void>;
   login: (p: { email: string; password: string }) => Promise<void>;
   logout: () => Promise<void>;
-  hydrate: () => Promise<void>;
+  hydrate: (opts?: { silent?: boolean }) => Promise<AuthUser | undefined>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -34,7 +36,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const [user, setUser] = useState<AuthUser>(null);
-  const [loading, setLoading] = useState(true); // only for initial boot
+  const [loading, setLoading] = useState(true);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [refreshing, setRefreshing] = useState(false);
 
@@ -43,20 +45,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     else localStorage.removeItem("cj_user");
   };
 
-  // server-first hydrate; support silent mode
   const hydrate = async (opts?: { silent?: boolean }) => {
     const silent = !!opts?.silent;
 
     if (silent) setRefreshing(true);
     else setLoading(true);
 
+    let u: AuthUser = null;
     try {
       const res = await fetch(`${API_BASE}/api/testAuth/me`, {
         credentials: "include",
       });
       if (res.ok) {
         const data = await res.json();
-        const u: AuthUser = data?.user
+        u = data?.user
           ? {
               id: data.user.id,
               email: data.user.email,
@@ -67,38 +69,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           : null;
         setUser(u);
         saveLocal(u);
-      } else if (res.status === 401) {
-        setUser(null);
-        saveLocal(null);
       } else {
+        // Handle 401 etc.
         setUser(null);
         saveLocal(null);
       }
     } catch {
       // offline fallback
       const raw = localStorage.getItem("cj_user");
-      setUser(raw ? (JSON.parse(raw) as AuthUser) : null);
+      u = raw ? (JSON.parse(raw) as AuthUser) : null;
+      setUser(u);
     } finally {
       if (silent) setRefreshing(false);
       else setLoading(false);
     }
+    return u;
   };
 
   useEffect(() => {
-    // initial boot: blocking
     hydrate();
-
-    // refresh on focus: silent (doesn't unmount anything)
     const onFocus = () => hydrate({ silent: true });
     window.addEventListener("focus", onFocus);
-
-    // keep other tabs in sync
     const onStorage = (e: StorageEvent) => {
       if (e.key === "cj_user")
         setUser(e.newValue ? (JSON.parse(e.newValue) as AuthUser) : null);
     };
     window.addEventListener("storage", onStorage);
-
     return () => {
       window.removeEventListener("focus", onFocus);
       window.removeEventListener("storage", onStorage);
@@ -106,15 +102,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // *** THIS IS THE CORRECTED FUNCTION ***
   const parseError = async (res: Response, fallback: string) => {
+    const resForJson = res.clone();
+    const resForText = res.clone();
+    let message = fallback; // Default to fallback
+
     try {
-      const data = await res.json();
-      throw new Error(data?.message || fallback);
-    } catch {
-      const text = await res.text();
-      throw new Error(text || fallback);
+      // Try to get JSON message
+      const data = await resForJson.json();
+      if (data && data.message) {
+        message = data.message; // Use backend JSON message
+      } else {
+        // JSON was valid, but no 'message' field. Try text.
+        const text = await resForText.text();
+        if (text) {
+          message = text;
+        }
+      }
+    } catch (e) {
+      // JSON parsing failed. Assume it's plain text.
+      try {
+        const text = await resForText.text();
+        if (text) {
+          message = text; // Use backend text message
+        }
+      } catch (textErr) {
+        // Both failed. 'message' will remain the 'fallback'
+      }
     }
+
+    // Throw the final, determined message
+    throw new Error(message);
   };
+  // *** END OF CORRECTED FUNCTION ***
 
   const register: AuthContextType["register"] = async (p) => {
     const res = await fetch(`${API_BASE}/api/auth/register`, {
@@ -124,7 +145,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       body: JSON.stringify(p),
     });
     if (!res.ok) await parseError(res, "Registration failed");
-    // no auto-login by design
   };
 
   const login: AuthContextType["login"] = async (p) => {
@@ -136,8 +156,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     });
     if (!res.ok) await parseError(res, "Login failed");
 
-    // After login, hydrate from server to ensure truth
-    await hydrate();
+    await hydrate({ silent: true });
   };
 
   const logout = async () => {
@@ -161,7 +180,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   );
 };
 
-// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error("useAuth must be used inside <AuthProvider>");

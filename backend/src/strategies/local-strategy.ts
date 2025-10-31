@@ -24,6 +24,13 @@ export default passport.use(
         if (!user) {
           return done(null, false, { message: "User not found" });
         }
+
+        if (user.isSuspended) {
+          return done(null, false, {
+            message: "This account has been suspended.",
+          });
+        }
+
         const isPasswordValid = await comparePassword(
           password,
           user.passwordHash

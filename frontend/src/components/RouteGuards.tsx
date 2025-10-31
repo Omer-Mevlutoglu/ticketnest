@@ -2,8 +2,6 @@ import React from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth, type Role } from "../../context/AuthContext";
 import Loading from "./Loading";
-// Ensure correct path to Loading component
-// Ensure correct path to AuthContext and import Role type
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const roleHomePath = (role: Role | undefined) => {
@@ -42,7 +40,7 @@ export const RequireRole: React.FC<{
   requireApproval?: boolean;
 }> = ({ roles, children, requireApproval = false }) => {
   const { user, loading } = useAuth();
-  const location = useLocation(); // Use location for state passing
+  const location = useLocation();
 
   // Fallback checks (though RequireAuth should handle these)
   if (loading) return <Loading />;
@@ -65,12 +63,8 @@ export const RequireRole: React.FC<{
   const isApproved = user.isApproved === true;
 
   if (needsApprovalCheck && !isApproved) {
-    // *** THIS IS THE FIX ***
-    // Redirect unapproved organizers needing approval to the pending page
     return <Navigate to="/organizer/pending" replace />;
-    // *** END FIX ***
   }
 
-  // All checks passed
   return <>{children}</>;
 };

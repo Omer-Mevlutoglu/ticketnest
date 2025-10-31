@@ -7,6 +7,7 @@ export interface IUser extends Document {
   role: string;
   emailVerified: boolean;
   isApproved: boolean;
+  isSuspended?: boolean;
   favorites?: Types.ObjectId[];
 }
 
@@ -23,6 +24,7 @@ const userSchema = new Schema<IUser>(
     },
     emailVerified: { type: Boolean, default: false },
     isApproved: { type: Boolean, default: true },
+    isSuspended: { type: Boolean, default: false },
     favorites: [{ type: Schema.Types.ObjectId, ref: "Event", default: [] }],
   },
   { timestamps: true }

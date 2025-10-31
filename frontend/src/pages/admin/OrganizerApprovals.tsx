@@ -1,4 +1,3 @@
-// src/admin/pages/OrganizerApprovals.tsx
 import React from "react";
 import BlurCircle from "../../components/BlurCircle";
 import Loading from "../../components/Loading";

@@ -24,7 +24,7 @@ import OrganizerLayout from "./pages/organizer/layout/OrganizerLayout";
 import Dashboard from "./pages/organizer/Dashboard";
 import CreateEventPage from "./pages/organizer/CreateEventPage";
 import ManageEventPage from "./pages/organizer/ManageEventPage";
-import PendingApprovalPage from "./pages/organizer/PendingApprovalPage"; // Ensure this import exists
+import PendingApprovalPage from "./pages/organizer/PendingApprovalPage";
 // Admin
 import AdminLayout from "./pages/admin/layout/AdminLayout";
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -36,7 +36,6 @@ import AdminUsers from "./pages/admin/AdminUsers";
 import Loading from "./components/Loading";
 import MyEventsPage from "./pages/organizer/MyEvents";
 // Common
-// --- End Page Imports ---
 
 const App = () => {
   const pathname = useLocation().pathname;
@@ -84,7 +83,7 @@ const App = () => {
           }
         />
         <Route
-          path="/favorite" // Consider plural "/favorites"
+          path="/favorite"
           element={
             <RequireAuth>
               <RequireRole roles={["attendee"]}>

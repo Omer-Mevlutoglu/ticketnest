@@ -1,4 +1,3 @@
-// src/components/common/BlurCircle.tsx
 import React from "react";
 
 type BlurCircleProps = {

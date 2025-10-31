@@ -40,10 +40,8 @@ app.use(
 app.use(express.json());
 
 async function bootstrap() {
-  // 1) Connect to MongoDB (Atlas or local)
   await connectDB();
 
-  // 2) Sessions (after DB is connected so MongoStore has a client)
   app.use(
     session({
       secret: process.env.SESSION_SECRET as string,
