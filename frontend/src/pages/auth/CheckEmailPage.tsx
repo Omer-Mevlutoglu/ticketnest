@@ -9,7 +9,8 @@ const CheckEmailPage: React.FC = () => {
       <h1 className="text-2xl font-semibold mb-2">Check Your Email</h1>
       <p className="text-gray-400 max-w-md mb-6">
         We've sent a verification link to your email address. Please click the
-        link in the email to activate your account.
+        link in the email to activate your account. Check your spam/junk folder
+        if you don't see it in your inbox.
       </p>
       <Link
         to="/login"

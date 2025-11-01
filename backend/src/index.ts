@@ -1,4 +1,3 @@
-// src/index.ts
 import dotenv from "dotenv";
 import express from "express";
 import cors from "cors";
@@ -11,7 +10,6 @@ import errorHandler from "./middleware/errorHandler";
 import "./strategies/local-strategy";
 
 import authRoutes from "./routes/authRoutes";
-import testRoutes from "./routes/testRoutes";
 import adminRoutes from "./routes/adminRoutes";
 import eventRoutes from "./routes/eventRoutes";
 import bookingRoutes from "./routes/bookingRoutes";
@@ -26,15 +24,15 @@ import organizerRoutes from "./routes/organizerRoutes";
 import favoritesRoutes from "./routes/favoritesRoutes";
 
 dotenv.config();
-const EXPIRE_JOB_MS = 60 * 1000; // run the sweep every 60s
+const EXPIRE_JOB_MS = 60 * 1000;
 
 const app = express();
 
-// Core middleware (safe before DB)
 app.use(
   cors({
     origin: [
       "https://ticketnest-iota.vercel.app",
+      "https://ticketnest-l2l3aajc1-omers-projects-44a866c3.vercel.app",
       "http://localhost:5173",
       "http://127.0.0.1:5173",
     ],
@@ -46,20 +44,40 @@ app.use(express.json());
 async function bootstrap() {
   await connectDB();
 
+  // Run migration script
+  (async function migrateUsers() {
+    try {
+      console.log("Checking for user schema migration...");
+      const result = await userModel.updateMany(
+        { isSuspended: { $exists: false } },
+        { $set: { isSuspended: false } }
+      );
+      if (result.modifiedCount > 0) {
+        console.log(
+          `✅ Migrated ${result.modifiedCount} users (added 'isSuspended' field).`
+        );
+      } else {
+        console.log("✅ User schema is up to date.");
+      }
+    } catch (err) {
+      console.error("❌ User migration failed:", err);
+    }
+  })();
+
   app.use(
     session({
       secret: process.env.SESSION_SECRET as string,
       resave: false,
       saveUninitialized: false,
       cookie: {
-        maxAge: 1000 * 60 * 60 * 24 * 30, // 30 days
+        maxAge: 1000 * 60 * 60 * 24 * 14, // 14 days
         secure: process.env.NODE_ENV === "production",
         sameSite: "lax",
       },
       store: MongoStore.create({
         client: mongoose.connection.getClient(),
         // collectionName: "sessions",
-        // ttl: 60 * 60 * 24 * 30,
+        // ttl: 1000 * 60 * 60 * 24 * 14 
       }),
     })
   );
@@ -67,9 +85,9 @@ async function bootstrap() {
   // 3) Passport
   app.use(passport.initialize());
   app.use(passport.session());
+
   // 4) Routes
   app.use("/api/auth", authRoutes);
-  app.use("/api/testAuth", testRoutes);
   app.use("/api/admin", adminRoutes);
   app.use("/api/events", eventRoutes);
   app.use("/api/bookings", bookingRoutes);
@@ -78,7 +96,7 @@ async function bootstrap() {
   app.use("/api/favorites", favoritesRoutes);
   app.use("/api/admin/uploads", adminUploadRoutes);
   app.use("/api/organizer/uploads", organizerUploadRoutes);
-  // 5) Seed admins once (after DB is connected)
+
   (async () => {
     const adminEmails: string[] = process.env.ADMIN_EMAILS
       ? JSON.parse(process.env.ADMIN_EMAILS)
@@ -103,7 +121,6 @@ async function bootstrap() {
     }
   })();
 
-  // 6) Auto-expire unpaid bookings (runs every EXPIRE_JOB_MS)
   const runExpireJob = async () => {
     try {
       const { expiredCount, releasedSeats } = await expireOverdueBookings();
@@ -117,13 +134,9 @@ async function bootstrap() {
     }
   };
 
-  // Optional: first sweep on boot
   runExpireJob();
-
-  // Schedule recurring job
   const expireTimer = setInterval(runExpireJob, EXPIRE_JOB_MS);
 
-  // Clean up on shutdown
   process.on("SIGINT", () => {
     clearInterval(expireTimer);
     process.exit(0);
@@ -133,7 +146,6 @@ async function bootstrap() {
     process.exit(0);
   });
 
-  // 7) Error handler & listen
   app.use(errorHandler);
 
   const port = Number(process.env.PORT) || 5000;

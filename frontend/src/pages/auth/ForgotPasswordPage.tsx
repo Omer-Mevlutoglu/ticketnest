@@ -40,7 +40,7 @@ const ForgotPasswordPage: React.FC = () => {
       <h1 className="text-2xl font-semibold mb-4">Forgot Your Password?</h1>
       <p className="text-gray-400 max-w-md text-center mb-6">
         No problem. Enter your email address below and we'll send you a link to
-        reset it.
+        reset it. Check your spam/junk folder if you don't see it in your inbox.
       </p>
 
       {message ? (
