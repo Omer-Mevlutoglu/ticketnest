@@ -28,6 +28,11 @@ const EXPIRE_JOB_MS = 60 * 1000;
 
 const app = express();
 
+// --- 1. TRUST THE PROXY ---
+
+app.set("trust proxy", 1);
+// --- END OF CHANGE ---
+
 app.use(
   cors({
     origin: [
@@ -72,12 +77,14 @@ async function bootstrap() {
       cookie: {
         maxAge: 1000 * 60 * 60 * 24 * 14, // 14 days
         secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
+        // --- 2. THIS IS THE CRITICAL FIX ---
+        // "lax" (default) blocks cross-site cookie sending
+        // "none" allows it, but REQUIRES secure: true
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+        // --- END OF FIX ---
       },
       store: MongoStore.create({
         client: mongoose.connection.getClient(),
-        // collectionName: "sessions",
-        // ttl: 1000 * 60 * 60 * 24 * 14 
       }),
     })
   );
@@ -88,6 +95,7 @@ async function bootstrap() {
 
   // 4) Routes
   app.use("/api/auth", authRoutes);
+  // app.use("/api/testAuth", testRoutes);
   app.use("/api/admin", adminRoutes);
   app.use("/api/events", eventRoutes);
   app.use("/api/bookings", bookingRoutes);
@@ -96,6 +104,7 @@ async function bootstrap() {
   app.use("/api/favorites", favoritesRoutes);
   app.use("/api/admin/uploads", adminUploadRoutes);
   app.use("/api/organizer/uploads", organizerUploadRoutes);
+
 
   (async () => {
     const adminEmails: string[] = process.env.ADMIN_EMAILS
@@ -107,7 +116,7 @@ async function bootstrap() {
       if (!exists) missingAdmins.push(email);
     }
     if (missingAdmins.length > 0) {
-      for (const email of missingAdmins) {
+      for (const email of adminEmails) {
         const pw = await hashPassword(process.env.ADMIN_INITIAL_PASSWORD!);
         await userModel.create({
           username: email.split("@")[0],
@@ -121,6 +130,7 @@ async function bootstrap() {
     }
   })();
 
+  // 6) Auto-expire unpaid bookings (runs every EXPIRE_JOB_MS)
   const runExpireJob = async () => {
     try {
       const { expiredCount, releasedSeats } = await expireOverdueBookings();
@@ -137,6 +147,7 @@ async function bootstrap() {
   runExpireJob();
   const expireTimer = setInterval(runExpireJob, EXPIRE_JOB_MS);
 
+  // Clean up on shutdown
   process.on("SIGINT", () => {
     clearInterval(expireTimer);
     process.exit(0);
@@ -146,6 +157,7 @@ async function bootstrap() {
     process.exit(0);
   });
 
+  // 7) Error handler & listen
   app.use(errorHandler);
 
   const port = Number(process.env.PORT) || 5000;
