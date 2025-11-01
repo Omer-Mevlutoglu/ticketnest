@@ -1,18 +1,15 @@
 import React from "react";
 import { ArrowRight, Calendar1Icon, ClockIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import hLogo from "../../assets/images/hLogo.svg";
 
 const HeroSection: React.FC = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="hero-section bg-[url('../../assets/images/unsplash.jpg')] w-full h-screen bg-cover gap-4 px-6 md:px-16 lg:px-36 flex flex-col items-start justify-center">
+    <div className="hero-section bg-[url('/unsplash.jpg')] w-full h-screen bg-cover gap-4 px-6 md:px-16 lg:px-36 flex flex-col items-start justify-center">
       {/* Logo placeholder */}
-      <img
-        src="../../assets/images/hLogo.svg"
-        alt="Hero logo"
-        className="mx-h-11 lg:h-11 mt-20"
-      />
+      <img src={hLogo} alt="Hero logo" className="mx-h-11 lg:h-11 mt-20" />
       <h1 className="text-5xl md:text-[70px] md:leading-18 max-w-110 font-semibold">
         Feel the <br /> Crowd
       </h1>
