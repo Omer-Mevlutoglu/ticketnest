@@ -10,6 +10,7 @@ import errorHandler from "./middleware/errorHandler";
 import "./strategies/local-strategy";
 
 import authRoutes from "./routes/authRoutes";
+import testRoutes from "./routes/testRoutes";
 import adminRoutes from "./routes/adminRoutes";
 import eventRoutes from "./routes/eventRoutes";
 import bookingRoutes from "./routes/bookingRoutes";
@@ -29,7 +30,6 @@ const EXPIRE_JOB_MS = 60 * 1000;
 const app = express();
 
 // --- 1. TRUST THE PROXY ---
-
 app.set("trust proxy", 1);
 // --- END OF CHANGE ---
 
@@ -77,11 +77,7 @@ async function bootstrap() {
       cookie: {
         maxAge: 1000 * 60 * 60 * 24 * 14, // 14 days
         secure: process.env.NODE_ENV === "production",
-        // --- 2. THIS IS THE CRITICAL FIX ---
-        // "lax" (default) blocks cross-site cookie sending
-        // "none" allows it, but REQUIRES secure: true
         sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-        // --- END OF FIX ---
       },
       store: MongoStore.create({
         client: mongoose.connection.getClient(),
@@ -95,7 +91,7 @@ async function bootstrap() {
 
   // 4) Routes
   app.use("/api/auth", authRoutes);
-  // app.use("/api/testAuth", testRoutes);
+  app.use("/api/testAuth", testRoutes); 
   app.use("/api/admin", adminRoutes);
   app.use("/api/events", eventRoutes);
   app.use("/api/bookings", bookingRoutes);
@@ -105,7 +101,8 @@ async function bootstrap() {
   app.use("/api/admin/uploads", adminUploadRoutes);
   app.use("/api/organizer/uploads", organizerUploadRoutes);
 
-
+  // ... (rest of the file: seed admins, cron job, listen)
+  // 5) Seed admins once (after DB is connected)
   (async () => {
     const adminEmails: string[] = process.env.ADMIN_EMAILS
       ? JSON.parse(process.env.ADMIN_EMAILS)
