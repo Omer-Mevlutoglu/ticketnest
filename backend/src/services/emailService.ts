@@ -1,14 +1,16 @@
 import sgMail from "@sendgrid/mail";
 import dotenv from "dotenv";
 dotenv.config();
+
 // SET THE API KEY
 sgMail.setApiKey(process.env.SENDGRID_API_KEY as string);
 
-// This MUST be an email you verified as a "Sender" in SendGrid
 const FROM_EMAIL = "crowdjoy45@gmail.com";
 
+const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
+
 export const sendVerificationEmail = async (email: string, token: string) => {
-  const verifyLink = `http://localhost:5173/verify-email?token=${token}`;
+  const verifyLink = `${FRONTEND_URL}/verify-email?token=${token}`;
 
   const msg = {
     to: email,
@@ -35,8 +37,7 @@ export const sendVerificationEmail = async (email: string, token: string) => {
  * Sends a pre-made password reset email
  */
 export const sendPasswordResetEmail = async (email: string, token: string) => {
-  const resetLink = `http://localhost:5173/reset-password?token=${token}`;
-
+  const resetLink = `${FRONTEND_URL}/reset-password?token=${token}`;
   const msg = {
     to: email,
     from: FROM_EMAIL,
