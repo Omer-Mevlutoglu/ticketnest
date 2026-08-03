@@ -1,133 +1,71 @@
 import dotenv from "dotenv";
-import express from "express";
-import cors from "cors";
-import mongoose from "mongoose";
-import session from "express-session";
-import MongoStore from "connect-mongo";
-import passport from "passport";
-import path from "path";
-import errorHandler from "./middleware/errorHandler";
-import "./strategies/local-strategy";
-
-import authRoutes from "./routes/authRoutes";
-import testRoutes from "./routes/testRoutes";
-import adminRoutes from "./routes/adminRoutes";
-import eventRoutes from "./routes/eventRoutes";
-import bookingRoutes from "./routes/bookingRoutes";
-import organizerUploadRoutes from "./routes/organizerUploadRoutes";
-import adminUploadRoutes from "./routes/adminUploadRoutes";
+import { createApp } from "./app";
 import { expireOverdueBookings } from "./services/bookingService";
 import userModel from "./models/userModel";
 import { hashPassword } from "./utils/helperHash";
 import connectDB from "./configs/db";
-import venuePublicRoutes from "./routes/venuePublicRoutes";
-import organizerRoutes from "./routes/organizerRoutes";
-import favoritesRoutes from "./routes/favoritesRoutes";
 
 dotenv.config();
+
 const EXPIRE_JOB_MS = 60 * 1000;
 
-const app = express();
+// Backfills `isSuspended` on user documents created before the field existed.
+// TODO(WP5.2): move this into an explicit, versioned migration script.
+async function migrateUsers() {
+  try {
+    console.log("Checking for user schema migration...");
+    const result = await userModel.updateMany(
+      { isSuspended: { $exists: false } },
+      { $set: { isSuspended: false } }
+    );
+    if (result.modifiedCount > 0) {
+      console.log(
+        `✅ Migrated ${result.modifiedCount} users (added 'isSuspended' field).`
+      );
+    } else {
+      console.log("✅ User schema is up to date.");
+    }
+  } catch (err) {
+    console.error("❌ User migration failed:", err);
+  }
+}
 
-// --- 1. TRUST THE PROXY ---
-app.set("trust proxy", 1);
-// --- END OF CHANGE ---
-
-app.use(
-  cors({
-    origin: [
-      "https://ticketnest-iota.vercel.app",
-      "https://ticketnest-l2l3aajc1-omers-projects-44a866c3.vercel.app",
-      "http://localhost:5173",
-      "http://127.0.0.1:5173",
-    ],
-    credentials: true,
-  })
-);
-app.use(express.json());
+// TODO(WP2.5): only create the missing admins and require a password change.
+async function seedAdmins() {
+  const adminEmails: string[] = process.env.ADMIN_EMAILS
+    ? JSON.parse(process.env.ADMIN_EMAILS)
+    : [];
+  const missingAdmins: string[] = [];
+  for (const email of adminEmails) {
+    const exists = await userModel.findOne({ email, role: "admin" });
+    if (!exists) missingAdmins.push(email);
+  }
+  if (missingAdmins.length > 0) {
+    for (const email of adminEmails) {
+      const pw = await hashPassword(process.env.ADMIN_INITIAL_PASSWORD!);
+      await userModel.create({
+        username: email.split("@")[0],
+        email,
+        passwordHash: pw,
+        role: "admin",
+        emailVerified: true,
+      });
+      console.log(`✅ Seeded admin account: ${email}`);
+    }
+  }
+}
 
 async function bootstrap() {
   await connectDB();
 
-  // Run migration script
-  (async function migrateUsers() {
-    try {
-      console.log("Checking for user schema migration...");
-      const result = await userModel.updateMany(
-        { isSuspended: { $exists: false } },
-        { $set: { isSuspended: false } }
-      );
-      if (result.modifiedCount > 0) {
-        console.log(
-          `✅ Migrated ${result.modifiedCount} users (added 'isSuspended' field).`
-        );
-      } else {
-        console.log("✅ User schema is up to date.");
-      }
-    } catch (err) {
-      console.error("❌ User migration failed:", err);
-    }
-  })();
+  await migrateUsers();
 
-  app.use(
-    session({
-      secret: process.env.SESSION_SECRET as string,
-      resave: false,
-      saveUninitialized: false,
-      cookie: {
-        maxAge: 1000 * 60 * 60 * 24 * 14, // 14 days
-        secure: process.env.NODE_ENV === "production",
-        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-      },
-      store: MongoStore.create({
-        client: mongoose.connection.getClient(),
-      }),
-    })
-  );
+  const app = createApp();
 
-  // 3) Passport
-  app.use(passport.initialize());
-  app.use(passport.session());
+  await seedAdmins();
 
-  // 4) Routes
-  app.use("/api/auth", authRoutes);
-  app.use("/api/testAuth", testRoutes); 
-  app.use("/api/admin", adminRoutes);
-  app.use("/api/events", eventRoutes);
-  app.use("/api/bookings", bookingRoutes);
-  app.use("/api/venues", venuePublicRoutes);
-  app.use("/api/organizer", organizerRoutes);
-  app.use("/api/favorites", favoritesRoutes);
-  app.use("/api/admin/uploads", adminUploadRoutes);
-  app.use("/api/organizer/uploads", organizerUploadRoutes);
-
-  // ... (rest of the file: seed admins, cron job, listen)
-  // 5) Seed admins once (after DB is connected)
-  (async () => {
-    const adminEmails: string[] = process.env.ADMIN_EMAILS
-      ? JSON.parse(process.env.ADMIN_EMAILS)
-      : [];
-    const missingAdmins: string[] = [];
-    for (const email of adminEmails) {
-      const exists = await userModel.findOne({ email, role: "admin" });
-      if (!exists) missingAdmins.push(email);
-    }
-    if (missingAdmins.length > 0) {
-      for (const email of adminEmails) {
-        const pw = await hashPassword(process.env.ADMIN_INITIAL_PASSWORD!);
-        await userModel.create({
-          username: email.split("@")[0],
-          email,
-          passwordHash: pw,
-          role: "admin",
-          emailVerified: true,
-        });
-        console.log(`✅ Seeded admin account: ${email}`);
-      }
-    }
-  })();
-
-  // 6) Auto-expire unpaid bookings (runs every EXPIRE_JOB_MS)
+  // Auto-expire unpaid bookings (runs every EXPIRE_JOB_MS)
+  // TODO(WP1.5): extract the worker lifecycle and guard against overlapping runs.
   const runExpireJob = async () => {
     try {
       const { expiredCount, releasedSeats } = await expireOverdueBookings();
@@ -145,6 +83,7 @@ async function bootstrap() {
   const expireTimer = setInterval(runExpireJob, EXPIRE_JOB_MS);
 
   // Clean up on shutdown
+  // TODO(WP5.2): drain in-flight requests before exiting.
   process.on("SIGINT", () => {
     clearInterval(expireTimer);
     process.exit(0);
@@ -153,9 +92,6 @@ async function bootstrap() {
     clearInterval(expireTimer);
     process.exit(0);
   });
-
-  // 7) Error handler & listen
-  app.use(errorHandler);
 
   const port = Number(process.env.PORT) || 5000;
   app.listen(port, () => {

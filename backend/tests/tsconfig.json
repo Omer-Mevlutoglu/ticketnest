@@ -1,0 +1,20 @@
+{
+  // The build config keeps `rootDir: ./src` and only includes `src/**/*`, so
+  // test files belong to no project. Editors then resolve them with default
+  // settings and report errors like "Cannot find name 'process'".
+  //
+  // This config owns the test tree. Editors pick it up automatically (it is the
+  // nearest tsconfig.json to any file under tests/), and `npm run typecheck`
+  // uses it explicitly. Source files imported by tests are checked transitively;
+  // `npm run build` checks the rest of src/.
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    // Widen the inherited `rootDir` (src/) so tests/ and vitest.config.mts are
+    // legal members of this program.
+    "rootDir": "..",
+    "types": ["node", "vitest/globals"]
+  },
+  "include": ["**/*.ts", "../vitest.config.mts"],
+  "exclude": ["../node_modules", "../dist"]
+}

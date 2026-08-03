@@ -6,12 +6,19 @@
   "scripts": {
     "dev": "nodemon",
     "build": "tsc",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit -p tests/tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
+  "engines": {
+    "node": ">=22.0.0",
+    "npm": ">=10.0.0"
+  },
   "dependencies": {
     "@sendgrid/mail": "^8.1.6",
     "@types/bcrypt": "^6.0.0",
@@ -50,7 +57,11 @@
     "typescript": "^5.8.3"
   },
   "devDependencies": {
+    "@types/supertest": "^7.2.1",
+    "mongodb-memory-server": "^11.2.0",
     "nodemon": "^3.1.10",
-    "ts-node": "^10.9.2"
+    "supertest": "^7.2.2",
+    "ts-node": "^10.9.2",
+    "vitest": "^4.1.10"
   }
 }
