@@ -2,6 +2,7 @@ import mongoose, { Types } from "mongoose";
 import BookingModel, { IBooking, IBookingItem } from "../models/bookingModel";
 import SeatMapModel from "../models/seatMapModel";
 import { eventModel } from "../models/eventModel";
+import { httpError } from "../utils/httpError";
 
 const HOLD_MS = 10 * 60 * 1000; 
 
@@ -238,38 +239,103 @@ export const cancelBooking = async (userId: string, bookingId: string) => {
   }
 };
 
-// Manual helpers for testing without Stripe
+// Payment finalization.
+//
+// These back the simulated-payment endpoints today and are the seam a real
+// payment provider plugs into later. Both are owner-scoped: the caller's user
+// ID is required, never inferred from the booking itself.
 
-export const finalizePaidBooking = async (bookingId: string) => {
-  if (!Types.ObjectId.isValid(bookingId)) {
-    const e = new Error("Invalid booking ID");
-    // @ts-ignore
-    e.status = 400;
-    throw e;
+/**
+ * Loads a booking inside the transaction and asserts the caller may still act
+ * on it. Reading inside the session means the guards below are evaluated
+ * against the same snapshot the subsequent conditional updates run on.
+ */
+const loadPayableBooking = async (
+  bookingId: string,
+  userId: string,
+  now: Date,
+  session: mongoose.ClientSession
+): Promise<IBooking> => {
+  const booking = await BookingModel.findById(bookingId).session(session).lean();
+
+  if (!booking) throw httpError(404, "Booking not found");
+
+  // 403 rather than 404: the caller is authenticated, the resource exists, and
+  // they are simply not its owner.
+  if (booking.userId.toString() !== userId) {
+    throw httpError(403, "You do not own this booking");
   }
 
-  const booking = await BookingModel.findById(bookingId).lean();
-  if (!booking) {
-    const e = new Error("Booking not found");
-    // @ts-ignore
-    e.status = 404;
-    throw e;
+  if (booking.status !== "unpaid") {
+    throw httpError(409, `Booking is already ${booking.status}`);
+  }
+
+  if (!booking.expiresAt || booking.expiresAt <= now) {
+    throw httpError(410, "This seat hold has expired");
+  }
+
+  return booking as IBooking;
+};
+
+export const finalizePaidBooking = async (
+  bookingId: string,
+  userId: string
+) => {
+  if (!Types.ObjectId.isValid(bookingId)) {
+    throw httpError(400, "Invalid booking ID");
   }
 
   const session = await mongoose.startSession();
   try {
     await session.withTransaction(async () => {
-      // Mark booking paid
-      await BookingModel.updateOne(
-        { _id: booking._id, status: "unpaid" },
+      const now = new Date();
+      const booking = await loadPayableBooking(bookingId, userId, now, session);
+
+      // Conditional transition. The guards above are re-stated here so a
+      // concurrent expiry sweep or double submit cannot slip between the read
+      // and the write.
+      //
+      // `matchedCount`, not `modifiedCount`: Mongoose's `timestamps: true`
+      // appends an `updatedAt` bump to every update, so `modifiedCount` is 1
+      // even when the write changed nothing else.
+      const marked = await BookingModel.updateOne(
+        {
+          _id: booking._id,
+          userId: booking.userId,
+          status: "unpaid",
+          expiresAt: { $gt: now },
+        },
         { $set: { status: "paid" } },
         { session }
       );
 
-      // Flip EACH seat to sold using arrayFilters (robust)
+      if (marked.matchedCount !== 1) {
+        throw httpError(409, "Booking is no longer payable");
+      }
+
+      // Sell each seat, requiring that this booking still holds it.
+      //
+      // `$elemMatch` in the FILTER is what makes this safe: it forces every
+      // condition to hold for one and the same array element. Listing the same
+      // conditions as top-level dotted paths would let them match across
+      // different seats. `arrayFilters` then targets that seat by its
+      // coordinates, which the schema guarantees are unique within a map.
       for (const item of booking.items) {
-        const res = await SeatMapModel.updateOne(
-          { eventId: booking.eventId },
+        const { x, y } = item.seatCoords;
+
+        const sold = await SeatMapModel.updateOne(
+          {
+            eventId: booking.eventId,
+            seats: {
+              $elemMatch: {
+                x,
+                y,
+                status: "reserved",
+                reservedBy: booking.userId,
+                reservedUntil: { $gt: now },
+              },
+            },
+          },
           {
             $set: { "seats.$[s].status": "sold" },
             $unset: {
@@ -277,24 +343,17 @@ export const finalizePaidBooking = async (bookingId: string) => {
               "seats.$[s].reservedUntil": "",
             },
           },
-          {
-            arrayFilters: [
-              {
-                "s.x": item.seatCoords.x,
-                "s.y": item.seatCoords.y,
-              },
-            ],
-            session,
-          }
+          { arrayFilters: [{ "s.x": x, "s.y": y }], session }
         );
 
-        if (res.modifiedCount !== 1) {
-          const e = new Error(
-            `Failed to mark seat (${item.seatCoords.x},${item.seatCoords.y}) as sold`
+        // Not held by this booking any more: expired and reclaimed, already
+        // sold, or released. Abort — the transaction rolls the booking back to
+        // unpaid so nothing is half-sold.
+        if (sold.matchedCount !== 1) {
+          throw httpError(
+            409,
+            `Seat (${x},${y}) is no longer held by this booking`
           );
-          // @ts-ignore
-          e.status = 409;
-          throw e;
         }
       }
     });
@@ -303,31 +362,40 @@ export const finalizePaidBooking = async (bookingId: string) => {
   }
 };
 
-export const finalizeFailedBooking = async (bookingId: string) => {
+export const finalizeFailedBooking = async (
+  bookingId: string,
+  userId: string
+) => {
   if (!Types.ObjectId.isValid(bookingId)) {
-    const e = new Error("Invalid booking ID");
-    // @ts-ignore
-    e.status = 400;
-    throw e;
-  }
-
-  const booking = await BookingModel.findById(bookingId).lean();
-  if (!booking) {
-    const e = new Error("Booking not found");
-    // @ts-ignore
-    e.status = 404;
-    throw e;
+    throw httpError(400, "Invalid booking ID");
   }
 
   const session = await mongoose.startSession();
   try {
     await session.withTransaction(async () => {
-      await BookingModel.updateOne(
-        { _id: booking._id, status: "unpaid" },
+      const now = new Date();
+      const booking = await loadPayableBooking(bookingId, userId, now, session);
+
+      const marked = await BookingModel.updateOne(
+        {
+          _id: booking._id,
+          userId: booking.userId,
+          status: "unpaid",
+          expiresAt: { $gt: now },
+        },
         { $set: { status: "failed" } },
         { session }
       );
 
+      // See the note in finalizePaidBooking: `modifiedCount` is unusable here
+      // because `timestamps: true` always bumps `updatedAt`.
+      if (marked.matchedCount !== 1) {
+        throw httpError(409, "Booking is no longer in a failable state");
+      }
+
+      // TODO(WP1.3): this release filter matches across array elements and can
+      // free the wrong seat. Requiring an unexpired hold above limits the blast
+      // radius until arrayFilters lands.
       for (const item of booking.items) {
         await SeatMapModel.updateOne(
           {

@@ -17,6 +17,7 @@ import adminUploadRoutes from "./routes/adminUploadRoutes";
 import venuePublicRoutes from "./routes/venuePublicRoutes";
 import organizerRoutes from "./routes/organizerRoutes";
 import favoritesRoutes from "./routes/favoritesRoutes";
+import configRoutes from "./routes/configRoutes";
 
 /**
  * Builds the Express application.
@@ -75,6 +76,7 @@ export const createApp = (): Express => {
   app.use(passport.initialize());
   app.use(passport.session());
 
+  app.use("/api/config", configRoutes);
   app.use("/api/auth", authRoutes);
   app.use("/api/testAuth", testRoutes);
   app.use("/api/admin", adminRoutes);

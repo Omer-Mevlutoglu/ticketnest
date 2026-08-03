@@ -140,19 +140,42 @@ export function useCheckout(bookingId?: string) {
   const ss = String(remaining % 60).padStart(2, "0");
   const countdown = canPay ? `${mm}:${ss}` : null;
 
+  // Reads the server's error message, whichever key it used. Falls back to the
+  // status code so the user never sees a raw JSON blob.
+  async function readError(res: Response, fallback: string): Promise<string> {
+    try {
+      const body = await res.json();
+      return body?.message || body?.error || fallback;
+    } catch {
+      return fallback;
+    }
+  }
+
+  function paymentErrorFor(status: number, message: string): string {
+    if (status === 410) return "This seat hold has expired. Please book again.";
+    if (status === 409) return message || "These seats are no longer available.";
+    if (status === 404) return "Simulated payments are disabled on this server.";
+    return message;
+  }
+
+  // No amount is sent: the server charges the booking's stored total. A body
+  // here could not change what is paid.
   async function mockPay(): Promise<void> {
     if (!booking) return;
     setPosting("pay");
     try {
       const res = await fetch(
-        `${API_BASE}/api/bookings/${booking._id}/pay-test`,
+        `${API_BASE}/api/bookings/${booking._id}/mock-pay`,
         {
           method: "POST",
           credentials: "include",
         }
       );
-      const text = await res.text();
-      if (!res.ok) throw new Error(text || "Payment failed");
+      if (!res.ok) {
+        throw new Error(
+          paymentErrorFor(res.status, await readError(res, "Payment failed"))
+        );
+      }
     } finally {
       setPosting(null);
     }
@@ -163,14 +186,20 @@ export function useCheckout(bookingId?: string) {
     setPosting("fail");
     try {
       const res = await fetch(
-        `${API_BASE}/api/bookings/${booking._id}/fail-test`,
+        `${API_BASE}/api/bookings/${booking._id}/mock-fail`,
         {
           method: "POST",
           credentials: "include",
         }
       );
-      const text = await res.text();
-      if (!res.ok) throw new Error(text || "Failure call failed");
+      if (!res.ok) {
+        throw new Error(
+          paymentErrorFor(
+            res.status,
+            await readError(res, "Failure call failed")
+          )
+        );
+      }
     } finally {
       setPosting(null);
     }

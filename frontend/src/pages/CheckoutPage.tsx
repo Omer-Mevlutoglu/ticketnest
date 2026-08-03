@@ -4,6 +4,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { useCheckout } from "../hooks/useCheckout";
 import { useMockPayment } from "../hooks/useMockPayment";
+import { useAppConfig } from "../hooks/useAppConfig";
 import BlurCircle from "../components/BlurCircle";
 import Loading from "../components/Loading";
 
@@ -44,7 +45,10 @@ const CheckoutPage: React.FC = () => {
     simulatePaymentDelay,
   } = useMockPayment();
 
-  if (loading) return <Loading />;
+  const { config, loading: configLoading } = useAppConfig();
+  const mockPaymentsEnabled = config?.mockPaymentsEnabled ?? true;
+
+  if (loading || configLoading) return <Loading />;
 
   if (error || !booking) {
     return (
@@ -54,7 +58,7 @@ const CheckoutPage: React.FC = () => {
     );
   }
 
-  const disabled = !canPay || submitting || !!posting;
+  const disabled = !canPay || submitting || !!posting || !mockPaymentsEnabled;
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -158,7 +162,23 @@ const CheckoutPage: React.FC = () => {
           onSubmit={onSubmit}
           className="rounded-lg border border-white/10 bg-white/5 p-4"
         >
-          <p className="font-medium mb-3">Payment Details (Mock)</p>
+          <p className="font-medium mb-1">Payment Details</p>
+          <div className="mb-3 flex items-center gap-2">
+            <span className="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full border border-sky-400/60 text-sky-300">
+              Simulated
+            </span>
+            <span className="text-xs text-gray-400">
+              Demo checkout — no payment provider is involved.
+            </span>
+          </div>
+
+          {!mockPaymentsEnabled && (
+            <div className="mb-3 text-sm text-yellow-300 border border-yellow-400/40 rounded px-3 py-2">
+              Simulated payments are switched off on this server, so this
+              booking cannot be completed here. Your seats stay held until the
+              countdown ends.
+            </div>
+          )}
 
           {formError && (
             <div className="mb-3 text-sm text-rose-300 border border-rose-400/40 rounded px-3 py-2">
@@ -245,8 +265,11 @@ const CheckoutPage: React.FC = () => {
           </div>
 
           <p className="text-xs text-gray-400 mt-3">
-            Test any Luhn-valid card (e.g., 4242 4242 4242 4242). No real
-            payment is made and card data never leaves your browser.
+            Use any Luhn-valid test card (e.g., 4242 4242 4242 4242). No real
+            payment is made, no money moves, and card details never leave your
+            browser — they are validated client-side and never sent to the
+            server. The amount charged is always the booking total stored
+            server-side.
           </p>
         </form>
       </div>

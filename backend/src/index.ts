@@ -4,6 +4,7 @@ import { expireOverdueBookings } from "./services/bookingService";
 import userModel from "./models/userModel";
 import { hashPassword } from "./utils/helperHash";
 import connectDB from "./configs/db";
+import { assertFeatureFlags } from "./configs/features";
 
 dotenv.config();
 
@@ -56,6 +57,9 @@ async function seedAdmins() {
 }
 
 async function bootstrap() {
+  // Fail fast on a malformed flag rather than silently changing behaviour.
+  assertFeatureFlags();
+
   await connectDB();
 
   await migrateUsers();
