@@ -26,10 +26,8 @@ const connectDB = async () => {
 
   isConnected = true;
 
-  process.once("SIGINT", async () => {
-    await mongoose.connection.close();
-    process.exit(0);
-  });
+  // Shutdown is owned by the process bootstrap (index.ts). A `process.exit()`
+  // here would race the graceful path and cut off in-flight work.
 
   return mongoose.connection;
 };

@@ -1,6 +1,7 @@
 import dotenv from "dotenv";
+import mongoose from "mongoose";
 import { createApp } from "./app";
-import { expireOverdueBookings } from "./services/bookingService";
+import { ExpiryWorker } from "./jobs/expiryWorker";
 import userModel from "./models/userModel";
 import { hashPassword } from "./utils/helperHash";
 import connectDB from "./configs/db";
@@ -68,39 +69,32 @@ async function bootstrap() {
 
   await seedAdmins();
 
-  // Auto-expire unpaid bookings (runs every EXPIRE_JOB_MS)
-  // TODO(WP1.5): extract the worker lifecycle and guard against overlapping runs.
-  const runExpireJob = async () => {
-    try {
-      const { expiredCount, releasedSeats } = await expireOverdueBookings();
-      if (expiredCount || releasedSeats) {
-        console.log(
-          `🕒 Auto-expire run → bookings expired: ${expiredCount}, seats released: ${releasedSeats}`
-        );
-      }
-    } catch (err) {
-      console.error("expireOverdueBookings error:", err);
-    }
-  };
-
-  runExpireJob();
-  const expireTimer = setInterval(runExpireJob, EXPIRE_JOB_MS);
-
-  // Clean up on shutdown
-  // TODO(WP5.2): drain in-flight requests before exiting.
-  process.on("SIGINT", () => {
-    clearInterval(expireTimer);
-    process.exit(0);
-  });
-  process.on("SIGTERM", () => {
-    clearInterval(expireTimer);
-    process.exit(0);
-  });
+  // Auto-expire unpaid bookings. Single-instance only — see ExpiryWorker.
+  const expiryWorker = new ExpiryWorker({ intervalMs: EXPIRE_JOB_MS });
+  expiryWorker.start();
 
   const port = Number(process.env.PORT) || 5000;
-  app.listen(port, () => {
+  const server = app.listen(port, () => {
     console.log(`✅ Server is running on port ${port}`);
   });
+
+  // Stop scheduling new sweeps and let the in-flight one finish.
+  // TODO(WP5.2): also drain in-flight HTTP requests and close MongoDB.
+  let shuttingDown = false;
+  const shutdown = async (signal: string) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    console.log(`${signal} received, shutting down…`);
+
+    await expiryWorker.stop();
+    server.close(async () => {
+      await mongoose.connection.close().catch(() => {});
+      process.exit(0);
+    });
+  };
+
+  process.on("SIGINT", () => void shutdown("SIGINT"));
+  process.on("SIGTERM", () => void shutdown("SIGTERM"));
 }
 
 bootstrap().catch((err) => {

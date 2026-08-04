@@ -4,7 +4,67 @@ import SeatMapModel from "../models/seatMapModel";
 import { eventModel } from "../models/eventModel";
 import { httpError } from "../utils/httpError";
 
-const HOLD_MS = 10 * 60 * 1000; 
+const HOLD_MS = 10 * 60 * 1000;
+
+/** Upper bound on how many distinct seats one booking may hold. */
+export const MAX_SEATS_PER_BOOKING = 6;
+
+/**
+ * Releases one seat back to `available`, but only if it is still held by
+ * `holderId`.
+ *
+ * Two things make this correct where the previous implementation was not:
+ *
+ * 1. `$elemMatch` in the FILTER. Listing `"seats.x"`, `"seats.y"` and
+ *    `"seats.reservedBy"` as separate dotted paths lets MongoDB satisfy each
+ *    one from a DIFFERENT array element — so a document could match while no
+ *    single seat met all three conditions, and the positional `$` would then
+ *    update whichever element matched first. That is how cancelling a booking
+ *    could free somebody else's seat. `$elemMatch` requires one element to
+ *    satisfy every condition.
+ *
+ * 2. `matchedCount`, not `modifiedCount`. `timestamps: true` bumps `updatedAt`
+ *    on every update, so `modifiedCount` is 1 even when nothing else changed.
+ *
+ * Returns whether this call is the one that released the seat. A `false` is not
+ * an error: the seat may already have been released, sold, or reclaimed. Every
+ * release path here is idempotent by design.
+ */
+const releaseHeldSeat = async (
+  eventId: Types.ObjectId,
+  holderId: Types.ObjectId,
+  coords: { x: number; y: number },
+  options: {
+    session?: mongoose.ClientSession;
+    /** Only release if the hold had already lapsed by this instant. */
+    expiredAtOrBefore?: Date;
+  } = {}
+): Promise<boolean> => {
+  const heldSeat: Record<string, unknown> = {
+    x: coords.x,
+    y: coords.y,
+    status: "reserved",
+    reservedBy: holderId,
+  };
+
+  if (options.expiredAtOrBefore) {
+    heldSeat.reservedUntil = { $lte: options.expiredAtOrBefore };
+  }
+
+  const res = await SeatMapModel.updateOne(
+    { eventId, seats: { $elemMatch: heldSeat } },
+    {
+      $set: { "seats.$[s].status": "available" },
+      $unset: { "seats.$[s].reservedBy": "", "seats.$[s].reservedUntil": "" },
+    },
+    {
+      arrayFilters: [{ "s.x": coords.x, "s.y": coords.y }],
+      session: options.session,
+    }
+  );
+
+  return res.matchedCount === 1;
+};
 
 export interface CreateBookingDTO {
   eventId: string;
@@ -53,6 +113,15 @@ export const createBookingFromSelection = async (
     // @ts-ignore
     e.status = 400;
     throw e;
+  }
+
+  // Enforced on the de-duplicated set, so repeating a coordinate cannot be used
+  // to slip past the limit — and sending the same seat twice is not an error.
+  if (seats.length > MAX_SEATS_PER_BOOKING) {
+    throw httpError(
+      400,
+      `You can book at most ${MAX_SEATS_PER_BOOKING} seats at a time`
+    );
   }
 
   const now = new Date();
@@ -183,60 +252,69 @@ export const getMyBookings = async (userId: string) => {
     .exec();
 };
 
-export const cancelBooking = async (userId: string, bookingId: string) => {
+/**
+ * Cancels an unpaid booking and releases exactly the seats it holds.
+ *
+ * The booking transition and every seat release happen in one transaction, so a
+ * cancellation is never half-applied.
+ *
+ * Note: the resulting status is `expired`. The schema has no `cancelled` state;
+ * completing that state machine is WP5.3.
+ */
+export const cancelBooking = async (
+  userId: string,
+  bookingId: string
+): Promise<{ releasedSeats: number }> => {
   if (!Types.ObjectId.isValid(bookingId)) {
-    const e = new Error("Invalid booking ID");
-    // @ts-ignore
-    e.status = 400;
-    throw e;
+    throw httpError(400, "Invalid booking ID");
   }
 
-  const booking = await BookingModel.findOne({
-    _id: new Types.ObjectId(bookingId),
-    userId: new Types.ObjectId(userId),
-  }).lean();
-
-  if (!booking) {
-    const e = new Error("Booking not found");
-    // @ts-ignore
-    e.status = 404;
-    throw e;
-  }
-  if (booking.status !== "unpaid") {
-    const e = new Error("Only unpaid bookings can be cancelled");
-    // @ts-ignore
-    e.status = 400;
-    throw e;
-  }
-
+  let releasedSeats = 0;
   const session = await mongoose.startSession();
+
   try {
     await session.withTransaction(async () => {
-      for (const item of booking.items) {
-        await SeatMapModel.updateOne(
-          {
-            eventId: booking.eventId,
-            "seats.x": item.seatCoords.x,
-            "seats.y": item.seatCoords.y,
-            "seats.reservedBy": booking.userId,
-          },
-          {
-            $set: { "seats.$.status": "available" },
-            $unset: { "seats.$.reservedBy": "", "seats.$.reservedUntil": "" },
-          },
-          { session }
-        );
+      // withTransaction retries the callback on transient errors, so any
+      // running total has to be reset here rather than outside.
+      releasedSeats = 0;
+
+      const booking = await BookingModel.findById(bookingId)
+        .session(session)
+        .lean();
+
+      if (!booking) throw httpError(404, "Booking not found");
+      if (booking.userId.toString() !== userId) {
+        throw httpError(403, "You do not own this booking");
+      }
+      if (booking.status !== "unpaid") {
+        throw httpError(409, `Booking is already ${booking.status}`);
       }
 
-      await BookingModel.updateOne(
+      const marked = await BookingModel.updateOne(
         { _id: booking._id, status: "unpaid" },
         { $set: { status: "expired" } },
         { session }
       );
+
+      if (marked.matchedCount !== 1) {
+        throw httpError(409, "Booking is no longer cancellable");
+      }
+
+      for (const item of booking.items) {
+        const released = await releaseHeldSeat(
+          booking.eventId,
+          booking.userId,
+          item.seatCoords,
+          { session }
+        );
+        if (released) releasedSeats++;
+      }
     });
   } finally {
     session.endSession();
   }
+
+  return { releasedSeats };
 };
 
 // Payment finalization.
@@ -393,21 +471,11 @@ export const finalizeFailedBooking = async (
         throw httpError(409, "Booking is no longer in a failable state");
       }
 
-      // TODO(WP1.3): this release filter matches across array elements and can
-      // free the wrong seat. Requiring an unexpired hold above limits the blast
-      // radius until arrayFilters lands.
       for (const item of booking.items) {
-        await SeatMapModel.updateOne(
-          {
-            eventId: booking.eventId,
-            "seats.x": item.seatCoords.x,
-            "seats.y": item.seatCoords.y,
-            "seats.reservedBy": booking.userId,
-          },
-          {
-            $set: { "seats.$.status": "available" },
-            $unset: { "seats.$.reservedBy": "", "seats.$.reservedUntil": "" },
-          },
+        await releaseHeldSeat(
+          booking.eventId,
+          booking.userId,
+          item.seatCoords,
           { session }
         );
       }
@@ -417,10 +485,30 @@ export const finalizeFailedBooking = async (
   }
 };
 
-export const expireOverdueBookings = async () => {
+export interface ExpireOverdueResult {
+  /** Bookings this run moved from `unpaid` to `expired`. */
+  expiredCount: number;
+  /** Seats this run actually returned to `available`. */
+  releasedSeats: number;
+  /** Bookings skipped because releasing their seats failed. */
+  failedCount: number;
+}
+
+/**
+ * Releases lapsed holds and expires the bookings that own them.
+ *
+ * Deliberately not wrapped in a single transaction: it is a sweep over
+ * unrelated bookings, and every write is conditional, so running it twice — or
+ * concurrently with a user cancelling the same booking — converges to the same
+ * state and reports no extra work the second time.
+ *
+ * A booking is only marked expired once its seats are released. If a release
+ * throws, that booking is left alone for the next run rather than being closed
+ * with its seats still locked.
+ */
+export const expireOverdueBookings = async (): Promise<ExpireOverdueResult> => {
   const now = new Date();
 
-  // 1) Find overdue, unpaid bookings
   const overdue = await BookingModel.find({
     status: "unpaid",
     expiresAt: { $lte: now },
@@ -430,49 +518,36 @@ export const expireOverdueBookings = async () => {
 
   let expiredCount = 0;
   let releasedSeats = 0;
+  let failedCount = 0;
 
-  for (const b of overdue) {
-    // 2) Release any seats still held by this booking's user (and already expired)
-    if (b.items?.length) {
-      const bulkOps = b.items.map((item) => ({
-        updateOne: {
-          filter: {
-            eventId: b.eventId,
-            "seats.x": item.seatCoords.x,
-            "seats.y": item.seatCoords.y,
-            "seats.status": "reserved",
-            "seats.reservedBy": b.userId,
-            "seats.reservedUntil": { $lte: now },
-          },
-          update: {
-            $set: { "seats.$.status": "available" },
-            $unset: {
-              "seats.$.reservedBy": "",
-              "seats.$.reservedUntil": "",
-            },
-          },
-        },
-      }));
-
-      if (bulkOps.length) {
-        try {
-          const res = await SeatMapModel.bulkWrite(bulkOps, { ordered: false });
-          // @ts-ignore: bulk result varies by driver version
-          releasedSeats += res?.modifiedCount || 0;
-        } catch (err) {
-          console.error("SeatMap bulk release error:", err);
-        }
+  for (const booking of overdue) {
+    try {
+      for (const item of booking.items ?? []) {
+        const released = await releaseHeldSeat(
+          booking.eventId,
+          booking.userId,
+          item.seatCoords,
+          { expiredAtOrBefore: now }
+        );
+        if (released) releasedSeats++;
       }
+
+      const marked = await BookingModel.updateOne(
+        { _id: booking._id, status: "unpaid" },
+        { $set: { status: "expired" } }
+      ).exec();
+
+      // matchedCount, not modifiedCount: `timestamps: true` makes the latter 1
+      // even when the status filter excluded the document.
+      if (marked.matchedCount === 1) expiredCount++;
+    } catch (err) {
+      failedCount++;
+      console.error(
+        `Failed to expire booking ${String(booking._id)}; leaving it for the next run.`,
+        err
+      );
     }
-
-    // 3) Mark booking expired (only if still unpaid)
-    const upd = await BookingModel.updateOne(
-      { _id: b._id, status: "unpaid" },
-      { $set: { status: "expired" } }
-    ).exec();
-
-    if (upd.modifiedCount === 1) expiredCount++;
   }
 
-  return { expiredCount, releasedSeats };
+  return { expiredCount, releasedSeats, failedCount };
 };
