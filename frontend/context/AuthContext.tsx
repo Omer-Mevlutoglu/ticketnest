@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { resetCsrfToken } from "../src/lib/csrf";
 
 export type Role = "attendee" | "organizer" | "admin" | undefined; // Allow undefined
 
@@ -162,6 +163,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     });
     if (!res.ok) await parseError(res, "Login failed");
 
+    // Login issues a fresh session ID, so any CSRF token bound to the previous
+    // session is now stale.
+    resetCsrfToken();
     await hydrate({ silent: true });
   };
 
@@ -172,6 +176,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         credentials: "include",
       });
     } finally {
+      resetCsrfToken();
       setUser(null);
       saveLocal(null);
     }

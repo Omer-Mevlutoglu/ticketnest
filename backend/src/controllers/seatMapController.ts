@@ -55,10 +55,8 @@ export const upsertSeatMapController = async (
 
     // 3) Respond with the updated/created seat map
     return res.status(200).json(seatMap);
-  } catch (err: any) {
-    // 4) Forward HTTP status from service or default to 500
-    const status = err.status ?? 500;
-    return res.status(status).json({ message: err.message });
+  } catch (err) {
+    return next(err);
   }
 };
 
@@ -74,8 +72,7 @@ export const generateSeatMapFromSpecController = async (
 
     const seatMap = await generateSeatMapFromSpec(eventId, userId, spec);
     return res.status(200).json(seatMap);
-  } catch (err: any) {
-    const status = err.status ?? 500;
-    return res.status(status).json({ message: err.message });
+  } catch (err) {
+    return next(err);
   }
 };

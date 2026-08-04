@@ -76,18 +76,12 @@ export const createBookingFromSelection = async (
   dto: CreateBookingDTO
 ): Promise<IBooking> => {
   if (!Types.ObjectId.isValid(dto.eventId)) {
-    const e = new Error("Invalid event ID");
-    // @ts-ignore
-    e.status = 400;
-    throw e;
+    throw httpError(400, "Invalid event ID");
   }
 
   const event = await eventModel.findById(dto.eventId).lean().exec();
   if (!event || event.status !== "published") {
-    const e = new Error("Event not found or not published");
-    // @ts-ignore
-    e.status = 404;
-    throw e;
+    throw httpError(404, "Event not found or not published");
   }
 
   // De-dup & validate seats
@@ -100,19 +94,13 @@ export const createBookingFromSelection = async (
       !Number.isFinite(s.x) ||
       !Number.isFinite(s.y)
     ) {
-      const e = new Error("Invalid seat coordinates");
-      // @ts-ignore
-      e.status = 400;
-      throw e;
+      throw httpError(400, "Invalid seat coordinates");
     }
     seatMap.set(`${s.x},${s.y}`, { x: s.x, y: s.y });
   }
   const seats = Array.from(seatMap.values());
   if (seats.length === 0) {
-    const e = new Error("No seats provided");
-    // @ts-ignore
-    e.status = 400;
-    throw e;
+    throw httpError(400, "No seats provided");
   }
 
   // Enforced on the de-duplicated set, so repeating a coordinate cannot be used
@@ -146,12 +134,10 @@ export const createBookingFromSelection = async (
     .exec();
 
   if (overlapping) {
-    const e = new Error(
+    throw httpError(
+      409,
       "You already hold one or more of these seats. Complete payment or wait for the hold to expire."
     );
-    // @ts-ignore
-    e.status = 409;
-    throw e;
   }
 
   const session = await mongoose.startSession();
@@ -214,10 +200,7 @@ export const createBookingFromSelection = async (
 
       if (failed.length > 0) {
         const list = failed.map((s) => `(${s.x},${s.y})`).join(", ");
-        const e = new Error(`These seats are no longer available: ${list}`);
-        // @ts-ignore
-        e.status = 409;
-        throw e; 
+        throw httpError(409, `These seats are no longer available: ${list}`); 
       }
 
       const total = items.reduce((sum, i) => sum + i.price, 0);

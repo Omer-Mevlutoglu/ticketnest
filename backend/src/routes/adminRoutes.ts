@@ -26,6 +26,7 @@ import { listAllBookingsController } from "../controllers/adminBookingController
 
 // --- 1. IMPORT USER MODEL ---
 import userModel from "../models/userModel";
+import { httpError } from "../utils/httpError";
 
 const router = Router();
 
@@ -35,24 +36,32 @@ router.get("/users", getUsers);
 
 // --- 2. ADD NEW ROUTES ---
 
+// TODO(WP4.2): these three still talk to the model directly, unlike the rest of
+// the codebase. Move them into adminController + adminService.
+
 // PUT /api/admin/users/:id/set-approval
 router.put("/users/:id/set-approval", async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { isApproved } = req.body; 
+    const { isApproved } = req.body;
 
     if (typeof isApproved !== "boolean") {
-      return res.status(400).json({ message: "Invalid 'isApproved' value." });
+      throw httpError(400, "Invalid 'isApproved' value.");
     }
 
     const updatedUser = await userModel.findByIdAndUpdate(
       id,
-      { $set: { isApproved } },
-      { new: true, select: "-passwordHash" } 
+      {
+        $set: { isApproved },
+        // Withdrawing approval is a privilege removal, so existing sessions
+        // must end. Granting it is not — no reason to sign someone out at the
+        // moment they gain access.
+        ...(isApproved ? {} : { $inc: { sessionVersion: 1 } }),
+      },
+      { new: true, select: "-passwordHash" }
     );
 
-    if (!updatedUser)
-      return res.status(404).json({ message: "User not found." });
+    if (!updatedUser) throw httpError(404, "User not found.");
     res.status(200).json(updatedUser);
   } catch (err) {
     next(err);
@@ -63,13 +72,15 @@ router.put("/users/:id/set-approval", async (req, res, next) => {
 router.put("/users/:id/suspend", async (req, res, next) => {
   try {
     const { id } = req.params;
+    // Suspension has to take effect now, not at the user's next login — which
+    // could be up to fourteen days away. Bumping sessionVersion in the same
+    // write ends every session they currently hold.
     const updatedUser = await userModel.findByIdAndUpdate(
       id,
-      { $set: { isSuspended: true } },
+      { $set: { isSuspended: true }, $inc: { sessionVersion: 1 } },
       { new: true, select: "-passwordHash" }
     );
-    if (!updatedUser)
-      return res.status(404).json({ message: "User not found." });
+    if (!updatedUser) throw httpError(404, "User not found.");
     res.status(200).json(updatedUser);
   } catch (err) {
     next(err);
@@ -80,13 +91,14 @@ router.put("/users/:id/suspend", async (req, res, next) => {
 router.put("/users/:id/unsuspend", async (req, res, next) => {
   try {
     const { id } = req.params;
+    // Also bumps the version: lifting a suspension must not resurrect the
+    // sessions that were open when it was applied.
     const updatedUser = await userModel.findByIdAndUpdate(
       id,
-      { $set: { isSuspended: false } },
+      { $set: { isSuspended: false }, $inc: { sessionVersion: 1 } },
       { new: true, select: "-passwordHash" }
     );
-    if (!updatedUser)
-      return res.status(404).json({ message: "User not found." });
+    if (!updatedUser) throw httpError(404, "User not found.");
     res.status(200).json(updatedUser);
   } catch (err) {
     next(err);

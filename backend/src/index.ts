@@ -3,9 +3,10 @@ import mongoose from "mongoose";
 import { createApp } from "./app";
 import { ExpiryWorker } from "./jobs/expiryWorker";
 import userModel from "./models/userModel";
-import { hashPassword } from "./utils/helperHash";
 import connectDB from "./configs/db";
 import { assertFeatureFlags } from "./configs/features";
+import { getConfig } from "./configs/env";
+import { seedAdmins } from "./services/adminSeedService";
 
 dotenv.config();
 
@@ -32,33 +33,11 @@ async function migrateUsers() {
   }
 }
 
-// TODO(WP2.5): only create the missing admins and require a password change.
-async function seedAdmins() {
-  const adminEmails: string[] = process.env.ADMIN_EMAILS
-    ? JSON.parse(process.env.ADMIN_EMAILS)
-    : [];
-  const missingAdmins: string[] = [];
-  for (const email of adminEmails) {
-    const exists = await userModel.findOne({ email, role: "admin" });
-    if (!exists) missingAdmins.push(email);
-  }
-  if (missingAdmins.length > 0) {
-    for (const email of adminEmails) {
-      const pw = await hashPassword(process.env.ADMIN_INITIAL_PASSWORD!);
-      await userModel.create({
-        username: email.split("@")[0],
-        email,
-        passwordHash: pw,
-        role: "admin",
-        emailVerified: true,
-      });
-      console.log(`✅ Seeded admin account: ${email}`);
-    }
-  }
-}
-
 async function bootstrap() {
-  // Fail fast on a malformed flag rather than silently changing behaviour.
+  // Validate everything the process needs before touching the network. A
+  // missing or malformed value crashes here, naming the variable, rather than
+  // surfacing as broken behaviour hours later.
+  const config = getConfig();
   assertFeatureFlags();
 
   await connectDB();
@@ -67,15 +46,19 @@ async function bootstrap() {
 
   const app = createApp();
 
-  await seedAdmins();
+  // Awaited: an admin account half-created while requests are already being
+  // served is worse than a slower boot.
+  await seedAdmins({
+    emails: config.adminEmails,
+    initialPassword: config.adminInitialPassword,
+  });
 
   // Auto-expire unpaid bookings. Single-instance only — see ExpiryWorker.
   const expiryWorker = new ExpiryWorker({ intervalMs: EXPIRE_JOB_MS });
   expiryWorker.start();
 
-  const port = Number(process.env.PORT) || 5000;
-  const server = app.listen(port, () => {
-    console.log(`✅ Server is running on port ${port}`);
+  const server = app.listen(config.port, () => {
+    console.log(`✅ Server is running on port ${config.port}`);
   });
 
   // Stop scheduling new sweeps and let the in-flight one finish.

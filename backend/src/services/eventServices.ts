@@ -2,6 +2,7 @@ import mongoose, { Types } from "mongoose";
 import { eventModel, IEvent } from "../models/eventModel";
 import venueModel from "../models/venueModel";
 import { upsertSeatMap } from "./seatMapService";
+import { httpError } from "../utils/httpError";
 
 export interface CreateEventDTO {
   title: string;
@@ -26,27 +27,19 @@ export const createEvent = async (
   let existingVenue: any;
   if (eventData.venueType === "template") {
     if (!eventData.templateVenueId) {
-      const e = new Error("templateVenueId is required for template venues");
-      // @ts-ignore
-      e.status = 400;
-      throw e;
+      throw httpError(400, "templateVenueId is required for template venues");
     }
     const oid = new mongoose.Types.ObjectId(eventData.templateVenueId);
     existingVenue = await venueModel.findById(oid).lean().exec();
     if (!existingVenue) {
-      const e = new Error("Selected template venue not found");
-      // @ts-ignore
-      e.status = 404;
-      throw e;
+      throw httpError(404, "Selected template venue not found");
     }
   } else {
     if (!eventData.venueName || !eventData.venueAddress) {
-      const e = new Error(
+      throw httpError(
+        400,
         "venueName and venueAddress are required for custom venues"
       );
-      // @ts-ignore
-      e.status = 400;
-      throw e;
     }
   }
 
@@ -57,28 +50,21 @@ export const createEvent = async (
         !!existingVenue?.defaultSeatMap &&
         existingVenue.defaultSeatMap.length > 0;
       if (!hasTemplateSeats) {
-        const e = new Error(
+        throw httpError(
+          400,
           "Cannot publish: selected template venue has no default seat map."
         );
-        // @ts-ignore
-        e.status = 400;
-        throw e;
       }
     } else {
-      const e = new Error(
+      throw httpError(
+        400,
         "Custom venues cannot be published at creation. Create as draft, add a seat map via PUT /api/events/:id/seatmap, then publish."
       );
-      // @ts-ignore
-      e.status = 400;
-      throw e;
     }
   }
 
   if (eventData.startTime >= eventData.endTime) {
-    const e = new Error("Event startTime must be before endTime");
-    // @ts-ignore
-    e.status = 400;
-    throw e;
+    throw httpError(400, "Event startTime must be before endTime");
   }
   if (
     !Array.isArray(eventData.categories) ||
@@ -86,12 +72,10 @@ export const createEvent = async (
       (cat) => typeof cat === "string" && cat.length <= 30
     )
   ) {
-    const e = new Error(
+    throw httpError(
+      400,
       "Categories must be an array of up to 30-character strings"
     );
-    // @ts-ignore
-    e.status = 400;
-    throw e;
   }
 
   // 3) Build payload for Event model (no seatMap details)
@@ -166,17 +150,11 @@ export const listEvents = async (
 
 export const getEventById = async (id: string): Promise<IEvent> => {
   if (!Types.ObjectId.isValid(id)) {
-    const err = new Error("Invalid Event ID");
-    // @ts-ignore
-    err.status = 400;
-    throw err;
+    throw httpError(400, "Invalid Event ID");
   }
   const event = await eventModel.findById(id).lean().exec();
   if (!event) {
-    const err = new Error("Event not found");
-    // @ts-ignore
-    err.status = 404;
-    throw err;
+    throw httpError(404, "Event not found");
   }
   return event as IEvent;
 };
@@ -237,19 +215,13 @@ export const updateEvent = async (
   userId: string
 ): Promise<IEvent> => {
   if (!Types.ObjectId.isValid(eventId)) {
-    const err = new Error("Invalid event ID");
-    // @ts-ignore
-    err.status = 400;
-    throw err;
+    throw httpError(400, "Invalid event ID");
   }
 
   const existing = await getEventById(eventId);
 
   if (existing.organizerId.toString() !== userId) {
-    const err = new Error("Forbidden: you don’t own this event");
-    // @ts-ignore
-    err.status = 403;
-    throw err;
+    throw httpError(403, "Forbidden: you don’t own this event");
   }
 
   //publishing rules on UPDATE ----
@@ -262,10 +234,7 @@ export const updateEvent = async (
     // Must have a seat map already linked
     const hasSeatMap = !!existing.seatMapId;
     if (!hasSeatMap) {
-      const e = new Error("Cannot publish without a seat map");
-      // @ts-ignore
-      e.status = 400;
-      throw e;
+      throw httpError(400, "Cannot publish without a seat map");
     }
 
     // Optional: disallow switching venue type at publish time
@@ -273,18 +242,12 @@ export const updateEvent = async (
       typeof data.venueType !== "undefined" &&
       data.venueType !== existing.venueType
     ) {
-      const e = new Error("Cannot change venueType when publishing");
-      // @ts-ignore
-      e.status = 400;
-      throw e;
+      throw httpError(400, "Cannot change venueType when publishing");
     }
 
     // Optional: re-check time sanity if updating dates together
     if (data.startTime && data.endTime && data.startTime >= data.endTime) {
-      const e = new Error("Event startTime must be before endTime");
-      // @ts-ignore
-      e.status = 400;
-      throw e;
+      throw httpError(400, "Event startTime must be before endTime");
     }
   }
   // ----------------------------------------
@@ -319,16 +282,10 @@ export const updateEvent = async (
     return updated as IEvent;
   } catch (error: any) {
     if (error.name === "ValidationError") {
-      const e = new Error("Invalid event data");
-      // @ts-ignore
-      e.status = 400;
-      throw e;
+      throw httpError(400, "Invalid event data");
     }
     if (error.code === 11000) {
-      const e = new Error("An event with those details already exists");
-      // @ts-ignore
-      e.status = 409;
-      throw e;
+      throw httpError(409, "An event with those details already exists");
     }
     throw error;
   }
@@ -343,10 +300,7 @@ export const deleteEvent = async (
 
   // 2) Ownership
   if (existing.organizerId.toString() !== userId) {
-    const e = new Error("Forbidden: you don’t own this event");
-    // @ts-ignore
-    e.status = 403;
-    throw e;
+    throw httpError(403, "Forbidden: you don’t own this event");
   }
 
   // 3) Delete

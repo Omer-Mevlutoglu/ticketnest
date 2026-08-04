@@ -36,6 +36,10 @@ export const isMockPaymentsEnabled = (): boolean => {
   return parseBooleanFlag("ENABLE_MOCK_PAYMENTS", raw);
 };
 
+/** Whether the CSRF token layer is active. See middleware/csrf.ts. */
+export const isCsrfTokenCheckEnabled = (): boolean =>
+  process.env.NODE_ENV === "production";
+
 /**
  * Validates every flag at boot so a typo fails fast instead of silently
  * changing behaviour. Call once during bootstrap.

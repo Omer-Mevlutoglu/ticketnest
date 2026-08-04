@@ -23,9 +23,8 @@ export const createEventController = async (
     };
     const event = await createEvent(dto);
     return res.status(201).json(event);
-  } catch (error: any) {
-    const status = error.status ?? 500;
-    return res.status(status).json({ message: error.message });
+  } catch (err) {
+    return next(err);
   }
 };
 
@@ -121,9 +120,8 @@ export const updateEventController = async (
     const event = await updateEvent(req.params.id, req.body, userId);
 
     return res.status(200).json(event);
-  } catch (error: any) {
-    const status = error.status ?? 500;
-    return res.status(status).json({ message: error.message });
+  } catch (err) {
+    return next(err);
   }
 };
 
@@ -136,8 +134,7 @@ export const deleteEventController = async (
     const userId = (req.user as any)._id.toString();
     await deleteEvent(req.params.id, userId);
     return res.status(204).json({ message: "Event deleted successfully" });
-  } catch (err: any) {
-    const status = err.status ?? 500;
-    return res.status(status).json({ message: err.message });
+  } catch (err) {
+    return next(err);
   }
 };

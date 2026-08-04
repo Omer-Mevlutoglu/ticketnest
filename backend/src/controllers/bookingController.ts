@@ -16,9 +16,8 @@ export const createBookingController = async (
     const userId = (req.user as any)._id.toString();
     const booking = await createBookingFromSelection(userId, req.body);
     return res.status(201).json(booking);
-  } catch (err: any) {
-    const status = err.status ?? 500;
-    return res.status(status).json({ message: err.message });
+  } catch (err) {
+    return next(err);
   }
 };
 
@@ -45,9 +44,8 @@ export const cancelBookingController = async (
     const userId = (req.user as any)._id.toString();
     await cancelBooking(userId, req.params.id);
     return res.status(200).json({ message: "Booking cancelled" });
-  } catch (err: any) {
-    const status = err.status ?? 500;
-    return res.status(status).json({ message: err.message });
+  } catch (err) {
+    return next(err);
   }
 };
 

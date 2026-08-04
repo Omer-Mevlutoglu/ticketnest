@@ -9,6 +9,11 @@
 process.env.NODE_ENV = "test";
 
 const defaults: Record<string, string> = {
+  // The suite drives hundreds of requests from one address; without this the
+  // limiters would throttle the tests themselves. The rate-limit tests turn it
+  // off for the cases that need real enforcement.
+  DISABLE_RATE_LIMITS: "true",
+  ENABLE_MOCK_PAYMENTS: "true",
   SESSION_SECRET: "test-session-secret",
   SENDGRID_API_KEY: "SG.test-key-not-real",
   FROM_EMAIL: "no-reply@ticketnest.test",

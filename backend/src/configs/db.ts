@@ -1,12 +1,11 @@
 import mongoose from "mongoose";
+import { getConfig } from "./env";
 
 let isConnected = false;
 
 const connectDB = async () => {
-  const uri = process.env.MONGO_URI || process.env.MONGODB_URI;
-  if (!uri) {
-    throw new Error("MONGO_URI (or MONGODB_URI) is not set in .env");
-  }
+  // Validated at startup — see configs/env.ts.
+  const uri = getConfig().mongoUri;
 
   if (isConnected) return mongoose.connection;
 

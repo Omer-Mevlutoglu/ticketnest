@@ -4,7 +4,16 @@ import mongoose from "mongoose";
 import session from "express-session";
 import MongoStore from "connect-mongo";
 import passport from "passport";
+import helmet from "helmet";
+import cookieParser from "cookie-parser";
 import errorHandler from "./middleware/errorHandler";
+import { rejectStaleSessions } from "./middleware/rejectStaleSessions";
+import { globalLimiter } from "./middleware/rateLimiters";
+import {
+  csrfProtection,
+  issueCsrfToken,
+  validateRequestOrigin,
+} from "./middleware/csrf";
 import "./strategies/local-strategy";
 
 import authRoutes from "./routes/authRoutes";
@@ -18,6 +27,7 @@ import venuePublicRoutes from "./routes/venuePublicRoutes";
 import organizerRoutes from "./routes/organizerRoutes";
 import favoritesRoutes from "./routes/favoritesRoutes";
 import configRoutes from "./routes/configRoutes";
+import { getConfig } from "./configs/env";
 
 /**
  * Builds the Express application.
@@ -38,34 +48,42 @@ export const createApp = (): Express => {
     );
   }
 
+  const config = getConfig();
   const app = express();
 
   // Behind a proxy (Render/Vercel), trust the first hop so secure cookies and
   // client IPs resolve correctly.
   app.set("trust proxy", 1);
 
+  // Security headers first, so they are present even on responses produced by
+  // middleware that runs before the routes.
+  app.use(
+    helmet({
+      // This process serves JSON only; the browser app is hosted separately, so
+      // a CSP here would govern nothing but error pages.
+      contentSecurityPolicy: false,
+      crossOriginResourcePolicy: { policy: "cross-origin" },
+    })
+  );
+
   app.use(
     cors({
-      origin: [
-        "https://ticketnest-iota.vercel.app",
-        "https://ticketnest-l2l3aajc1-omers-projects-44a866c3.vercel.app",
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-      ],
+      origin: config.corsOrigins,
       credentials: true,
     })
   );
-  app.use(express.json());
+  app.use(express.json({ limit: "1mb" }));
+  app.use(cookieParser(config.sessionSecret));
 
   app.use(
     session({
-      secret: process.env.SESSION_SECRET as string,
+      secret: config.sessionSecret,
       resave: false,
       saveUninitialized: false,
       cookie: {
         maxAge: 1000 * 60 * 60 * 24 * 14, // 14 days
-        secure: process.env.NODE_ENV === "production",
-        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+        secure: config.isProduction,
+        sameSite: config.isProduction ? "none" : "lax",
       },
       store: MongoStore.create({
         client: mongoose.connection.getClient(),
@@ -75,6 +93,18 @@ export const createApp = (): Express => {
 
   app.use(passport.initialize());
   app.use(passport.session());
+
+  // Must run directly after passport.session(): everything downstream may then
+  // assume req.user belongs to a session that is still valid.
+  app.use(rejectStaleSessions);
+
+  app.use(globalLimiter);
+
+  // Both CSRF defences apply to every state-changing route below. The token
+  // endpoint itself is a GET, so it is unaffected.
+  app.get("/api/csrf-token", issueCsrfToken);
+  app.use(validateRequestOrigin);
+  app.use(csrfProtection);
 
   app.use("/api/config", configRoutes);
   app.use("/api/auth", authRoutes);

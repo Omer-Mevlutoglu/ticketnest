@@ -1,5 +1,6 @@
 import { Types } from "mongoose";
 import venueModel, { IVenue } from "../models/venueModel";
+import { httpError } from "../utils/httpError";
 
 export interface CreateVenueDTO {
   name: string;
@@ -16,10 +17,7 @@ export const createVenue = async (venueData: CreateVenueDTO) => {
     return await venueModel.create(venueData);
   } catch (err: any) {
     if (err.code === 11000) {
-      const e = new Error("A venue with that name and address already exists");
-      // @ts-ignore
-      e.status = 409;
-      throw e;
+      throw httpError(409, "A venue with that name and address already exists");
     }
     throw err;
   }
@@ -31,27 +29,18 @@ export const getVenues = async () => {
 
 export const getVenueById = async (id: string): Promise<IVenue> => {
   if (!Types.ObjectId.isValid(id)) {
-    const err = new Error("Invalid venue ID");
-    // @ts-ignore
-    err.status = 400;
-    throw err;
+    throw httpError(400, "Invalid venue ID");
   }
   const venue = await venueModel.findById(id).lean().exec();
   if (!venue) {
-    const err = new Error("Venue not found");
-    // @ts-ignore
-    err.status = 404;
-    throw err;
+    throw httpError(404, "Venue not found");
   }
   return venue as IVenue;
 };
 
 export const updateVenue = async (id: string, venueData: CreateVenueDTO) => {
   if (!Types.ObjectId.isValid(id)) {
-    const err = new Error("Invalid venue ID");
-    // @ts-ignore
-    err.status = 400;
-    throw err;
+    throw httpError(400, "Invalid venue ID");
   }
   try {
     const updated = await venueModel
@@ -62,18 +51,12 @@ export const updateVenue = async (id: string, venueData: CreateVenueDTO) => {
       .lean()
       .exec();
     if (!updated) {
-      const err = new Error("Venue not found");
-      // @ts-ignore
-      err.status = 404;
-      throw err;
+      throw httpError(404, "Venue not found");
     }
     return updated as IVenue;
   } catch (err: any) {
     if (err.code === 11000) {
-      const e = new Error("A venue with that name and address already exists");
-      // @ts-ignore
-      e.status = 409;
-      throw e;
+      throw httpError(409, "A venue with that name and address already exists");
     }
     throw err;
   }
@@ -81,16 +64,10 @@ export const updateVenue = async (id: string, venueData: CreateVenueDTO) => {
 
 export const deleteVenue = async (id: string) => {
   if (!Types.ObjectId.isValid(id)) {
-    const err = new Error("Invalid venue ID");
-    // @ts-ignore
-    err.status = 400;
-    throw err;
+    throw httpError(400, "Invalid venue ID");
   }
   const result = await venueModel.findByIdAndDelete(id).exec();
   if (!result) {
-    const err = new Error("Venue not found");
-    // @ts-ignore
-    err.status = 404;
-    throw err;
+    throw httpError(404, "Venue not found");
   }
 };

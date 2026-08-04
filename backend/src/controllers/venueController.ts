@@ -16,9 +16,8 @@ export const createVenueController = async (
     const venue = await createVenue(req.body);
 
     return res.status(201).json(venue);
-  } catch (err: any) {
-    const status = err.status ?? 500;
-    return res.status(status).json({ message: err.message });
+  } catch (err) {
+    return next(err);
   }
 };
 
@@ -30,9 +29,8 @@ export const updateVenueController = async (
   try {
     const venue = await updateVenue(req.params.id, req.body);
     return res.status(200).json(venue);
-  } catch (err: any) {
-    const status = err.status ?? 500;
-    return res.status(status).json({ message: err.message });
+  } catch (err) {
+    return next(err);
   }
 };
 
@@ -44,9 +42,8 @@ export const getActiveVenues = async (
   try {
     const allActiveVenue = await getVenues();
     res.status(200).json(allActiveVenue);
-  } catch (error: any) {
-    const status = error.status ?? 500;
-    return res.status(status).json({ message: error.message });
+  } catch (err) {
+    return next(err);
   }
 };
 
@@ -58,9 +55,8 @@ export const getVenueByIdController = async (
   try {
     const venue = await getVenueById(req.params.id);
     return res.status(200).json(venue);
-  } catch (err: any) {
-    const status = err.status ?? 500;
-    return res.status(status).json({ message: err.message });
+  } catch (err) {
+    return next(err);
   }
 };
 
@@ -72,8 +68,7 @@ export const deleteVenueController = async (
   try {
     await deleteVenue(req.params.id);
     return res.status(200).json({ message: "Venue deleted successfully" });
-  } catch (err: any) {
-    const status = err.status ?? 500;
-    return res.status(status).json({ message: err.message });
+  } catch (err) {
+    return next(err);
   }
 };

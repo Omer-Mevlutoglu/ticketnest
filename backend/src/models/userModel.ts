@@ -9,6 +9,16 @@ export interface IUser extends Document {
   isApproved: boolean;
   isSuspended?: boolean;
   favorites?: Types.ObjectId[];
+  /**
+   * Bumped whenever every existing session for this user must stop working:
+   * password reset, suspension, or a privilege change. Sessions carry the
+   * value they were created with and are rejected when it falls behind.
+   */
+  sessionVersion: number;
+  /** Set on every password change; invalidates reset tokens issued earlier. */
+  passwordChangedAt?: Date;
+  /** Seeded admins must set their own password before doing anything else. */
+  mustChangePassword?: boolean;
 }
 
 const userSchema = new Schema<IUser>(
@@ -26,6 +36,9 @@ const userSchema = new Schema<IUser>(
     isApproved: { type: Boolean, default: true },
     isSuspended: { type: Boolean, default: false },
     favorites: [{ type: Schema.Types.ObjectId, ref: "Event", default: [] }],
+    sessionVersion: { type: Number, default: 0, required: true },
+    passwordChangedAt: { type: Date },
+    mustChangePassword: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

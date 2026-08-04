@@ -2,13 +2,11 @@ import { Types } from "mongoose";
 import SeatMapModel, { ISeatMap } from "../models/seatMapModel";
 import { eventModel } from "../models/eventModel";
 import { getEventById } from "./eventServices";
+import { httpError } from "../utils/httpError";
 
 export const getSeatMap = async (eventId: string): Promise<ISeatMap> => {
   if (!Types.ObjectId.isValid(eventId)) {
-    const err = new Error("Invalid event ID");
-    // @ts-ignore
-    err.status = 400;
-    throw err;
+    throw httpError(400, "Invalid event ID");
   }
 
   const seatMap = await SeatMapModel.findOne({
@@ -18,10 +16,7 @@ export const getSeatMap = async (eventId: string): Promise<ISeatMap> => {
     .exec();
 
   if (!seatMap) {
-    const err = new Error("Seat map not found for this event");
-    // @ts-ignore
-    err.status = 404;
-    throw err;
+    throw httpError(404, "Seat map not found for this event");
   }
 
   return seatMap as ISeatMap;
@@ -43,10 +38,7 @@ export const upsertSeatMap = async (
   // 1) Validate eventId & ownership (reuse getEventById as you did)
   const event = await getEventById(eventId);
   if (event.organizerId.toString() !== userId) {
-    const e = new Error("Forbidden: you don’t own this event");
-    // @ts-ignore
-    e.status = 403;
-    throw e;
+    throw httpError(403, "Forbidden: you don’t own this event");
   }
 
   // 2) Atomic upsert with validation
@@ -65,16 +57,10 @@ export const upsertSeatMap = async (
     return seatMap;
   } catch (err: any) {
     if (err.name === "ValidationError") {
-      const e = new Error("Invalid seat map data");
-      // @ts-ignore
-      e.status = 400;
-      throw e;
+      throw httpError(400, "Invalid seat map data");
     }
     if (err.code === 11000) {
-      const e = new Error("Seat map already exists for this event");
-      // @ts-ignore
-      e.status = 409;
-      throw e;
+      throw httpError(409, "Seat map already exists for this event");
     }
     throw err;
   }
@@ -101,19 +87,16 @@ const MAX_DIM = 200;
 
 const assertIntInRange = (name: string, val: any, min: number, max: number) => {
   if (!Number.isInteger(val) || val < min || val > max) {
-    const e = new Error(`${name} must be an integer between ${min} and ${max}`);
-    // @ts-ignore
-    e.status = 400;
-    throw e;
+    throw httpError(
+      400,
+      `${name} must be an integer between ${min} and ${max}`
+    );
   }
 };
 
 const assertPrice = (name: string, val: any) => {
   if (typeof val !== "number" || !Number.isFinite(val) || val < 0) {
-    const e = new Error(`${name} must be a non-negative number`);
-    // @ts-ignore
-    e.status = 400;
-    throw e;
+    throw httpError(400, `${name} must be a non-negative number`);
   }
 };
 
@@ -123,10 +106,7 @@ export const buildGridSeats = (spec: GridSeatMapSpec): SeatDTO[] => {
   assertIntInRange("cols", spec.cols, 1, MAX_DIM);
 
   if (!spec.default || typeof spec.default.tier !== "string") {
-    const e = new Error("default.tier is required");
-    // @ts-ignore
-    e.status = 400;
-    throw e;
+    throw httpError(400, "default.tier is required");
   }
   assertPrice("default.price", spec.default.price);
 
@@ -143,16 +123,10 @@ export const buildGridSeats = (spec: GridSeatMapSpec): SeatDTO[] => {
         !Array.isArray(rule.rows) ||
         rule.rows.some((n) => !Number.isInteger(n))
       ) {
-        const e = new Error("Each rule.rows must be an array of integers");
-        // @ts-ignore
-        e.status = 400;
-        throw e;
+        throw httpError(400, "Each rule.rows must be an array of integers");
       }
       if (typeof rule.tier !== "string") {
-        const e = new Error("Each rule.tier must be a string");
-        // @ts-ignore
-        e.status = 400;
-        throw e;
+        throw httpError(400, "Each rule.tier must be a string");
       }
       assertPrice("rule.price", rule.price);
 
@@ -177,12 +151,10 @@ export const buildGridSeats = (spec: GridSeatMapSpec): SeatDTO[] => {
         b.y < 1 ||
         b.y > spec.cols
       ) {
-        const e = new Error(
+        throw httpError(
+          400,
           `blockedSeats contains out-of-bounds or invalid coordinate: (${b?.x},${b?.y})`
         );
-        // @ts-ignore
-        e.status = 400;
-        throw e;
       }
       blocked.add(`${b.x},${b.y}`);
     }

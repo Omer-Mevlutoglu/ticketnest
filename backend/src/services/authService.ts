@@ -5,6 +5,8 @@ import passport from "passport";
 import { createApprovalRequest } from "./approvalService";
 import { sendVerificationEmail } from "./emailService";
 import jwt from "jsonwebtoken";
+import { httpError } from "../utils/httpError";
+
 export interface RegisterDTO {
   username: string;
   email: string;
@@ -21,11 +23,7 @@ export const registerUser = async (userData: RegisterDTO) => {
     $or: [{ email }, { username }],
   });
   if (existingUser) {
-    const err = new Error("Email or username already in use");
-    // Attach HTTP status code for your error handler to pick up
-    // @ts-ignore
-    err.status = 409;
-    throw err;
+    throw httpError(409, "Email or username already in use");
   }
 
   const passwordHash = await hashPassword(password);

@@ -1,20 +1,37 @@
 /**
- * Error carrying an HTTP status code.
+ * Error carrying an HTTP status code and a message that is safe to show a user.
  *
- * Replaces the `const e = new Error(); // @ts-ignore; e.status = 400` pattern.
- * Introduced here for the code touched by WP1.1/WP1.2; WP2.1 adopts it across
- * the rest of the codebase and teaches the global handler about it.
+ * Replaces the `const e = new Error(); // @ts-ignore; e.status = 400` pattern
+ * that was repeated ~48 times. Anything thrown that is NOT an `HttpError` is
+ * treated by the global handler as an unexpected fault: it is logged in full
+ * and reported to the client as a generic 500.
  */
 export class HttpError extends Error {
   public readonly status: number;
+  /** Stable machine-readable identifier, e.g. "HOLD_EXPIRED". Optional. */
+  public readonly code?: string;
 
-  constructor(status: number, message: string) {
+  constructor(
+    status: number,
+    message: string,
+    options: { code?: string; cause?: unknown } = {}
+  ) {
     super(message);
     this.name = "HttpError";
     this.status = status;
+    this.code = options.code;
+    if (options.cause !== undefined) {
+      (this as Error).cause = options.cause;
+    }
     Error.captureStackTrace?.(this, HttpError);
   }
 }
 
-export const httpError = (status: number, message: string): HttpError =>
-  new HttpError(status, message);
+export const httpError = (
+  status: number,
+  message: string,
+  options: { code?: string; cause?: unknown } = {}
+): HttpError => new HttpError(status, message, options);
+
+export const isHttpError = (err: unknown): err is HttpError =>
+  err instanceof HttpError;
