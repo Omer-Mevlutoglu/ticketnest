@@ -3,6 +3,7 @@ import {
   createEvent,
   deleteEvent,
   getEventById,
+  getPublishedEventById,
   listEvents,
   updateEvent,
 } from "../services/eventServices";
@@ -78,7 +79,7 @@ export const getMyEventById = async (
 ) => {
   try {
     const user = req.user as any;
-    const event = await getEventById(req.params.id);
+    const event = await getEventById(String(req.params.id));
 
     // Confirm they own it
     if (event.organizerId.toString() !== user._id.toString()) {
@@ -95,14 +96,11 @@ export const getPublicEventById = async (
   next: NextFunction
 ) => {
   try {
-    const event = await getEventById(req.params.id);
-
-    // only allow published (and maybe past) events
-    if (event.status !== "published") {
-      return res.status(404).json({ message: "Event not found" });
-    }
+    // Published and not cancelled — the cancelled check was missing, so a
+    // cancelled event stayed publicly readable.
+    const event = await getPublishedEventById(String(req.params.id));
     return res.status(200).json(event);
-  } catch (err: any) {
+  } catch (err) {
     return next(err);
   }
 };
@@ -117,7 +115,7 @@ export const updateEventController = async (
     const userId = (req.user as any)._id.toString();
 
     // Delegate to service (which now checks ownership internally)
-    const event = await updateEvent(req.params.id, req.body, userId);
+    const event = await updateEvent(String(req.params.id), req.body, userId);
 
     return res.status(200).json(event);
   } catch (err) {
@@ -132,7 +130,7 @@ export const deleteEventController = async (
 ) => {
   try {
     const userId = (req.user as any)._id.toString();
-    await deleteEvent(req.params.id, userId);
+    await deleteEvent(String(req.params.id), userId);
     return res.status(204).json({ message: "Event deleted successfully" });
   } catch (err) {
     return next(err);

@@ -35,7 +35,7 @@ describe("WP2.4 — session and credential invalidation", () => {
       const agent = await loginAgent(app, "reset@example.test");
 
       await expect(
-        agent.get("/api/testAuth/me").then((r) => r.status)
+        agent.get("/api/auth/me").then((r) => r.status)
       ).resolves.toBe(200);
 
       const reset = await request(app).post("/api/auth/reset-password").send({
@@ -45,7 +45,7 @@ describe("WP2.4 — session and credential invalidation", () => {
       expect(reset.status).toBe(200);
 
       // The session opened with the old password is now dead.
-      const after = await agent.get("/api/testAuth/me");
+      const after = await agent.get("/api/auth/me");
       expect(after.status).toBe(401);
       expect(after.body.code).toBe("SESSION_REVOKED");
     });
@@ -109,13 +109,13 @@ describe("WP2.4 — session and credential invalidation", () => {
       const admin = await loginAgent(app, "admin@example.test");
 
       await expect(
-        victim.get("/api/testAuth/me").then((r) => r.status)
+        victim.get("/api/auth/me").then((r) => r.status)
       ).resolves.toBe(200);
 
       const suspend = await admin.put(`/api/admin/users/${user._id}/suspend`);
       expect(suspend.status).toBe(200);
 
-      const after = await victim.get("/api/testAuth/me");
+      const after = await victim.get("/api/auth/me");
       expect(after.status).toBe(403);
       expect(after.body.code).toBe("ACCOUNT_SUSPENDED");
     });
@@ -130,13 +130,13 @@ describe("WP2.4 — session and credential invalidation", () => {
       await admin.put(`/api/admin/users/${user._id}/suspend`);
       await admin.put(`/api/admin/users/${user._id}/unsuspend`);
 
-      const after = await victim.get("/api/testAuth/me");
+      const after = await victim.get("/api/auth/me");
       expect(after.status).toBe(401);
 
       // A fresh login works again.
       const fresh = await loginAgent(app, "back@example.test");
       await expect(
-        fresh.get("/api/testAuth/me").then((r) => r.status)
+        fresh.get("/api/auth/me").then((r) => r.status)
       ).resolves.toBe(200);
     });
 
@@ -151,7 +151,7 @@ describe("WP2.4 — session and credential invalidation", () => {
       await admin.put(`/api/admin/users/${target._id}/suspend`);
 
       await expect(
-        bystander.get("/api/testAuth/me").then((r) => r.status)
+        bystander.get("/api/auth/me").then((r) => r.status)
       ).resolves.toBe(200);
     });
   });
@@ -170,7 +170,7 @@ describe("WP2.4 — session and credential invalidation", () => {
 
       // Granting access should not sign anyone out.
       await expect(
-        member.get("/api/testAuth/me").then((r) => r.status)
+        member.get("/api/auth/me").then((r) => r.status)
       ).resolves.toBe(200);
 
       await admin
@@ -178,7 +178,7 @@ describe("WP2.4 — session and credential invalidation", () => {
         .send({ isApproved: false });
 
       await expect(
-        member.get("/api/testAuth/me").then((r) => r.status)
+        member.get("/api/auth/me").then((r) => r.status)
       ).resolves.toBe(401);
     });
   });
@@ -212,7 +212,7 @@ describe("WP2.4 — session and credential invalidation", () => {
       await userModel.updateOne({ _id: user._id }, { $inc: { sessionVersion: 1 } });
 
       await expect(
-        agent.get("/api/testAuth/me").then((r) => r.status)
+        agent.get("/api/auth/me").then((r) => r.status)
       ).resolves.toBe(401);
     });
   });

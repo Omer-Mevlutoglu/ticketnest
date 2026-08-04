@@ -159,55 +159,23 @@ export const getEventById = async (id: string): Promise<IEvent> => {
   return event as IEvent;
 };
 
-// export const updateEvent = async (
-//   eventId: string,
-//   data: CreateEventDTO,
-//   userId: string
-// ): Promise<IEvent> => {
-//   // 1) Validate eventId
-//   if (!Types.ObjectId.isValid(eventId)) {
-//     const err = new Error("Invalid event ID");
-//     // @ts-ignore
-//     err.status = 400;
-//     throw err;
-//   }
+/**
+ * Fetches an event for an anonymous visitor.
+ *
+ * Anything not published, or cancelled, is reported as absent rather than
+ * forbidden: a 403 would confirm the ID exists and leak an organizer's
+ * unpublished plans.
+ */
+export const getPublishedEventById = async (id: string): Promise<IEvent> => {
+  const event = await getEventById(id);
 
-//   // 2) Fetch the existing event
-//   const existing = await getEventById(eventId);
+  if (event.status !== "published" || event.isCancelled) {
+    throw httpError(404, "Event not found");
+  }
 
-//   // 3) Ownership check
-//   if (existing.organizerId.toString() !== userId) {
-//     const err = new Error("Forbidden: you don’t own this event");
-//     // @ts-ignore
-//     err.status = 403;
-//     throw err;
-//   }
+  return event;
+};
 
-//   // 4) Perform the update with validators
-//   try {
-//     const updated = await eventModel.findByIdAndUpdate(eventId, data, {
-//       new: true,
-//       runValidators: true,
-//     });
-//     // (Since we know it existed, updated should never be null)
-//     return updated as IEvent;
-//   } catch (error: any) {
-//     // 5) Handle validation / duplicate-key
-//     if (error.name === "ValidationError") {
-//       const e = new Error("Invalid event data");
-//       // @ts-ignore
-//       e.status = 400;
-//       throw e;
-//     }
-//     if (error.code === 11000) {
-//       const e = new Error("An event with those details already exists");
-//       // @ts-ignore
-//       e.status = 409;
-//       throw e;
-//     }
-//     throw error;
-//   }
-// };
 
 export const updateEvent = async (
   eventId: string,

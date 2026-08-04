@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { resetCsrfToken } from "../src/lib/csrf";
 
@@ -37,27 +36,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const [user, setUser] = useState<AuthUser>(null);
   const [loading, setLoading] = useState(true); // only for initial boot
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  // const [refreshing, setRefreshing] = useState(false); // --- FIX: REMOVED UNUSED VARIABLE ---
 
   const saveLocal = (u: AuthUser) => {
-    if (u) localStorage.setItem("cj_user", JSON.stringify(u));
-    else localStorage.removeItem("cj_user");
+    if (u) localStorage.setItem("tn_user", JSON.stringify(u));
+    else localStorage.removeItem("tn_user");
   };
 
   // server-first hydrate; support silent mode
   const hydrate = async (opts?: { silent?: boolean }) => {
+    // A silent re-hydrate (on window focus, after login) must not flip the
+    // whole app back to its loading state.
     const silent = !!opts?.silent;
 
-    if (silent) {
-      // setRefreshing(true); // This variable was removed
-    } else {
-      setLoading(true);
-    }
+    if (!silent) setLoading(true);
 
     let u: AuthUser = null;
     try {
-      const res = await fetch(`${API_BASE}/api/testAuth/me`, {
+      const res = await fetch(`${API_BASE}/api/auth/me`, {
         credentials: "include",
       });
       if (res.ok) {
@@ -80,15 +75,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       }
     } catch {
       // offline fallback
-      const raw = localStorage.getItem("cj_user");
+      const raw = localStorage.getItem("tn_user");
       u = raw ? (JSON.parse(raw) as AuthUser) : null;
       setUser(u);
     } finally {
-      if (silent) {
-        // setRefreshing(false); // This variable was removed
-      } else {
-        setLoading(false);
-      }
+      if (!silent) setLoading(false);
     }
     return u;
   };
@@ -98,7 +89,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     const onFocus = () => hydrate({ silent: true });
     window.addEventListener("focus", onFocus);
     const onStorage = (e: StorageEvent) => {
-      if (e.key === "cj_user")
+      if (e.key === "tn_user")
         setUser(e.newValue ? (JSON.parse(e.newValue) as AuthUser) : null);
     };
     window.addEventListener("storage", onStorage);
@@ -109,40 +100,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // *** THIS IS THE CORRECTED FUNCTION ***
-  const parseError = async (res: Response, fallback: string) => {
-    const resForJson = res.clone();
-    const resForText = res.clone();
-    let message = fallback; // Default to fallback
+  /** Extracts the server's message, whatever shape the response took. */
+  const parseError = async (res: Response, fallback: string): Promise<never> => {
+    const asJson = res.clone();
+    const asText = res.clone();
 
+    let message = fallback;
     try {
-      // Try to get JSON message
-      const data = await resForJson.json();
-      if (data && data.message) {
-        message = data.message; // Use backend JSON message
-      } else {
-        // JSON was valid, but no 'message' field. Try text.
-        const text = await resForText.text();
-        if (text) {
-          message = text;
-        }
-      }
-    } catch (e) {
-      // JSON parsing failed. Assume it's plain text.
+      const data = await asJson.json();
+      message = data?.message || data?.error || (await asText.text()) || fallback;
+    } catch {
       try {
-        const text = await resForText.text();
-        if (text) {
-          message = text; // Use backend text message
-        }
-      } catch (textErr) {
-        // Both failed. 'message' will remain the 'fallback'
+        message = (await asText.text()) || fallback;
+      } catch {
+        // Keep the fallback.
       }
     }
 
-    // Throw the final, determined message
     throw new Error(message);
   };
-  // *** END OF CORRECTED FUNCTION ***
 
   const register: AuthContextType["register"] = async (p) => {
     const res = await fetch(`${API_BASE}/api/auth/register`, {

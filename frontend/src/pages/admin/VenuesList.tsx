@@ -52,7 +52,7 @@ const VenuesList: React.FC = () => {
                   {v.images?.length ? (
                     <img
                       // Use API_BASE if paths are relative
-                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                       
                       src={
                         v.images[0].startsWith("/")
                           ? // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -47,7 +47,7 @@ const OrganizerNavBar: React.FC = () => {
       >
         {" "}
         {/* Added min-w-0, mr-2 */}
-        CrowdJoy{" "}
+        TicketNest{" "}
         <span className="text-primary hidden sm:inline">Organizer</span>{" "}
         {/* Hide Organizer on xs */}
       </Link>

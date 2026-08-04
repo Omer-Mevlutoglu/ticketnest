@@ -10,7 +10,7 @@ export const listFavorites = async (req: Request, res: Response) => {
 
 export const addFavorite = async (req: Request, res: Response) => {
   const userId = (req.user as any)._id;
-  const { eventId } = req.params;
+  const eventId = String(req.params.eventId);
 
   if (!Types.ObjectId.isValid(eventId)) {
     return res.status(400).json({ message: "Invalid event ID" });
@@ -26,7 +26,7 @@ export const addFavorite = async (req: Request, res: Response) => {
 
 export const removeFavorite = async (req: Request, res: Response) => {
   const userId = (req.user as any)._id;
-  const { eventId } = req.params;
+  const eventId = String(req.params.eventId);
 
   if (!Types.ObjectId.isValid(eventId)) {
     return res.status(400).json({ message: "Invalid event ID" });
@@ -43,7 +43,7 @@ export const removeFavorite = async (req: Request, res: Response) => {
 // optional: convenience toggle
 export const toggleFavorite = async (req: Request, res: Response) => {
   const userId = (req.user as any)._id;
-  const { eventId } = req.params;
+  const eventId = String(req.params.eventId);
   if (!Types.ObjectId.isValid(eventId)) {
     return res.status(400).json({ message: "Invalid event ID" });
   }

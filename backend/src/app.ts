@@ -17,7 +17,7 @@ import {
 import "./strategies/local-strategy";
 
 import authRoutes from "./routes/authRoutes";
-import testRoutes from "./routes/testRoutes";
+import sessionRoutes from "./routes/sessionRoutes";
 import adminRoutes from "./routes/adminRoutes";
 import eventRoutes from "./routes/eventRoutes";
 import bookingRoutes from "./routes/bookingRoutes";
@@ -107,8 +107,11 @@ export const createApp = (): Express => {
   app.use(csrfProtection);
 
   app.use("/api/config", configRoutes);
+  app.use("/api/auth", sessionRoutes);
   app.use("/api/auth", authRoutes);
-  app.use("/api/testAuth", testRoutes);
+  // DEPRECATED alias for /api/auth/me. Remove once the deployed frontend has
+  // shipped the new path — the two apps deploy separately.
+  app.use("/api/testAuth", sessionRoutes);
   app.use("/api/admin", adminRoutes);
   app.use("/api/events", eventRoutes);
   app.use("/api/bookings", bookingRoutes);

@@ -42,7 +42,7 @@ export const cancelBookingController = async (
 ) => {
   try {
     const userId = (req.user as any)._id.toString();
-    await cancelBooking(userId, req.params.id);
+    await cancelBooking(userId, String(req.params.id));
     return res.status(200).json({ message: "Booking cancelled" });
   } catch (err) {
     return next(err);
@@ -61,7 +61,7 @@ export const markPaidController = async (
 ) => {
   try {
     const userId = (req.user as any)._id.toString();
-    await finalizePaidBooking(req.params.id, userId);
+    await finalizePaidBooking(String(req.params.id), userId);
     return res.status(200).json({ message: "Booking marked as PAID" });
   } catch (err) {
     return next(err);
@@ -76,7 +76,7 @@ export const markFailedController = async (
 ) => {
   try {
     const userId = (req.user as any)._id.toString();
-    await finalizeFailedBooking(req.params.id, userId);
+    await finalizeFailedBooking(String(req.params.id), userId);
     return res.status(200).json({ message: "Booking marked as FAILED" });
   } catch (err) {
     return next(err);

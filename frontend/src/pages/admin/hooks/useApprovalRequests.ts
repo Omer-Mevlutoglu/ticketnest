@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 
 const API_BASE =
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   (import.meta as any).env?.VITE_API_BASE || "http://localhost:5000";
 
 // ✅ match your backend

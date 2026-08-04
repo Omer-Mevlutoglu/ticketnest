@@ -12,7 +12,7 @@ describe("API harness — session authentication", () => {
   });
 
   it("rejects an unauthenticated request", async () => {
-    const res = await request(app).get("/api/testAuth/me");
+    const res = await request(app).get("/api/auth/me");
 
     expect(res.status).toBe(401);
     expect(res.body.message).toBe("Unauthorized");
@@ -22,7 +22,7 @@ describe("API harness — session authentication", () => {
     const { user } = await createAttendee({ email: "session@example.test" });
 
     const agent = await loginAgent(app, "session@example.test");
-    const res = await agent.get("/api/testAuth/me");
+    const res = await agent.get("/api/auth/me");
 
     expect(res.status).toBe(200);
     expect(res.body.user.id).toBe(String(user._id));
@@ -60,8 +60,8 @@ describe("API harness — session authentication", () => {
     const first = await loginAgent(app, "first@example.test");
     const second = await loginAgent(app, "second@example.test");
 
-    const firstMe = await first.get("/api/testAuth/me");
-    const secondMe = await second.get("/api/testAuth/me");
+    const firstMe = await first.get("/api/auth/me");
+    const secondMe = await second.get("/api/auth/me");
 
     expect(firstMe.body.user.email).toBe("first@example.test");
     expect(secondMe.body.user.email).toBe("second@example.test");

@@ -4,7 +4,6 @@ import { Link, useNavigate } from "react-router-dom";
 import { MenuIcon, Search, XIcon } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import logoSrc from "../../assets/images/logo.png";
-const favoriteEvents = ["1", "2"];
 
 function deriveFirstName(user: { email?: string } & Record<string, any>) {
   const username = (user as any)?.username as string | undefined;
@@ -24,6 +23,10 @@ const Navbar: React.FC = () => {
 
   const firstName = user ? deriveFirstName(user) : null;
   const avatarInitial = firstName ? firstName[0].toUpperCase() : "U";
+
+  // Home and Events are public; Favorites is not. Showing it to a logged-out
+  // visitor would just bounce them to the login form.
+  const showFavorites = user?.role === "attendee";
 
   // close dropdown on outside click — unchanged
   useEffect(() => {
@@ -46,7 +49,9 @@ const Navbar: React.FC = () => {
   const handleLogout = async () => {
     await logout();
     setMenuOpen(false);
-    navigate("/login");
+    // Browsing is public, so signing out lands on the home page rather than a
+    // login form.
+    navigate("/");
   };
 
   return (
@@ -85,7 +90,7 @@ const Navbar: React.FC = () => {
               <span className="absolute left-0 -bottom-1 h-[2px] w-0 bg-white/70 transition-all duration-200 hover:w-full" />
             </Link>
 
-            {favoriteEvents.length > 0 && (
+            {showFavorites && (
               <Link
                 to="/favorite"
                 className="relative inline-block text-md font-medium hover:opacity-90 transition"
@@ -188,7 +193,7 @@ const Navbar: React.FC = () => {
           >
             Events
           </Link>
-          {favoriteEvents.length > 0 && (
+          {showFavorites && (
             <Link
               to="/favorite"
               onClick={() => (setIsOpen(false), scrollTo(0, 0))}

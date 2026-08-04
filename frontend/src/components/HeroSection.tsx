@@ -28,7 +28,7 @@ const HeroSection: React.FC = () => {
 
       <p className="max-w-md">
         Discover live events near you—from headline concerts to local shows.
-        Pick your seat, pay securely, and get instant e-tickets with CrowdJoy.
+        Pick your seat, pay securely, and get instant e-tickets with TicketNest.
       </p>
 
       <button

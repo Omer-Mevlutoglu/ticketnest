@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { useAuth } from "../../context/AuthContext";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
 
@@ -26,12 +25,8 @@ const useEvents = () => {
   const [events, setEvents] = useState<ApiEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { user } = useAuth(); // Get the user
 
   useEffect(() => {
-    // Do not fetch if the user is not logged in (per your app's design)
-    if (!user) return;
-
     const ac = new AbortController();
 
     (async () => {
@@ -39,8 +34,9 @@ const useEvents = () => {
         setLoading(true);
         setError(null);
 
+        // Public endpoint — no sign-in required. Credentials are still sent so
+        // a logged-in visitor keeps their session on the same request.
         const res = await fetch(`${API_BASE}/api/events`, {
-          // Add credentials to the fetch, as this is an authenticated route
           credentials: "include",
           signal: ac.signal,
         });
@@ -63,7 +59,7 @@ const useEvents = () => {
     })();
 
     return () => ac.abort();
-  }, [user]); // Re-run if the user logs in
+  }, []);
 
   return { events, loading, error };
 };

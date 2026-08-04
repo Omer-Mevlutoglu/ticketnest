@@ -22,7 +22,7 @@ const AdminNavBar: React.FC = () => {
         <span className="truncate">
           {" "}
           {/* Added truncate for safety */}
-          CrowdJoy <span className="text-primary hidden sm:inline">
+          TicketNest <span className="text-primary hidden sm:inline">
             Admin
           </span>{" "}
           {/* Hide "Admin" below sm */}

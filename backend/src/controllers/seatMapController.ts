@@ -5,6 +5,7 @@ import {
   generateSeatMapFromSpec,
   GridSeatMapSpec,
 } from "../services/seatMapService";
+import { getPublishedEventById } from "../services/eventServices";
 
 export const getSeatMapController = async (
   req: Request,
@@ -12,7 +13,11 @@ export const getSeatMapController = async (
   next: NextFunction
 ) => {
   try {
-    const seatmap = await getSeatMap(req.params.id);
+    // This route is public, so the event must be gated the same way the event
+    // detail page is — otherwise a draft event's seat map is readable by ID.
+    await getPublishedEventById(String(req.params.id));
+
+    const seatmap = await getSeatMap(String(req.params.id));
     const now = new Date();
 
     const safe = {
@@ -46,7 +51,7 @@ export const upsertSeatMapController = async (
 ) => {
   try {
     // 1) Extract and cast
-    const eventId = req.params.id;
+    const eventId = String(req.params.id);
     const userId = (req.user as any)._id.toString();
     const { layoutType, seats } = req.body;
 
@@ -66,7 +71,7 @@ export const generateSeatMapFromSpecController = async (
   next: NextFunction
 ) => {
   try {
-    const eventId = req.params.id;
+    const eventId = String(req.params.id);
     const userId = (req.user as any)._id.toString();
     const spec = req.body as GridSeatMapSpec;
 

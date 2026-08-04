@@ -149,7 +149,7 @@ describe("WP2.3 — security middleware", () => {
       process.env.DISABLE_RATE_LIMITS = "false";
 
       for (let i = 0; i < 25; i++) {
-        const res = await agent.get("/api/testAuth/me");
+        const res = await agent.get("/api/auth/me");
         expect(res.status).toBe(200);
       }
     });

@@ -4,7 +4,7 @@ import Footer from "./components/Footer";
 import Navbar from "./components/Navbar";
 import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
-import { useAuth } from "../context/AuthContext";
+import { useAuth, type Role } from "../context/AuthContext";
 import {
   RequireAuth,
   RequireRole,
@@ -41,6 +41,20 @@ import ForgotPasswordPage from "./pages/auth/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/auth/ResetPasswordPage";
 // Common
 
+/**
+ * Where to send someone who has just signed in.
+ *
+ * `RequireAuth` stores the page they were trying to reach in location state, so
+ * a visitor who clicked through to a seat map lands back on that seat map
+ * rather than on a generic home page.
+ */
+const AfterAuthRedirect: React.FC<{ role: Role }> = ({ role }) => {
+  const location = useLocation();
+  const from = (location.state as { from?: { pathname?: string } } | null)?.from;
+
+  return <Navigate to={from?.pathname ?? roleHomePath(role)} replace />;
+};
+
 const App = () => {
   const pathname = useLocation().pathname;
   const isAdminRoute = pathname.startsWith("/admin");
@@ -62,46 +76,25 @@ const App = () => {
     <>
       <Toaster />
 
-      {!isAdminRoute && !isOrganizerRoute && user && <Navbar />}
+      {/* Chrome renders for anonymous visitors too — otherwise the public
+          pages have no navigation and no way to sign in. */}
+      {!isAdminRoute && !isOrganizerRoute && <Navbar />}
 
       <Routes>
+        {/* === Public browsing === */}
+        {/* Anyone can discover events. Authentication is required from seat
+            selection onwards, which is the first action that holds inventory. */}
+        <Route path="/" element={<Home />} />
+        <Route path="/events" element={<Events />} />
+        <Route path="/events/:id" element={<EventDetails />} />
+
         {/* === Attendee Routes === */}
-        <Route
-          path="/"
-          element={
-            <RequireAuth>
-              <RequireRole roles={["attendee"]}>
-                <Home />
-              </RequireRole>
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/events"
-          element={
-            <RequireAuth>
-              <RequireRole roles={["attendee"]}>
-                <Events />
-              </RequireRole>
-            </RequireAuth>
-          }
-        />
         <Route
           path="/favorite"
           element={
             <RequireAuth>
               <RequireRole roles={["attendee"]}>
                 <Favorites />
-              </RequireRole>
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/events/:id"
-          element={
-            <RequireAuth>
-              <RequireRole roles={["attendee"]}>
-                <EventDetails />
               </RequireRole>
             </RequireAuth>
           }
@@ -194,17 +187,13 @@ const App = () => {
         <Route
           path="/login"
           element={
-            user ? <Navigate to={roleHomePath(user.role)} replace /> : <Login />
+            user ? <AfterAuthRedirect role={user.role} /> : <Login />
           }
         />
         <Route
           path="/register"
           element={
-            user ? (
-              <Navigate to={roleHomePath(user.role)} replace />
-            ) : (
-              <Register />
-            )
+            user ? <AfterAuthRedirect role={user.role} /> : <Register />
           }
         />
 
@@ -213,21 +202,17 @@ const App = () => {
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         {/* === Global Fallback === */}
+        {/* An unknown path sends anonymous visitors to the public home page,
+            not to a login form. */}
         <Route
           path="*"
           element={
-            <RequireAuth>
-              {user ? (
-                <Navigate to={roleHomePath(user.role)} replace />
-              ) : (
-                <Navigate to="/login" replace />
-              )}
-            </RequireAuth>
+            <Navigate to={user ? roleHomePath(user.role) : "/"} replace />
           }
         />
       </Routes>
 
-      {!isAdminRoute && !isOrganizerRoute && user && <Footer />}
+      {!isAdminRoute && !isOrganizerRoute && <Footer />}
     </>
   );
 };

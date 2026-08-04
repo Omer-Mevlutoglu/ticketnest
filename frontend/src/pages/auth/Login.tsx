@@ -8,7 +8,7 @@ import { AlertCircleIcon } from "lucide-react";
 import BlurCircle from "../../components/BlurCircle";
 
 const Login: React.FC = () => {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+   
   // const nav = useNavigate(); // --- FIX: REMOVED UNUSED VARIABLE ---
   const { login, loading } = useAuth(); // Get loading state
 
