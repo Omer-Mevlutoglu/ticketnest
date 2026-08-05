@@ -13,9 +13,8 @@ import { useMyEvent } from "./hooks/useMyEvent"; // --- FIX: Removed unused 'Sea
 import SingleImageUploader from "../../components/organizer/SingleImageUploader"; // Adjust path as needed
 import Loading from "../../components/Loading";
 import BlurCircle from "../../components/BlurCircle";
+import { apiPost, apiPut, errorMessage } from "../../lib/api";
 
-const API_BASE =
-  (import.meta as any).env?.VITE_API_BASE || "http://localhost:5000";
 
 // --- NEW Seat Map Generator Component ---
 // We move the grid generation logic into its own component
@@ -40,20 +39,11 @@ const GridGenerator: React.FC<{
         cols,
         default: { tier, price },
       };
-      const res = await fetch(
-        `${API_BASE}/api/events/${eventId}/seatmap/generate`,
-        {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(spec),
-        }
-      );
-      if (!res.ok) throw new Error(await res.text());
+      await apiPost(`/api/events/${eventId}/seatmap/generate`, spec);
       toast.success("Seat map (re)generated!");
       onGenerated(); // This will call refetch()
-    } catch (e: any) {
-      toast.error(e?.message || "Failed to generate seat map");
+    } catch (e) {
+      toast.error(errorMessage(e, "Failed to generate seat map"));
     } finally {
       setBusy(false);
     }
@@ -192,17 +182,11 @@ const ManageEventPage: React.FC = () => {
         payload.venueAddress = venueAddress;
       }
 
-      const res = await fetch(`${API_BASE}/api/events/${id}`, {
-        method: "PUT",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) throw new Error(await res.text());
+      await apiPut(`/api/events/${id}`, payload);
       toast.success("Event updated");
       refetch();
-    } catch (e: any) {
-      toast.error(e?.message || "Update failed");
+    } catch (e) {
+      toast.error(errorMessage(e, "Update failed"));
     } finally {
       setIsSaving(false);
     }
@@ -212,17 +196,11 @@ const ManageEventPage: React.FC = () => {
     if (!id || isPublishing) return;
     setIsPublishing(true);
     try {
-      const res = await fetch(`${API_BASE}/api/events/${id}`, {
-        method: "PUT",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "published" }),
-      });
-      if (!res.ok) throw new Error(await res.text());
+      await apiPut(`/api/events/${id}`, { status: "published" });
       toast.success("Published!");
       refetch();
-    } catch (e: any) {
-      toast.error(e?.message || "Failed to publish. (Is a seat map set?)");
+    } catch (e) {
+      toast.error(errorMessage(e, "Failed to publish. (Is a seat map set?)"));
     } finally {
       setIsPublishing(false);
     }

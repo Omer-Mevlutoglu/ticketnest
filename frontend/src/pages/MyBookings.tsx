@@ -2,10 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Loading from "../components/Loading";
 import BlurCircle from "../components/BlurCircle";
+import { apiGet, errorMessage, isAbortError } from "../lib/api";
 
-const API_BASE =
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (import.meta as any).env.VITE_API_BASE || "http://localhost:5000";
 
 type BookingItem = {
   seatCoords: { x: number; y: number };
@@ -65,12 +63,7 @@ function useMyBookings() {
 
   async function fetchMine(signal?: AbortSignal) {
     setError(null);
-    const res = await fetch(`${API_BASE}/api/bookings`, {
-      credentials: "include",
-      signal,
-    });
-    if (!res.ok) throw new Error(await res.text());
-    const data: Booking[] = await res.json();
+    const data = await apiGet<Booking[]>(`/api/bookings`, signal);
     setBookings(data);
   }
 
@@ -80,10 +73,9 @@ function useMyBookings() {
       try {
         setLoading(true);
         await fetchMine(ac.signal);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } catch (e: any) {
-        if (e?.name !== "AbortError")
-          setError(e?.message || "Failed to load bookings");
+              } catch (e) {
+        if (!isAbortError(e))
+          setError(errorMessage(e, "Failed to load bookings"));
       } finally {
         setLoading(false);
       }
@@ -119,12 +111,7 @@ function useEventCache(eventIds: string[]) {
       try {
         const results = await Promise.all(
           missing.map(async (id) => {
-            const res = await fetch(`${API_BASE}/api/events/${id}`, {
-              signal: ac.signal,
-              credentials: "include",
-            });
-            if (!res.ok) throw new Error(await res.text());
-            const ev: PublicEvent = await res.json();
+            const ev = await apiGet<PublicEvent>(`/api/events/${id}`, ac.signal);
             return [id, ev] as const;
           })
         );

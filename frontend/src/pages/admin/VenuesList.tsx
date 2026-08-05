@@ -4,6 +4,7 @@ import { PencilIcon, Trash2Icon, PlusIcon, ImageIcon } from "lucide-react";
 
 import { useVenues } from "./hooks/useVenues";
 import BlurCircle from "../../components/BlurCircle";
+import { API_BASE } from "../../lib/api";
 import Loading from "../../components/Loading";
 
 const VenuesList: React.FC = () => {
@@ -51,14 +52,11 @@ const VenuesList: React.FC = () => {
                 <div className="h-14 w-20 sm:h-16 sm:w-24 rounded-md overflow-hidden bg-black/20 grid place-items-center flex-shrink-0">
                   {v.images?.length ? (
                     <img
-                      // Use API_BASE if paths are relative
-                       
+                      // Legacy venues stored a server-relative path; Cloudinary
+                      // uploads store an absolute URL.
                       src={
                         v.images[0].startsWith("/")
-                          ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            `${(import.meta as any).env.VITE_API_BASE || ""}${
-                              v.images[0]
-                            }`
+                          ? `${API_BASE}${v.images[0]}`
                           : v.images[0]
                       }
                       alt={v.name}

@@ -1,11 +1,10 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+ 
 // src/components/admin/MultiImageUploader.tsx
 import React, { useState, useRef } from "react";
 import toast from "react-hot-toast";
 import { UploadCloudIcon, XIcon, Loader2Icon } from "lucide-react";
+import { apiUpload, errorMessage } from "../../lib/api";
 
-const API_BASE =
-  (import.meta as any).env.VITE_API_BASE || "http://localhost:5000";
 
 type Props = {
   label: string;
@@ -36,22 +35,13 @@ const MultiImageUploader: React.FC<Props> = ({
     }
 
     try {
-      const res = await fetch(`${API_BASE}${endpoint}`, {
-        method: "POST",
-        credentials: "include",
-        body: formData,
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || "Upload failed");
-      }
+      const data = await apiUpload<{ urls: string[] }>(endpoint, formData);
 
       // Add new URLs to the existing list
       onChange([...values, ...data.urls]);
       toast.success(`${data.urls.length} image(s) uploaded!`);
-    } catch (err: any) {
-      toast.error(err.message || "Failed to upload images.");
+    } catch (err) {
+      toast.error(errorMessage(err, "Failed to upload images."));
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";

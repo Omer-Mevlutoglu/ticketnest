@@ -1,11 +1,10 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+ 
 // src/components/organizer/SingleImageUploader.tsx
 import React, { useState, useRef } from "react";
 import toast from "react-hot-toast";
 import { UploadCloudIcon, XIcon, Loader2Icon } from "lucide-react";
+import { apiUpload, errorMessage } from "../../lib/api";
 
-const API_BASE =
-  (import.meta as any).env.VITE_API_BASE || "http://localhost:5000";
 
 type Props = {
   label: string;
@@ -34,21 +33,12 @@ const SingleImageUploader: React.FC<Props> = ({
     formData.append(uploadField, file);
 
     try {
-      const res = await fetch(`${API_BASE}${endpoint}`, {
-        method: "POST",
-        credentials: "include",
-        body: formData,
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || "Upload failed");
-      }
+      const data = await apiUpload<{ url: string }>(endpoint, formData);
 
       onChange(data.url); // Update parent state with the new URL
       toast.success("Image uploaded!");
-    } catch (err: any) {
-      toast.error(err.message || "Failed to upload image.");
+    } catch (err) {
+      toast.error(errorMessage(err, "Failed to upload image."));
     } finally {
       setUploading(false);
       // Clear input value to allow re-uploading the same file

@@ -1,8 +1,5 @@
 import { useEffect, useState } from "react";
-
-const API_BASE =
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (import.meta as any).env?.VITE_API_BASE || "http://localhost:5000";
+import { apiGet, isAbortError } from "../lib/api";
 
 export type AppConfig = {
   /** Whether the server still exposes the simulated payment endpoints. */
@@ -24,16 +21,12 @@ export function useAppConfig() {
 
     (async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/config`, {
-          credentials: "include",
-          signal: ac.signal,
-        });
-        if (!res.ok) throw new Error("Failed to load configuration");
-        setConfig((await res.json()) as AppConfig);
-      } catch {
+        setConfig(await apiGet<AppConfig>("/api/config", ac.signal));
+      } catch (e) {
+        if (isAbortError(e)) return;
         // An older backend has no /api/config. Assume the simulated flow is
         // available so checkout keeps working rather than locking users out.
-        if (!ac.signal.aborted) setConfig({ mockPaymentsEnabled: true });
+        setConfig({ mockPaymentsEnabled: true });
       } finally {
         if (!ac.signal.aborted) setLoading(false);
       }

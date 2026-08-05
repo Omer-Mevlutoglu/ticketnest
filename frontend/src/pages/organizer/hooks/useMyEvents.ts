@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { EventDoc } from "./useMyEvent";
+import { apiGet, errorMessage, isAbortError } from "../../../lib/api";
 
-const API_BASE =
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (import.meta as any).env?.VITE_API_BASE || "http://localhost:5000";
 
 export type MyEventsOptions = {
   status?: "draft" | "published" | "archived" | "all";
@@ -17,12 +15,7 @@ export function useMyEvents(opts: MyEventsOptions = {}) {
 
   async function load(signal?: AbortSignal) {
     setError(null);
-    const res = await fetch(`${API_BASE}/api/events/mine`, {
-      credentials: "include",
-      signal,
-    });
-    if (!res.ok) throw new Error(await res.text());
-    const data: EventDoc[] = await res.json();
+    const data = await apiGet<EventDoc[]>(`/api/events/mine`, signal);
     setEvents(data);
   }
 
@@ -32,10 +25,9 @@ export function useMyEvents(opts: MyEventsOptions = {}) {
       try {
         setLoading(true);
         await load(ac.signal);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } catch (e: any) {
-        if (e?.name !== "AbortError") {
-          setError(e?.message || "Failed to load events");
+              } catch (e) {
+        if (!isAbortError(e)) {
+          setError(errorMessage(e, "Failed to load events"));
         }
       } finally {
         setLoading(false);

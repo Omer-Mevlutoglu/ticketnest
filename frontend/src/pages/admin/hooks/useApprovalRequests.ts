@@ -1,18 +1,16 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+ 
 // src/admin/hooks/useApprovalRequests.ts
 import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
+import { apiGet, apiPut, errorMessage, isAbortError } from "../../../lib/api";
 
-const API_BASE =
-   
-  (import.meta as any).env?.VITE_API_BASE || "http://localhost:5000";
 
 // ✅ match your backend
-const LIST_URL = `${API_BASE}/api/admin/organizers/pending`; // GET
+const LIST_URL = `/api/admin/organizers/pending`; // GET
 const APPROVE_URL = (organizerId: string) =>
-  `${API_BASE}/api/admin/organizers/${organizerId}/approve`; // PUT
+  `/api/admin/organizers/${organizerId}/approve`; // PUT
 const REJECT_URL = (organizerId: string) =>
-  `${API_BASE}/api/admin/organizers/${organizerId}/reject`; // PUT
+  `/api/admin/organizers/${organizerId}/reject`; // PUT
 
 export type PopulatedOrganizer = {
   _id: string;
@@ -38,12 +36,7 @@ export function useApprovalRequests() {
 
   async function fetchPending(signal?: AbortSignal) {
     setError(null);
-    const res = await fetch(LIST_URL, {
-      credentials: "include",
-      signal,
-    });
-    if (!res.ok) throw new Error(await res.text());
-    const rows: ApprovalRequest[] = await res.json();
+    const rows = await apiGet<ApprovalRequest[]>(LIST_URL, signal);
     setData(rows);
   }
 
@@ -53,9 +46,9 @@ export function useApprovalRequests() {
       try {
         setLoading(true);
         await fetchPending(ac.signal);
-      } catch (e: any) {
-        if (e?.name !== "AbortError") {
-          setError(e?.message || "Failed to load approval requests");
+      } catch (e) {
+        if (!isAbortError(e)) {
+          setError(errorMessage(e, "Failed to load approval requests"));
         }
       } finally {
         setLoading(false);
@@ -75,15 +68,11 @@ export function useApprovalRequests() {
     try {
       // optimistic update
       setData((rows) => rows.filter((r) => r.organizerId._id !== organizerId));
-      const res = await fetch(APPROVE_URL(organizerId), {
-        method: "PUT", // ✅ verb fix
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error(await res.text());
+      await apiPut(APPROVE_URL(organizerId));
       toast.success("Organizer approved");
-    } catch (e: any) {
+    } catch (e) {
       setData(prev);
-      toast.error(e?.message || "Failed to approve");
+      toast.error(errorMessage(e, "Failed to approve"));
     } finally {
       setBusyId(null);
     }
@@ -95,15 +84,11 @@ export function useApprovalRequests() {
     try {
       // optimistic update
       setData((rows) => rows.filter((r) => r.organizerId._id !== organizerId));
-      const res = await fetch(REJECT_URL(organizerId), {
-        method: "PUT", // ✅ verb fix
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error(await res.text());
+      await apiPut(REJECT_URL(organizerId));
       toast("Request rejected");
-    } catch (e: any) {
+    } catch (e) {
       setData(prev);
-      toast.error(e?.message || "Failed to reject");
+      toast.error(errorMessage(e, "Failed to reject"));
     } finally {
       setBusyId(null);
     }

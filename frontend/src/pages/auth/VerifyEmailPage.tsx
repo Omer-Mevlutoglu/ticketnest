@@ -1,10 +1,9 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+ 
 import React, { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { Loader2Icon, XCircleIcon, CheckCircle2Icon } from "lucide-react";
+import { apiPost, errorMessage } from "../../lib/api";
 
-const API_BASE =
-  (import.meta as any).env.VITE_API_BASE || "http://localhost:5000";
 
 type Status = "loading" | "success" | "error";
 
@@ -25,26 +24,19 @@ const VerifyEmailPage: React.FC = () => {
 
     const verify = async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/auth/verify-email`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token }),
-        });
-
-        const data = await res.json();
-
-        if (!res.ok) {
-          throw new Error(data.message || "Verification failed.");
-        }
+        const data = await apiPost<{ message: string }>(
+          "/api/auth/verify-email",
+          { token }
+        );
 
         setStatus("success");
         setMessage(data.message);
 
         // Redirect to login after 3 seconds
         setTimeout(() => navigate("/login"), 3000);
-      } catch (err: any) {
+      } catch (err) {
         setStatus("error");
-        setMessage(err.message || "An unknown error occurred.");
+        setMessage(errorMessage(err, "An unknown error occurred."));
       }
     };
 

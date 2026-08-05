@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { resetCsrfToken } from "../src/lib/csrf";
+import { apiGet, apiPost, isApiError, resetCsrfToken } from "../src/lib/api";
 
 export type Role = "attendee" | "organizer" | "admin" | undefined; // Allow undefined
 
@@ -9,7 +9,10 @@ export type AuthUser = {
   role: Role;
   isApproved?: boolean;
   username?: string;
+  mustChangePassword?: boolean;
 } | null;
+
+type MeResponse = { user: NonNullable<AuthUser> | null };
 
 type AuthContextType = {
   user: AuthUser;
@@ -27,9 +30,7 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const API_BASE =
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (import.meta as any).env.VITE_API_BASE || "http://localhost:5000";
+const STORAGE_KEY = "tn_user";
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
@@ -38,8 +39,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [loading, setLoading] = useState(true); // only for initial boot
 
   const saveLocal = (u: AuthUser) => {
-    if (u) localStorage.setItem("tn_user", JSON.stringify(u));
-    else localStorage.removeItem("tn_user");
+    if (u) localStorage.setItem(STORAGE_KEY, JSON.stringify(u));
+    else localStorage.removeItem(STORAGE_KEY);
   };
 
   // server-first hydrate; support silent mode
@@ -47,37 +48,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     // A silent re-hydrate (on window focus, after login) must not flip the
     // whole app back to its loading state.
     const silent = !!opts?.silent;
-
     if (!silent) setLoading(true);
 
     let u: AuthUser = null;
     try {
-      const res = await fetch(`${API_BASE}/api/auth/me`, {
-        credentials: "include",
-      });
-      if (res.ok) {
-        const data = await res.json();
-        u = data?.user
-          ? {
-              id: data.user.id,
-              email: data.user.email,
-              role: data.user.role,
-              isApproved: data.user.isApproved,
-              username: data.user.username,
-            }
-          : null;
-        setUser(u);
-        saveLocal(u);
-      } else {
-        // Handle 401 etc.
+      const data = await apiGet<MeResponse>("/api/auth/me");
+      u = data?.user ?? null;
+      setUser(u);
+      saveLocal(u);
+    } catch (err) {
+      if (isApiError(err)) {
+        // A 401 is the normal answer for a signed-out visitor.
         setUser(null);
         saveLocal(null);
+      } else {
+        // Network failure — fall back to the last known user rather than
+        // bouncing someone out of the app because their wifi dropped.
+        const raw = localStorage.getItem(STORAGE_KEY);
+        u = raw ? (JSON.parse(raw) as AuthUser) : null;
+        setUser(u);
       }
-    } catch {
-      // offline fallback
-      const raw = localStorage.getItem("tn_user");
-      u = raw ? (JSON.parse(raw) as AuthUser) : null;
-      setUser(u);
     } finally {
       if (!silent) setLoading(false);
     }
@@ -89,7 +79,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     const onFocus = () => hydrate({ silent: true });
     window.addEventListener("focus", onFocus);
     const onStorage = (e: StorageEvent) => {
-      if (e.key === "tn_user")
+      if (e.key === STORAGE_KEY)
         setUser(e.newValue ? (JSON.parse(e.newValue) as AuthUser) : null);
     };
     window.addEventListener("storage", onStorage);
@@ -100,44 +90,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /** Extracts the server's message, whatever shape the response took. */
-  const parseError = async (res: Response, fallback: string): Promise<never> => {
-    const asJson = res.clone();
-    const asText = res.clone();
-
-    let message = fallback;
-    try {
-      const data = await asJson.json();
-      message = data?.message || data?.error || (await asText.text()) || fallback;
-    } catch {
-      try {
-        message = (await asText.text()) || fallback;
-      } catch {
-        // Keep the fallback.
-      }
-    }
-
-    throw new Error(message);
-  };
-
   const register: AuthContextType["register"] = async (p) => {
-    const res = await fetch(`${API_BASE}/api/auth/register`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(p),
-    });
-    if (!res.ok) await parseError(res, "Registration failed");
+    await apiPost("/api/auth/register", p);
   };
 
   const login: AuthContextType["login"] = async (p) => {
-    const res = await fetch(`${API_BASE}/api/auth/login`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(p),
-    });
-    if (!res.ok) await parseError(res, "Login failed");
+    await apiPost("/api/auth/login", p);
 
     // Login issues a fresh session ID, so any CSRF token bound to the previous
     // session is now stale.
@@ -147,10 +105,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const logout = async () => {
     try {
-      await fetch(`${API_BASE}/api/auth/logout`, {
-        method: "POST",
-        credentials: "include",
-      });
+      await apiPost("/api/auth/logout");
+    } catch {
+      // Sign out locally even if the server call fails.
     } finally {
       resetCsrfToken();
       setUser(null);

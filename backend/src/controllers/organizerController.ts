@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import { getOrganizerStats } from "../services/organizerService";
 import { httpError } from "../utils/httpError";
+import { requireUserIdString } from "../utils/requestUser";
 
 export const organizerStatsController = async (
   req: Request,
@@ -8,7 +9,7 @@ export const organizerStatsController = async (
   next: NextFunction
 ) => {
   try {
-    const userId = (req.user as any)?._id?.toString();
+    const userId = requireUserIdString(req);
     if (!userId) throw httpError(401, "Unauthorized");
 
     const stats = await getOrganizerStats(userId);

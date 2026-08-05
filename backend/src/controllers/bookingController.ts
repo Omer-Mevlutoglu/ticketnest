@@ -6,6 +6,7 @@ import {
   finalizePaidBooking,
   getMyBookings,
 } from "../services/bookingService";
+import { requireUserIdString } from "../utils/requestUser";
 
 export const createBookingController = async (
   req: Request,
@@ -13,7 +14,7 @@ export const createBookingController = async (
   next: NextFunction
 ) => {
   try {
-    const userId = (req.user as any)._id.toString();
+    const userId = requireUserIdString(req);
     const booking = await createBookingFromSelection(userId, req.body);
     return res.status(201).json(booking);
   } catch (err) {
@@ -27,7 +28,7 @@ export const listMyBookingsController = async (
   next: NextFunction
 ) => {
   try {
-    const userId = (req.user as any)._id.toString();
+    const userId = requireUserIdString(req);
     const bookings = await getMyBookings(userId);
     return res.status(200).json(bookings);
   } catch (err) {
@@ -41,7 +42,7 @@ export const cancelBookingController = async (
   next: NextFunction
 ) => {
   try {
-    const userId = (req.user as any)._id.toString();
+    const userId = requireUserIdString(req);
     await cancelBooking(userId, String(req.params.id));
     return res.status(200).json({ message: "Booking cancelled" });
   } catch (err) {
@@ -60,7 +61,7 @@ export const markPaidController = async (
   next: NextFunction
 ) => {
   try {
-    const userId = (req.user as any)._id.toString();
+    const userId = requireUserIdString(req);
     await finalizePaidBooking(String(req.params.id), userId);
     return res.status(200).json({ message: "Booking marked as PAID" });
   } catch (err) {
@@ -75,7 +76,7 @@ export const markFailedController = async (
   next: NextFunction
 ) => {
   try {
-    const userId = (req.user as any)._id.toString();
+    const userId = requireUserIdString(req);
     await finalizeFailedBooking(String(req.params.id), userId);
     return res.status(200).json({ message: "Booking marked as FAILED" });
   } catch (err) {

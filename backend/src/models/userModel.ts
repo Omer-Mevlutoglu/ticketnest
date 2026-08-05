@@ -1,6 +1,9 @@
 import mongoose, { Schema, Document, model, Types } from "mongoose";
 
 export interface IUser extends Document {
+  // Declared explicitly: `Document` types `_id` as `unknown`, which forces a
+  // cast at every call site that reads it.
+  _id: Types.ObjectId;
   username: string;
   email: string;
   passwordHash: string;

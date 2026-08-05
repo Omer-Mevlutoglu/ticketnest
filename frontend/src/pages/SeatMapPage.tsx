@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import Loading from "../components/Loading";
 import BlurCircle from "../components/BlurCircle";
+import { apiGet, apiPost, errorMessage, isAbortError } from "../lib/api";
 
 type Seat = {
   x: number;
@@ -28,10 +29,9 @@ type BookingResponse = {
   // ... other booking fields if needed
 };
 
-const API_BASE =
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (import.meta as any).env.VITE_API_BASE || "http://localhost:5000";
-const MAX_SELECT = 6; // max seats user can select at once
+// Mirrors MAX_SEATS_PER_BOOKING in the backend's bookingService — the server
+// enforces it too, this is only to fail fast in the UI.
+const MAX_SELECT = 6;
 
 const SeatMapPage: React.FC = () => {
   const { id: eventId } = useParams<{ id: string }>();
@@ -57,19 +57,13 @@ const SeatMapPage: React.FC = () => {
         setError(null);
         setSelected(new Map()); // Clear selection when map loads/reloads
 
-        const res = await fetch(`${API_BASE}/api/events/${eventId}/seatmap`, {
-          signal: ac.signal,
-          credentials: "include",
-        });
-        if (!res.ok) throw new Error(await res.text());
-        const data: SeatMap = await res.json();
-        setSeatMap(data);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } catch (e: any) {
-        if (e?.name !== "AbortError") {
-          setError(e?.message || "Failed to load seat map");
-          setSeatMap(null);
-        }
+        setSeatMap(
+          await apiGet<SeatMap>(`/api/events/${eventId}/seatmap`, ac.signal)
+        );
+      } catch (e) {
+        if (isAbortError(e)) return;
+        setError(errorMessage(e, "Failed to load seat map"));
+        setSeatMap(null);
       } finally {
         setLoading(false);
       }
@@ -131,23 +125,15 @@ const SeatMapPage: React.FC = () => {
         x: s.x,
         y: s.y,
       }));
-      const res = await fetch(`${API_BASE}/api/bookings`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ eventId, seats }),
+      const booking = await apiPost<BookingResponse>("/api/bookings", {
+        eventId,
+        seats,
       });
-      if (!res.ok) throw new Error(await res.text());
-      // --- IMPROVED NAVIGATION ---
-      // 1. Get the booking ID from the response
-      const booking: BookingResponse = await res.json();
+
       toast.success("Seats held — complete your checkout!");
-      // 2. Navigate directly to the checkout page for this booking
       navigate(`/checkout/${booking._id}`);
-      // --- END IMPROVEMENT ---
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (e: any) {
-      toast.error(e?.message || "Failed to create booking");
+    } catch (e) {
+      toast.error(errorMessage(e, "Failed to create booking"));
     } finally {
       setIsBooking(false); // Clear booking loading state
     }

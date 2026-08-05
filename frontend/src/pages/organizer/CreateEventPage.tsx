@@ -8,9 +8,8 @@ import { useTemplateVenues } from "./hooks/useTemplateVenues"; // Import Templat
 import SingleImageUploader from "../../components/organizer/SingleImageUploader"; // Adjust path as needed
 import BlurCircle from "../../components/BlurCircle";
 import Loading from "../../components/Loading";
+import { apiPost, errorMessage } from "../../lib/api";
 
-const API_BASE =
-  (import.meta as any).env?.VITE_API_BASE || "http://localhost:5000";
 
 type VenueType = "template" | "custom";
 type Status = "draft" | "published" | "archived";
@@ -143,17 +142,7 @@ const CreateEventPage: React.FC = () => {
         payload.status = "draft"; // enforce on client too for clarity
       }
 
-      const res = await fetch(`${API_BASE}/api/events`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) {
-        const txt = (await res.json())?.message || (await res.text());
-        throw new Error(txt || "Failed to create event");
-      }
-      const ev = await res.json();
+      const ev = await apiPost<{ _id: string }>("/api/events", payload);
 
       // 2) If custom → immediately generate a seat map using grid spec
       if (!isTemplate) {
@@ -185,19 +174,12 @@ const CreateEventPage: React.FC = () => {
           blockedSeats: blockedSeats,
         };
 
-        const genRes = await fetch(
-          `${API_BASE}/api/events/${ev._id}/seatmap/generate`,
-          {
-            method: "POST",
-            credentials: "include",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(spec),
-          }
-        );
-        if (!genRes.ok) {
-          const txt = (await genRes.json())?.message || (await genRes.text());
+        try {
+          await apiPost(`/api/events/${ev._id}/seatmap/generate`, spec);
+        } catch (genErr) {
           toast.error(
-            "Event created, but seat map generation failed: " + (txt || "")
+            "Event created, but seat map generation failed: " +
+              errorMessage(genErr)
           );
           return nav(`/organizer/events/${ev._id}/manage`, { replace: true });
         }
@@ -212,8 +194,8 @@ const CreateEventPage: React.FC = () => {
       );
 
       nav(`/organizer/events/${ev._id}/manage`, { replace: true }); // Go to manage page
-    } catch (e: any) {
-      toast.error(e?.message || "Failed to create event");
+    } catch (e) {
+      toast.error(errorMessage(e, "Failed to create event"));
     } finally {
       setSubmitting(false);
     }

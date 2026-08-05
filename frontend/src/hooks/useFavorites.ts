@@ -1,20 +1,12 @@
 import { useEffect, useState } from "react";
-
-const API_BASE =
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (import.meta as any).env?.VITE_API_BASE || "http://localhost:5000";
+import { apiDelete, apiGet, apiPost } from "../lib/api";
 
 export function useFavorites() {
   const [ids, setIds] = useState<string[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
   async function fetchFavorites(signal?: AbortSignal) {
-    const res = await fetch(`${API_BASE}/api/favorites`, {
-      credentials: "include",
-      signal,
-    });
-    if (!res.ok) throw new Error(await res.text());
-    const arr: string[] = await res.json();
+    const arr = await apiGet<string[]>("/api/favorites", signal);
     setIds(arr.map(String));
   }
 
@@ -25,7 +17,7 @@ export function useFavorites() {
         setLoading(true);
         await fetchFavorites(ac.signal);
       } catch {
-        // ignore
+        // Signed-out visitors have no favourites; nothing to report.
       } finally {
         setLoading(false);
       }
@@ -34,41 +26,25 @@ export function useFavorites() {
   }, []);
 
   async function add(eventId: string) {
-    const res = await fetch(`${API_BASE}/api/favorites/${eventId}`, {
-      method: "POST",
-      credentials: "include",
-    });
-    if (!res.ok) throw new Error(await res.text());
-    const arr: string[] = await res.json();
+    const arr = await apiPost<string[]>(`/api/favorites/${eventId}`);
     setIds(arr.map(String));
   }
 
   async function remove(eventId: string) {
-    const res = await fetch(`${API_BASE}/api/favorites/${eventId}`, {
-      method: "DELETE",
-      credentials: "include",
-    });
-    if (!res.ok) throw new Error(await res.text());
-    const arr: string[] = await res.json();
+    const arr = await apiDelete<string[]>(`/api/favorites/${eventId}`);
     setIds(arr.map(String));
   }
 
   async function toggle(eventId: string) {
-    // optimistic
+    // Optimistic — the star flips immediately and reverts if the call fails.
     const has = ids.includes(eventId);
     setIds((prev) =>
       has ? prev.filter((id) => id !== eventId) : [...prev, eventId]
     );
     try {
-      const res = await fetch(`${API_BASE}/api/favorites/${eventId}/toggle`, {
-        method: "POST",
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error(await res.text());
-      const arr: string[] = await res.json();
+      const arr = await apiPost<string[]>(`/api/favorites/${eventId}/toggle`);
       setIds(arr.map(String));
     } catch {
-      // revert on failure
       setIds((prev) =>
         has ? [...prev, eventId] : prev.filter((id) => id !== eventId)
       );

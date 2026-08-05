@@ -1,6 +1,13 @@
 import { Router } from "express";
 import { register, login, logout } from "../controllers/authController";
-import { validateBody } from "../middleware/validateBody";
+import { validateBody } from "../middleware/validate";
+import {
+  forgotPasswordSchema,
+  loginSchema,
+  registerSchema,
+  resetPasswordSchema,
+  verifyEmailSchema,
+} from "../validation/schemas";
 import userModel from "../models/userModel";
 import jwt from "jsonwebtoken";
 import { hashPassword } from "../utils/helperHash";
@@ -33,26 +40,22 @@ const asTokenError = (err: unknown, expiredMessage: string) => {
 router.post(
   "/register",
   registerLimiter,
-  validateBody([
-    { field: "username", type: "string" },
-    { field: "email", type: "email" },
-    { field: "password", type: "minLength", length: 6 },
-    { field: "role", type: "enum", options: ["attendee", "organizer"] },
-  ]),
+  validateBody(registerSchema),
   register
 );
 
 router.post(
   "/login",
   loginLimiter,
-  validateBody([
-    { field: "email", type: "email" },
-    { field: "password", type: "string" },
-  ]),
+  validateBody(loginSchema),
   login
 );
 
-router.post("/verify-email", tokenLimiter, async (req, res, next) => {
+router.post(
+  "/verify-email",
+  tokenLimiter,
+  validateBody(verifyEmailSchema),
+  async (req, res, next) => {
   try {
     const { token } = req.body;
     if (!token) throw httpError(400, "Token is required.");
@@ -92,6 +95,7 @@ router.post("/verify-email", tokenLimiter, async (req, res, next) => {
 router.post(
   "/forgot-password",
   forgotPasswordLimiter,
+  validateBody(forgotPasswordSchema),
   async (req, res, next) => {
     try {
       const { email } = req.body;
@@ -119,7 +123,11 @@ router.post(
   }
 );
 
-router.post("/reset-password", tokenLimiter, async (req, res, next) => {
+router.post(
+  "/reset-password",
+  tokenLimiter,
+  validateBody(resetPasswordSchema),
+  async (req, res, next) => {
   try {
     const { token, password } = req.body;
     if (!token || !password) {

@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { ensureAuth } from "../middleware/ensureAuth";
+import { requireUser } from "../utils/requestUser";
 
 /**
  * Session hydration for the browser client.
@@ -15,7 +16,7 @@ import { ensureAuth } from "../middleware/ensureAuth";
 const router = Router();
 
 router.get("/me", ensureAuth, (req, res) => {
-  const user = req.user as any;
+  const user = requireUser(req);
 
   res.json({
     user: {

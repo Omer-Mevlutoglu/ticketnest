@@ -7,6 +7,7 @@ import {
   listEvents,
   updateEvent,
 } from "../services/eventServices";
+import { requireUser, requireUserIdString } from "../utils/requestUser";
 
 export const createEventController = async (
   req: Request,
@@ -14,7 +15,7 @@ export const createEventController = async (
   next: NextFunction
 ) => {
   try {
-    const user = req.user as any;
+    const user = requireUser(req);
     if (!user || !user._id) {
       return res.status(401).json({ message: "Not authenticated" });
     }
@@ -51,8 +52,8 @@ export const listMyEvents = async (
   next: NextFunction
 ) => {
   try {
-    const user = req.user as any;
-    const events = await listEvents({ organizerId: user.id.toString() });
+    // `_id`, not the `id` virtual — one form everywhere (C10).
+    const events = await listEvents({ organizerId: requireUserIdString(req) });
     return res.status(200).json(events);
   } catch (err: any) {
     return next(err);
@@ -78,7 +79,7 @@ export const getMyEventById = async (
   next: NextFunction
 ) => {
   try {
-    const user = req.user as any;
+    const user = requireUser(req);
     const event = await getEventById(String(req.params.id));
 
     // Confirm they own it
@@ -112,7 +113,7 @@ export const updateEventController = async (
 ) => {
   try {
     // Extract the authenticated user’s ID
-    const userId = (req.user as any)._id.toString();
+    const userId = requireUserIdString(req);
 
     // Delegate to service (which now checks ownership internally)
     const event = await updateEvent(String(req.params.id), req.body, userId);
@@ -129,7 +130,7 @@ export const deleteEventController = async (
   next: NextFunction
 ) => {
   try {
-    const userId = (req.user as any)._id.toString();
+    const userId = requireUserIdString(req);
     await deleteEvent(String(req.params.id), userId);
     return res.status(204).json({ message: "Event deleted successfully" });
   } catch (err) {

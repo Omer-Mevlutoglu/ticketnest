@@ -1,10 +1,8 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+ 
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
+import { apiDelete, apiGet, apiPost, apiPut, errorMessage, isAbortError } from "../../../lib/api";
 
-const API_BASE =
-   
-  (import.meta as any).env?.VITE_API_BASE || "http://localhost:5000";
 
 export interface Venue {
   _id?: string;
@@ -25,15 +23,10 @@ export function useVenues() {
   async function fetchVenues(signal?: AbortSignal) {
     try {
       setError(null);
-      const res = await fetch(`${API_BASE}/api/admin/venues`, {
-        credentials: "include",
-        signal,
-      });
-      if (!res.ok) throw new Error(await res.text());
-      const data: Venue[] = await res.json();
+      const data = await apiGet<Venue[]>(`/api/admin/venues`, signal);
       setVenues(data);
-    } catch (err: any) {
-      if (err.name !== "AbortError") setError(err.message || "Failed to load");
+    } catch (err) {
+      if (!isAbortError(err)) setError(errorMessage(err, "Failed to load"));
     } finally {
       setLoading(false);
     }
@@ -41,15 +34,11 @@ export function useVenues() {
 
   async function deleteVenue(id: string) {
     try {
-      const res = await fetch(`${API_BASE}/api/admin/venues/${id}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error(await res.text());
+      await apiDelete(`/api/admin/venues/${id}`);
       toast.success("Venue deleted");
       setVenues((prev) => prev.filter((v) => v._id !== id));
-    } catch (e: any) {
-      toast.error(e.message || "Failed to delete");
+    } catch (e) {
+      toast.error(errorMessage(e, "Failed to delete"));
     }
   }
 
@@ -63,24 +52,12 @@ export function useVenues() {
 }
 
 export async function getVenueById(id: string) {
-  const res = await fetch(`${API_BASE}/api/admin/venues/${id}`, {
-    credentials: "include",
-  });
-  if (!res.ok) throw new Error(await res.text());
-  return (await res.json()) as Venue;
+  return apiGet<Venue>(`/api/admin/venues/${id}`);
 }
 
 export async function saveVenue(data: Venue) {
-  const method = data._id ? "PUT" : "POST";
-  const url = data._id
-    ? `${API_BASE}/api/admin/venues/${data._id}`
-    : `${API_BASE}/api/admin/venues`;
-  const res = await fetch(url, {
-    method,
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) throw new Error(await res.text());
-  return (await res.json()) as Venue;
+  // Update when the venue already exists, create otherwise.
+  return data._id
+    ? apiPut<Venue>(`/api/admin/venues/${data._id}`, data)
+    : apiPost<Venue>("/api/admin/venues", data);
 }

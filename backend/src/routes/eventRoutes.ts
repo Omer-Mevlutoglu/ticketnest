@@ -17,6 +17,15 @@ import {
   upsertSeatMapController,
 } from "../controllers/seatMapController";
 
+import { validateBody, validateParams } from "../middleware/validate";
+import {
+  createEventSchema,
+  generateSeatMapSchema,
+  idParamSchema,
+  updateEventSchema,
+  upsertSeatMapSchema,
+} from "../validation/schemas";
+
 const router = Router();
 
 // Public listing
@@ -37,13 +46,14 @@ router.get(
   getMyEventById
 );
 // Public detail
-router.get("/:id", getPublicEventById);
+router.get("/:id", validateParams(idParamSchema), getPublicEventById);
 // Organizer create
 router.post(
   "/",
   ensureAuth,
   ensureRole(["organizer"]),
   ensureApproved,
+  validateBody(createEventSchema),
   createEventController
 );
 
@@ -52,6 +62,8 @@ router.put(
   ensureAuth,
   ensureRole(["organizer"]),
   ensureApproved,
+  validateParams(idParamSchema),
+  validateBody(updateEventSchema),
   updateEventController
 );
 
@@ -60,14 +72,21 @@ router.delete(
   ensureAuth,
   ensureRole(["organizer"]),
   ensureApproved,
+  validateParams(idParamSchema),
   deleteEventController
 );
-router.get("/:id/seatmap", getSeatMapController);
+router.get(
+  "/:id/seatmap",
+  validateParams(idParamSchema),
+  getSeatMapController
+);
 router.put(
   "/:id/seatmap",
   ensureAuth,
   ensureRole(["organizer"]),
   ensureApproved,
+  validateParams(idParamSchema),
+  validateBody(upsertSeatMapSchema),
   upsertSeatMapController
 );
 
@@ -76,6 +95,8 @@ router.post(
   ensureAuth,
   ensureRole(["organizer"]),
   ensureApproved,
+  validateParams(idParamSchema),
+  validateBody(generateSeatMapSchema),
   generateSeatMapFromSpecController
 );
 export default router;

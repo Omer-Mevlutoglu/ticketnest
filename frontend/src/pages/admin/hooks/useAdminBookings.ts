@@ -1,8 +1,6 @@
 import { useEffect, useState } from "react";
+import { apiGet, errorMessage, isAbortError } from "../../../lib/api";
 
-const API_BASE =
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (import.meta as any).env?.VITE_API_BASE || "http://localhost:5000";
 
 export type BookingStatus = "unpaid" | "paid" | "failed" | "expired";
 
@@ -43,15 +41,7 @@ export function useAdminBookings(initialStatus?: BookingStatus | "all") {
     const params = new URLSearchParams();
     if (status && status !== "all") params.set("status", status);
 
-    const res = await fetch(
-      `${API_BASE}/api/admin/bookings?${params.toString()}`,
-      {
-        credentials: "include",
-        signal,
-      }
-    );
-    if (!res.ok) throw new Error(await res.text());
-    const data: BookingRow[] = await res.json();
+    const data = await apiGet<BookingRow[]>(`/api/admin/bookings?${params.toString()}`, signal);
     setBookings(data);
   }
 
@@ -61,10 +51,9 @@ export function useAdminBookings(initialStatus?: BookingStatus | "all") {
       try {
         setLoading(true);
         await fetchAll(ac.signal);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } catch (e: any) {
-        if (e?.name !== "AbortError")
-          setError(e?.message || "Failed to load bookings");
+              } catch (e) {
+        if (!isAbortError(e))
+          setError(errorMessage(e, "Failed to load bookings"));
       } finally {
         setLoading(false);
       }

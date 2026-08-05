@@ -1,9 +1,8 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+ 
 import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast"; // <-- Import toast
+import { apiGet, apiPut, errorMessage, isAbortError } from "../../../lib/api";
 
-const API_BASE =
-  (import.meta as any).env?.VITE_API_BASE || "http://localhost:5000";
 
 export type Role = "attendee" | "organizer" | "admin";
 
@@ -30,12 +29,7 @@ export function useAdminUsers() {
 
   async function fetchAll(signal?: AbortSignal) {
     setError(null);
-    const res = await fetch(`${API_BASE}/api/admin/users`, {
-      credentials: "include",
-      signal,
-    });
-    if (!res.ok) throw new Error(await res.text());
-    const data: AdminUserRow[] = await res.json();
+    const data = await apiGet<AdminUserRow[]>(`/api/admin/users`, signal);
     setUsers(data);
   }
 
@@ -45,9 +39,9 @@ export function useAdminUsers() {
       try {
         setLoading(true);
         await fetchAll(ac.signal);
-      } catch (e: any) {
-        if (e?.name !== "AbortError")
-          setError(e?.message || "Failed to load users");
+      } catch (e) {
+        if (!isAbortError(e))
+          setError(errorMessage(e, "Failed to load users"));
       } finally {
         setLoading(false);
       }
@@ -78,21 +72,12 @@ export function useAdminUsers() {
         currentUsers.map((u) => (u._id === userId ? { ...u, isApproved } : u))
       );
 
-      const res = await fetch(
-        `${API_BASE}/api/admin/users/${userId}/set-approval`,
-        {
-          method: "PUT",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ isApproved }),
-        }
-      );
-      if (!res.ok) throw new Error(await res.text());
+      await apiPut(`/api/admin/users/${userId}/set-approval`, { isApproved });
       toast.success(
         isApproved ? "Organizer Approved" : "Organizer Approval Revoked"
       );
-    } catch (e: any) {
-      toast.error(e.message || "Failed to update status");
+    } catch (e) {
+      toast.error(errorMessage(e, "Failed to update status"));
       setUsers(originalUsers); // Revert on failure
     } finally {
       setBusyId(null);
@@ -110,17 +95,10 @@ export function useAdminUsers() {
         currentUsers.map((u) => (u._id === userId ? { ...u, isSuspended } : u))
       );
 
-      const res = await fetch(
-        `${API_BASE}/api/admin/users/${userId}/${endpoint}`,
-        {
-          method: "PUT",
-          credentials: "include",
-        }
-      );
-      if (!res.ok) throw new Error(await res.text());
+      await apiPut(`/api/admin/users/${userId}/${endpoint}`);
       toast.success(isSuspended ? "User Suspended" : "User Unsuspended");
-    } catch (e: any) {
-      toast.error(e.message || "Failed to update status");
+    } catch (e) {
+      toast.error(errorMessage(e, "Failed to update status"));
       setUsers(originalUsers); // Revert on failure
     } finally {
       setBusyId(null);

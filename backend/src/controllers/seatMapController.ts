@@ -6,6 +6,7 @@ import {
   GridSeatMapSpec,
 } from "../services/seatMapService";
 import { getPublishedEventById } from "../services/eventServices";
+import { requireUserIdString } from "../utils/requestUser";
 
 export const getSeatMapController = async (
   req: Request,
@@ -52,7 +53,7 @@ export const upsertSeatMapController = async (
   try {
     // 1) Extract and cast
     const eventId = String(req.params.id);
-    const userId = (req.user as any)._id.toString();
+    const userId = requireUserIdString(req);
     const { layoutType, seats } = req.body;
 
     // 2) Delegate to service
@@ -72,7 +73,7 @@ export const generateSeatMapFromSpecController = async (
 ) => {
   try {
     const eventId = String(req.params.id);
-    const userId = (req.user as any)._id.toString();
+    const userId = requireUserIdString(req);
     const spec = req.body as GridSeatMapSpec;
 
     const seatMap = await generateSeatMapFromSpec(eventId, userId, spec);

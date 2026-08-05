@@ -1,8 +1,5 @@
 import { useEffect, useState } from "react";
-
-const API_BASE =
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (import.meta as any).env?.VITE_API_BASE || "http://localhost:5000";
+import { apiGet, errorMessage, isAbortError } from "../lib/api";
 
 export type PublicEvent = {
   _id: string;
@@ -29,43 +26,33 @@ export function useFavoriteEvents(ids: string[]) {
       setLoading(true);
 
       try {
-        // Dedup & fetch each id in parallel (no bulk endpoint available)
         const unique = Array.from(new Set(ids)).filter(Boolean);
         if (unique.length === 0) {
           setEvents([]);
           return;
         }
 
+        // TODO(WP4.4): this is one request per favourite. Have GET
+        // /api/favorites populate and return the events instead.
         const results = await Promise.allSettled(
-          unique.map(async (id) => {
-            const res = await fetch(`${API_BASE}/api/events/${id}`, {
-              credentials: "include",
-              signal: ac.signal,
-            });
-            if (!res.ok) throw new Error(await res.text());
-            const ev: PublicEvent = await res.json();
-            return ev;
-          })
+          unique.map((id) => apiGet<PublicEvent>(`/api/events/${id}`, ac.signal))
         );
 
-        // Keep only fulfilled
-        const evs = results
+        const found = results
           .filter(
             (r): r is PromiseFulfilledResult<PublicEvent> =>
               r.status === "fulfilled"
           )
           .map((r) => r.value);
 
-        // Preserve original order (ids array)
-        const byId = new Map(evs.map((e) => [e._id, e]));
+        // Preserve the order of the ids array.
+        const byId = new Map(found.map((e) => [e._id, e]));
         setEvents(
           ids.map((id) => byId.get(id)).filter(Boolean) as PublicEvent[]
         );
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } catch (e: any) {
-        if (e?.name !== "AbortError") {
-          setError(e?.message || "Failed to load favorite events");
-        }
+      } catch (e) {
+        if (isAbortError(e)) return;
+        setError(errorMessage(e, "Failed to load favorite events"));
       } finally {
         setLoading(false);
       }

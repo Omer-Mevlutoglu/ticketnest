@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
+import { apiGet, errorMessage, isAbortError } from "../lib/api";
 
 // This is the full event type from your backend
 export type ApiEvent = {
@@ -34,25 +33,12 @@ const useEvents = () => {
         setLoading(true);
         setError(null);
 
-        // Public endpoint — no sign-in required. Credentials are still sent so
-        // a logged-in visitor keeps their session on the same request.
-        const res = await fetch(`${API_BASE}/api/events`, {
-          credentials: "include",
-          signal: ac.signal,
-        });
-
-        if (!res.ok) {
-          const msg = await res.text();
-          throw new Error(msg || "Failed to load events");
-        }
-        const data: ApiEvent[] = await res.json();
-        setEvents(data);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } catch (e: any) {
-        if (e?.name !== "AbortError") {
-          setError(e?.message || "Failed to load events");
-          setEvents([]);
-        }
+        // Public endpoint — no sign-in required.
+        setEvents(await apiGet<ApiEvent[]>("/api/events", ac.signal));
+      } catch (e) {
+        if (isAbortError(e)) return;
+        setError(errorMessage(e, "Failed to load events"));
+        setEvents([]);
       } finally {
         setLoading(false);
       }
