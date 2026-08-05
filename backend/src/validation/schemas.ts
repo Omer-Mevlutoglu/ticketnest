@@ -192,6 +192,11 @@ export const paginationSchema = z
   })
   .strict();
 
+/** The admin booking list also filters by status. */
+export const adminBookingQuerySchema = paginationSchema.extend({
+  status: z.enum(["unpaid", "paid", "failed", "expired", "refunded"]).optional(),
+});
+
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type CreateEventInput = z.infer<typeof createEventSchema>;
@@ -199,3 +204,4 @@ export type UpdateEventInput = z.infer<typeof updateEventSchema>;
 export type CreateBookingInput = z.infer<typeof createBookingSchema>;
 export type GenerateSeatMapInput = z.infer<typeof generateSeatMapSchema>;
 export type PaginationInput = z.infer<typeof paginationSchema>;
+export type AdminBookingQueryInput = z.infer<typeof adminBookingQuerySchema>;

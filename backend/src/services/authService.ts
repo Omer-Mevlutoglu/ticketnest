@@ -6,6 +6,7 @@ import { createApprovalRequest } from "./approvalService";
 import { sendVerificationEmail } from "./emailService";
 import jwt from "jsonwebtoken";
 import { httpError } from "../utils/httpError";
+import { paginate } from "../utils/pagination";
 
 export interface RegisterDTO {
   username: string;
@@ -73,11 +74,13 @@ export const logoutUser = (req: Request): Promise<void> => {
   });
 };
 
-export const getAllUsers = async () => {
-  const users = await userModel
-    .find({ role: { $ne: "admin" } })
-    .select("-passwordHash")
-    .lean()
-    .exec();
-  return users;
-};
+export const getAllUsers = async (pagination: {
+  page: number;
+  limit: number;
+}) =>
+  paginate(userModel, {
+    filter: { role: { $ne: "admin" } },
+    ...pagination,
+    sort: { createdAt: -1 },
+    select: "-passwordHash",
+  });

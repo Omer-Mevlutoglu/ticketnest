@@ -30,8 +30,9 @@ describe("WP3.1 — public event discovery", () => {
       const res = await request(app).get("/api/events");
 
       expect(res.status).toBe(200);
-      expect(res.body).toHaveLength(1);
-      expect(res.body[0].title).toBe("Public Show");
+      expect(res.body.data).toHaveLength(1);
+      expect(res.body.data[0].title).toBe("Public Show");
+      expect(res.body).toMatchObject({ total: 1, page: 1, pageCount: 1 });
     });
 
     it("opens a published event by id", async () => {
@@ -72,8 +73,8 @@ describe("WP3.1 — public event discovery", () => {
 
         const res = await request(app).get("/api/events");
 
-        expect(res.body).toHaveLength(1);
-        expect(res.body[0].title).toBe("Visible");
+        expect(res.body.data).toHaveLength(1);
+        expect(res.body.data[0].title).toBe("Visible");
       }
     );
 
@@ -82,7 +83,8 @@ describe("WP3.1 — public event discovery", () => {
 
       const res = await request(app).get("/api/events");
 
-      expect(res.body).toHaveLength(0);
+      expect(res.body.data).toHaveLength(0);
+      expect(res.body.total).toBe(0);
     });
 
     it.each(["draft", "archived"] as const)(
@@ -180,7 +182,7 @@ describe("WP3.1 — public event discovery", () => {
 
       expect(res.status).toBe(200);
       // Drafts are hidden publicly but visible to their owner.
-      expect(res.body).toHaveLength(1);
+      expect(res.body.data).toHaveLength(1);
     });
 
     it("keeps admin routes closed to attendees", async () => {

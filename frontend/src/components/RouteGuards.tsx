@@ -1,6 +1,6 @@
 import React from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import { useAuth, type Role } from "../../context/AuthContext";
+import { useAuth, type Role } from "@/context/AuthContext";
 import Loading from "./Loading";
 
 // eslint-disable-next-line react-refresh/only-export-components

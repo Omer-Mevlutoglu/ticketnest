@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { apiGet, errorMessage, isAbortError } from "../lib/api";
+import { apiGetAll, errorMessage, isAbortError } from "../lib/api";
 
 // This is the full event type from your backend
 export type ApiEvent = {
@@ -34,7 +34,7 @@ const useEvents = () => {
         setError(null);
 
         // Public endpoint — no sign-in required.
-        setEvents(await apiGet<ApiEvent[]>("/api/events", ac.signal));
+        setEvents(await apiGetAll<ApiEvent>("/api/events", ac.signal));
       } catch (e) {
         if (isAbortError(e)) return;
         setError(errorMessage(e, "Failed to load events"));

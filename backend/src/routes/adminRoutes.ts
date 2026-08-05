@@ -28,11 +28,17 @@ import {
   unsuspendUserController,
 } from "../controllers/adminUserController";
 
+import { validateQuery } from "../middleware/validate";
+import {
+  adminBookingQuerySchema,
+  paginationSchema,
+} from "../validation/schemas";
+
 const router = Router();
 
 router.use(ensureAuth, ensureRole(["admin"]));
 
-router.get("/users", getUsers);
+router.get("/users", validateQuery(paginationSchema), getUsers);
 
 // User management
 router.put("/users/:id/set-approval", setApprovalController);
@@ -52,7 +58,11 @@ router.get("/venues/:id", getVenueByIdController);
 router.delete("/venues/:id", deleteVenueController);
 router.get("/stats", getStatsController);
 // Events
-router.get("/events", listAllEvents);
-router.get("/bookings", listAllBookingsController);
+router.get("/events", validateQuery(paginationSchema), listAllEvents);
+router.get(
+  "/bookings",
+  validateQuery(adminBookingQuerySchema),
+  listAllBookingsController
+);
 
 export default router;

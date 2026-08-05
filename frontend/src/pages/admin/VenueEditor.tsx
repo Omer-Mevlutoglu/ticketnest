@@ -3,10 +3,10 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { getVenueById, saveVenue, type Venue } from "./hooks/useVenues";
 import toast from "react-hot-toast";
-import MultiImageUploader from "../../components/admin/MultiImageUploader";
+import MultiImageUploader from "@/components/admin/MultiImageUploader";
 import { Grid3X3Icon } from "lucide-react";
-import Loading from "../../components/Loading";
-import BlurCircle from "../../components/BlurCircle";
+import Loading from "@/components/Loading";
+import BlurCircle from "@/components/BlurCircle";
 
 type Seat = {
   x: number;

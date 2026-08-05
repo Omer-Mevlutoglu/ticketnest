@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { apiGet, errorMessage, isAbortError } from "../../../lib/api";
+import { apiGet, errorMessage, isAbortError } from "@/lib/api";
 
 
 export type AdminStats = {

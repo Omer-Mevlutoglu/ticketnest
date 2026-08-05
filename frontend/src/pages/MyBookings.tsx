@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import Loading from "../components/Loading";
+import {
+  EmptyState,
+  ErrorState,
+  ListSkeleton,
+} from "../components/states/StateViews";
 import BlurCircle from "../components/BlurCircle";
 import { apiGet, errorMessage, isAbortError } from "../lib/api";
 
@@ -133,17 +137,26 @@ function useEventCache(eventIds: string[]) {
 }
 
 const MyBookings: React.FC = () => {
-  const { bookings, loading, error } = useMyBookings();
+  const { bookings, loading, error, refetch } = useMyBookings();
   const navigate = useNavigate();
 
   const eventIds = useMemo(() => bookings.map((b) => b.eventId), [bookings]);
   const eventsById = useEventCache(eventIds);
 
-  if (loading) return <Loading />;
+  if (loading) {
+    return (
+      <div className="relative px-6 md:px-16 lg:px-40 pt-30 md:pt-40 min-h-[80vh]">
+        <h1 className="text-lg font-semibold mb-4">My Bookings</h1>
+        <ListSkeleton rows={3} label="Loading bookings" />
+      </div>
+    );
+  }
+
   if (error) {
     return (
-      <div className="min-h-[70vh] grid place-items-center text-center">
-        <p className="text-red-400">{error}</p>
+      <div className="relative px-6 md:px-16 lg:px-40 pt-30 md:pt-40 min-h-[80vh]">
+        <h1 className="text-lg font-semibold mb-4">My Bookings</h1>
+        <ErrorState message={error} onRetry={refetch} />
       </div>
     );
   }
@@ -158,7 +171,11 @@ const MyBookings: React.FC = () => {
       <h1 className="text-lg font-semibold mb-4">My Bookings</h1>
 
       {bookings.length === 0 && (
-        <div className="text-gray-400">No bookings yet.</div>
+        <EmptyState
+          title="No bookings yet"
+          description="Pick an event and choose your seats to get started."
+          action={{ label: "Browse events", to: "/events" }}
+        />
       )}
 
       {bookings.map((b) => {

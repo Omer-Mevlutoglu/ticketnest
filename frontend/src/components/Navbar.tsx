@@ -2,8 +2,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { MenuIcon, Search, XIcon } from "lucide-react";
-import { useAuth } from "../../context/AuthContext";
-import logoSrc from "../../assets/images/logo.png";
+import { useAuth } from "@/context/AuthContext";
+import logoSrc from "@/assets/images/logo.png";
 
 function deriveFirstName(user: { email?: string } & Record<string, any>) {
   const username = (user as any)?.username as string | undefined;

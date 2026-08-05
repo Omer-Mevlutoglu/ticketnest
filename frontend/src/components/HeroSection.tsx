@@ -1,7 +1,7 @@
 import React from "react";
 import { ArrowRight, Calendar1Icon, ClockIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import hLogo from "../../assets/images/hLogo.svg";
+import hLogo from "@/assets/images/hLogo.svg";
 
 const HeroSection: React.FC = () => {
   const navigate = useNavigate();

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { apiGet } from "../../../lib/api";
+import { apiGet, apiGetAll } from "@/lib/api";
 
 
 export type OrganizerEvent = {
@@ -40,7 +40,9 @@ export function useOrganizerDashboard() {
   async function fetchAll(signal?: AbortSignal) {
     setError(null);
     const [evData, stData] = await Promise.all([
-      apiGet<OrganizerEvent[]>("/api/events/mine", signal),
+      // A paginated list…
+      apiGetAll<OrganizerEvent>("/api/events/mine", signal),
+      // …and a plain stats object, which is not paginated.
       apiGet<OrganizerStats>("/api/organizer/stats", signal),
     ]);
 

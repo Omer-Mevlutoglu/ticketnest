@@ -1,5 +1,8 @@
 import { Request, Response, NextFunction } from "express";
 import BookingModel from "../models/bookingModel";
+import { validatedQuery } from "../middleware/validate";
+import { AdminBookingQueryInput } from "../validation/schemas";
+import { paginate } from "../utils/pagination";
 
 export const listAllBookingsController = async (
   req: Request,
@@ -7,22 +10,24 @@ export const listAllBookingsController = async (
   next: NextFunction
 ) => {
   try {
-    const { status } = req.query as { status?: string };
+    const { status, page, limit } = validatedQuery<AdminBookingQueryInput>(req);
 
-    const query: any = {};
-    if (status) query.status = status;
+    const result = await paginate(BookingModel, {
+      filter: status ? { status } : {},
+      page,
+      limit,
+      // Matches the (status, createdAt) index added for this listing.
+      sort: { createdAt: -1 },
+      populate: [
+        { path: "userId", select: "email username role" },
+        {
+          path: "eventId",
+          select: "title startTime endTime venueName venueAddress poster",
+        },
+      ],
+    });
 
-    const bookings = await BookingModel.find(query)
-      .populate("userId", "email username role")
-      .populate(
-        "eventId",
-        "title startTime endTime venueName venueAddress poster"
-      )
-      .sort({ createdAt: -1 })
-      .lean()
-      .exec();
-
-    res.status(200).json(bookings);
+    res.status(200).json(result);
   } catch (err) {
     next(err);
   }

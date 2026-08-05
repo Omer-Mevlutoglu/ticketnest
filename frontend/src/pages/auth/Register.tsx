@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { useAuth } from "../../../context/AuthContext";
-import BlurCircle from "../../components/BlurCircle";
+import { useAuth } from "@/context/AuthContext";
+import BlurCircle from "@/components/BlurCircle";
 import toast from "react-hot-toast";
 
 const Register: React.FC = () => {

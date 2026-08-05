@@ -1,11 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState } from "react";
 import { Link } from "react-router-dom"; // --- FIX: REMOVED useNavigate ---
-import { useAuth } from "../../../context/AuthContext";
+import { useAuth } from "@/context/AuthContext";
 import toast from "react-hot-toast";
 // Import an icon for the error message
 import { AlertCircleIcon } from "lucide-react";
-import BlurCircle from "../../components/BlurCircle";
+import BlurCircle from "@/components/BlurCircle";
 
 const Login: React.FC = () => {
    

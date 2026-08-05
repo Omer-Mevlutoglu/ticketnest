@@ -17,11 +17,16 @@ import {
   upsertSeatMapController,
 } from "../controllers/seatMapController";
 
-import { validateBody, validateParams } from "../middleware/validate";
+import {
+  validateBody,
+  validateParams,
+  validateQuery,
+} from "../middleware/validate";
 import {
   createEventSchema,
   generateSeatMapSchema,
   idParamSchema,
+  paginationSchema,
   updateEventSchema,
   upsertSeatMapSchema,
 } from "../validation/schemas";
@@ -29,13 +34,14 @@ import {
 const router = Router();
 
 // Public listing
-router.get("/", listPublicEvents);
+router.get("/", validateQuery(paginationSchema), listPublicEvents);
 // Organizer’s own
 router.get(
   "/mine",
   ensureAuth,
   ensureRole(["organizer"]),
   ensureApproved,
+  validateQuery(paginationSchema),
   listMyEvents
 );
 router.get(

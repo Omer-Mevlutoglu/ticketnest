@@ -1,6 +1,6 @@
 import React from "react";
-import BlurCircle from "../../components/BlurCircle";
-import Loading from "../../components/Loading";
+import BlurCircle from "@/components/BlurCircle";
+import Loading from "@/components/Loading";
 import { useApprovalRequests } from "./hooks/useApprovalRequests";
 
 const OrganizerApprovals: React.FC = () => {

@@ -8,8 +8,8 @@ import {
   PlusIcon,
 } from "lucide-react";
 import useMyEvents from "./hooks/useMyEvents"; // Assuming hooks are in ./hooks/
-import Loading from "../../components/Loading";
-import BlurCircle from "../../components/BlurCircle";
+import Loading from "@/components/Loading";
+import BlurCircle from "@/components/BlurCircle";
 
 const PLACEHOLDER = "/placeholder.jpg";
 

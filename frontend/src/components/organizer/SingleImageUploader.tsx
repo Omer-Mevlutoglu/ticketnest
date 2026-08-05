@@ -3,7 +3,7 @@
 import React, { useState, useRef } from "react";
 import toast from "react-hot-toast";
 import { UploadCloudIcon, XIcon, Loader2Icon } from "lucide-react";
-import { apiUpload, errorMessage } from "../../lib/api";
+import { apiUpload, errorMessage } from "@/lib/api";
 
 
 type Props = {

@@ -1,7 +1,7 @@
  
 import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast"; // <-- Import toast
-import { apiGet, apiPut, errorMessage, isAbortError } from "../../../lib/api";
+import { apiGetAll, apiPut, errorMessage, isAbortError } from "@/lib/api";
 
 
 export type Role = "attendee" | "organizer" | "admin";
@@ -29,7 +29,7 @@ export function useAdminUsers() {
 
   async function fetchAll(signal?: AbortSignal) {
     setError(null);
-    const data = await apiGet<AdminUserRow[]>(`/api/admin/users`, signal);
+    const data = await apiGetAll<AdminUserRow>("/api/admin/users", signal);
     setUsers(data);
   }
 

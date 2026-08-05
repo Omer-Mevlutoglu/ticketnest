@@ -1,8 +1,8 @@
 import React from "react";
 
 import { useAdminBookings, type BookingStatus } from "./hooks/useAdminBookings";
-import Loading from "../../components/Loading";
-import BlurCircle from "../../components/BlurCircle";
+import Loading from "@/components/Loading";
+import BlurCircle from "@/components/BlurCircle";
 
 const STATUS_OPTIONS: (BookingStatus | "all")[] = [
   "all",

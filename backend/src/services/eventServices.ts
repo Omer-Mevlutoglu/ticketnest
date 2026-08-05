@@ -3,6 +3,7 @@ import { eventModel, IEvent } from "../models/eventModel";
 import venueModel from "../models/venueModel";
 import { upsertSeatMap } from "./seatMapService";
 import { httpError } from "../utils/httpError";
+import { paginate, Page } from "../utils/pagination";
 
 export interface CreateEventDTO {
   title: string;
@@ -130,9 +131,7 @@ export interface ListEventsFilter {
   upcomingOnly?: boolean;
 }
 
-export const listEvents = async (
-  filter: ListEventsFilter
-): Promise<IEvent[]> => {
+const buildEventQuery = (filter: ListEventsFilter) => {
   const query: any = {};
   if (filter.organizerId) {
     query.organizerId = new mongoose.Types.ObjectId(filter.organizerId);
@@ -144,9 +143,31 @@ export const listEvents = async (
   if (filter.upcomingOnly) {
     query.startTime = { $gte: new Date() };
   }
-
-  return eventModel.find(query).lean().exec();
+  return query;
 };
+
+export const listEvents = async (
+  filter: ListEventsFilter
+): Promise<IEvent[]> => {
+  return eventModel.find(buildEventQuery(filter)).lean().exec();
+};
+
+/**
+ * A page of events.
+ *
+ * Sorted by the field each index is built around: upcoming-first for the public
+ * listing, newest-first for an organizer's own. `paginate` adds `_id` as a
+ * tiebreaker so page boundaries are stable.
+ */
+export const listEventsPage = async (
+  filter: ListEventsFilter,
+  pagination: { page: number; limit: number }
+): Promise<Page<IEvent>> =>
+  paginate(eventModel, {
+    filter: buildEventQuery(filter),
+    ...pagination,
+    sort: filter.organizerId ? { createdAt: -1 } : { startTime: 1 },
+  });
 
 export const getEventById = async (id: string): Promise<IEvent> => {
   if (!Types.ObjectId.isValid(id)) {

@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { Loader2Icon, XCircleIcon, CheckCircle2Icon } from "lucide-react";
-import { apiPost, errorMessage } from "../../lib/api";
+import { apiPost, errorMessage } from "@/lib/api";
 
 
 type Status = "loading" | "success" | "error";

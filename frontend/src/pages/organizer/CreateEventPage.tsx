@@ -5,10 +5,10 @@ import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
 import { CalendarIcon, Loader2Icon } from "lucide-react"; // Added Loader2Icon
 import { useTemplateVenues } from "./hooks/useTemplateVenues"; // Import TemplateVenue
-import SingleImageUploader from "../../components/organizer/SingleImageUploader"; // Adjust path as needed
-import BlurCircle from "../../components/BlurCircle";
-import Loading from "../../components/Loading";
-import { apiPost, errorMessage } from "../../lib/api";
+import SingleImageUploader from "@/components/organizer/SingleImageUploader"; // Adjust path as needed
+import BlurCircle from "@/components/BlurCircle";
+import Loading from "@/components/Loading";
+import { apiPost, errorMessage } from "@/lib/api";
 
 
 type VenueType = "template" | "custom";

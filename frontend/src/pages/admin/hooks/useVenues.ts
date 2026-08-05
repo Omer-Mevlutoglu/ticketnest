@@ -1,7 +1,7 @@
  
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
-import { apiDelete, apiGet, apiPost, apiPut, errorMessage, isAbortError } from "../../../lib/api";
+import { apiDelete, apiGet, apiPost, apiPut, errorMessage, isAbortError } from "@/lib/api";
 
 
 export interface Venue {

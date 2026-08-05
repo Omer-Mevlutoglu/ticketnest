@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { AlertCircleIcon } from "lucide-react";
-import { apiPost, errorMessage } from "../../lib/api";
+import { apiPost, errorMessage } from "@/lib/api";
 
 
 const ResetPasswordPage: React.FC = () => {

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { apiGet, errorMessage, isAbortError } from "../../../lib/api";
+import { apiGetAll, errorMessage, isAbortError } from "@/lib/api";
 
 
 export type BookingStatus = "unpaid" | "paid" | "failed" | "expired";
@@ -41,7 +41,10 @@ export function useAdminBookings(initialStatus?: BookingStatus | "all") {
     const params = new URLSearchParams();
     if (status && status !== "all") params.set("status", status);
 
-    const data = await apiGet<BookingRow[]>(`/api/admin/bookings?${params.toString()}`, signal);
+    const data = await apiGetAll<BookingRow>(
+      `/api/admin/bookings?${params.toString()}`,
+      signal
+    );
     setBookings(data);
   }
 

@@ -4,7 +4,7 @@ import Footer from "./components/Footer";
 import Navbar from "./components/Navbar";
 import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
-import { useAuth, type Role } from "../context/AuthContext";
+import { useAuth, type Role } from "@/context/AuthContext";
 import {
   RequireAuth,
   RequireRole,

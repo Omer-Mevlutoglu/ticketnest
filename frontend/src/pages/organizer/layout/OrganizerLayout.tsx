@@ -1,8 +1,8 @@
 import React from "react";
 
 import { Outlet } from "react-router-dom";
-import OrganizerNavBar from "../../../components/organizer/OrganizerNavBar";
-import OrganizerSideBar from "../../../components/organizer/OrganizerSideBar";
+import OrganizerNavBar from "@/components/organizer/OrganizerNavBar";
+import OrganizerSideBar from "@/components/organizer/OrganizerSideBar";
 
 const OrganizerLayout: React.FC = () => {
   return (

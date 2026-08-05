@@ -1,8 +1,8 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import googlePlay from "../../assets/images/googlePlay.svg";
-import appStore from "../../assets/images/appStore.svg";
-import hLogo from "../../assets/images/hLogo.svg";
+import googlePlay from "@/assets/images/googlePlay.svg";
+import appStore from "@/assets/images/appStore.svg";
+import hLogo from "@/assets/images/hLogo.svg";
 const COMPANY = {
   blurb:
     "Lorem Ipsum has been the industry's standard dummy text ever since the 1500s. It survived not only five centuries, but also the leap into electronic typesetting.",

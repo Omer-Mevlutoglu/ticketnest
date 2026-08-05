@@ -2,7 +2,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ChevronDown } from "lucide-react";
-import { useAuth } from "../../../context/AuthContext"; // Adjusted path
+import { useAuth } from "@/context/AuthContext"; // Adjusted path
 
 // Utility function to derive first name (kept from previous version)
 function deriveFirstName(user: { email?: string } & Record<string, any>) {

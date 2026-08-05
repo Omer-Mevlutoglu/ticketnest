@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React from "react";
-import Loading from "../../components/Loading";
-import BlurCircle from "../../components/BlurCircle";
+import Loading from "@/components/Loading";
+import BlurCircle from "@/components/BlurCircle";
 import { Users, UserCheck, CalendarDays, Tickets, Wallet } from "lucide-react";
 import { useAdminStats } from "./hooks/useAdminStats";
 

@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
 import { MailIcon } from "lucide-react";
-import { apiPost, errorMessage } from "../../lib/api";
+import { apiPost, errorMessage } from "@/lib/api";
 
 
 const ForgotPasswordPage: React.FC = () => {

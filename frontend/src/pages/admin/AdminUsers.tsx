@@ -2,10 +2,10 @@
 import React from "react";
 
 import { useAdminUsers, type Role } from "./hooks/useAdminUsers";
-import { useAuth } from "../../../context/AuthContext"; // <-- 1. IMPORT useAuth
+import { useAuth } from "@/context/AuthContext"; // <-- 1. IMPORT useAuth
 import { CheckIcon, XIcon, UserCheckIcon, UserXIcon } from "lucide-react"; // <-- 2. IMPORT ICONS
-import Loading from "../../components/Loading";
-import BlurCircle from "../../components/BlurCircle";
+import Loading from "@/components/Loading";
+import BlurCircle from "@/components/BlurCircle";
 
 // --- Helper Components (Unchanged) ---
 function RoleBadge({ role }: { role: Role }) {

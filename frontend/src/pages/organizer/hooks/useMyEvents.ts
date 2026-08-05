@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { EventDoc } from "./useMyEvent";
-import { apiGet, errorMessage, isAbortError } from "../../../lib/api";
+import { apiGetAll, errorMessage, isAbortError } from "@/lib/api";
 
 
 export type MyEventsOptions = {
@@ -15,7 +15,7 @@ export function useMyEvents(opts: MyEventsOptions = {}) {
 
   async function load(signal?: AbortSignal) {
     setError(null);
-    const data = await apiGet<EventDoc[]>(`/api/events/mine`, signal);
+    const data = await apiGetAll<EventDoc>("/api/events/mine", signal);
     setEvents(data);
   }
 

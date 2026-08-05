@@ -3,9 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { PencilIcon, Trash2Icon, PlusIcon, ImageIcon } from "lucide-react";
 
 import { useVenues } from "./hooks/useVenues";
-import BlurCircle from "../../components/BlurCircle";
-import { API_BASE } from "../../lib/api";
-import Loading from "../../components/Loading";
+import BlurCircle from "@/components/BlurCircle";
+import { API_BASE } from "@/lib/api";
+import Loading from "@/components/Loading";
 
 const VenuesList: React.FC = () => {
   const nav = useNavigate();

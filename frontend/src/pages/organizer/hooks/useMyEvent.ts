@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { apiGet, errorMessage } from "../../../lib/api";
+import { apiGet, errorMessage } from "@/lib/api";
 
 
 export type EventDoc = {

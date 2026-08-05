@@ -199,6 +199,31 @@ export const apiUpload = <T = unknown>(
   signal?: AbortSignal
 ) => api<T>(path, { method: "POST", body: formData, signal });
 
+/**
+ * A page of results.
+ *
+ * Every list endpoint returns this envelope rather than a bare array, so a
+ * client can render a pager without a second request.
+ */
+export interface Page<T> {
+  data: T[];
+  total: number;
+  page: number;
+  limit: number;
+  pageCount: number;
+}
+
+/** Fetches one page and returns just the rows, for callers that show all of them. */
+export const apiGetAll = async <T>(
+  path: string,
+  signal?: AbortSignal,
+  limit = 100
+): Promise<T[]> => {
+  const sep = path.includes("?") ? "&" : "?";
+  const page = await apiGet<Page<T>>(`${path}${sep}limit=${limit}`, signal);
+  return page.data;
+};
+
 /** Message for a caught error, safe to show a user. */
 export const errorMessage = (err: unknown, fallback = "Something went wrong") =>
   err instanceof Error && err.message ? err.message : fallback;

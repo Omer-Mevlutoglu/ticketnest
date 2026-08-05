@@ -46,6 +46,14 @@ const SeatMapPage: React.FC = () => {
   // selection is keyed by "x,y"
   const [selected, setSelected] = useState<Map<string, Seat>>(new Map());
 
+  // Roving tabindex: exactly one seat is in the tab order at a time, and the
+  // arrow keys move between them. Tabbing through hundreds of buttons to reach
+  // the middle of a venue is not a usable keyboard experience.
+  const [focused, setFocused] = useState<{ x: number; y: number }>({
+    x: 1,
+    y: 1,
+  });
+
   // fetch seat map
   useEffect(() => {
     if (!eventId) return;
@@ -111,6 +119,38 @@ const SeatMapPage: React.FC = () => {
       }
       return next;
     });
+  };
+
+  /** Describes a seat for assistive technology. */
+  const seatLabel = (seat: Seat, isSelected: boolean) => {
+    const position = `Row ${seat.x}, seat ${seat.y}`;
+    const price = `${seat.price.toFixed(2)}`;
+    if (seat.status !== "available") return `${position}, ${seat.status}`;
+    return `${position}, ${seat.tier}, ${price}${
+      isSelected ? ", selected" : ""
+    }`;
+  };
+
+  /** Arrow keys walk the grid; Home/End jump to the ends of a row. */
+  const onGridKeyDown = (e: React.KeyboardEvent, x: number, y: number) => {
+    const moves: Record<string, [number, number]> = {
+      ArrowUp: [x - 1, y],
+      ArrowDown: [x + 1, y],
+      ArrowLeft: [x, y - 1],
+      ArrowRight: [x, y + 1],
+      Home: [x, 1],
+      End: [x, cols],
+    };
+
+    const move = moves[e.key];
+    if (!move) return;
+
+    const [nx, ny] = move;
+    if (nx < 1 || nx > rows || ny < 1 || ny > cols) return;
+
+    e.preventDefault();
+    setFocused({ x: nx, y: ny });
+    document.getElementById(`seat-${nx}-${ny}`)?.focus();
   };
 
   const proceedToCheckout = async () => {
@@ -206,23 +246,44 @@ const SeatMapPage: React.FC = () => {
         <h1 className="text-2xl font-semibold mb-2">Select Your Seats</h1>
         <p className="text-gray-400 text-sm mb-6">SCREEN SIDE</p>
 
+        {/* Announces selection changes, which are otherwise silent to a screen
+            reader because the visible change is a colour. */}
+        <p role="status" aria-live="polite" className="sr-only">
+          {selected.size === 0
+            ? "No seats selected"
+            : `${selected.size} of ${MAX_SELECT} seats selected, total ${totalPrice.toFixed(
+                2
+              )}`}
+        </p>
+
         {/* --- RESPONSIVENESS FIX --- */}
         {/* Wrap the grid in a horizontally scrollable container */}
         <div className="w-full overflow-x-auto pb-4 no-scrollbar">
           {/* Use min-w-max to allow grid to expand */}
-          <div className="flex flex-col items-center gap-2 min-w-max px-2">
+          <div
+            role="grid"
+            aria-label="Seat map. Use the arrow keys to move between seats."
+            className="flex flex-col items-center gap-2 min-w-max px-2"
+          >
             {/* Grid seats */}
             {Array.from({ length: rows }, (_, ix) => {
               const x = ix + 1;
               return (
-                <div key={x} className="flex gap-2">
+                <div key={x} role="row" aria-rowindex={x} className="flex gap-2">
                   {Array.from({ length: cols }, (_, iy) => {
                     const y = iy + 1;
                     const key = `${x},${y}`;
                     const seat = seatByKey.get(key);
                     if (!seat) {
                       // No seat at this position → spacer
-                      return <span key={key} className="w-8 h-8" />;
+                      return (
+                        <span
+                          key={key}
+                          role="gridcell"
+                          aria-hidden="true"
+                          className="w-8 h-8"
+                        />
+                      );
                     }
 
                     const selectedHere = selected.has(key);
@@ -238,19 +299,33 @@ const SeatMapPage: React.FC = () => {
                     const selectedStyle =
                       "bg-primary text-white border-primary";
 
+                    const isFocusTarget = focused.x === x && focused.y === y;
+
                     return (
                       <button
                         key={key}
+                        id={`seat-${x}-${y}`}
+                        role="gridcell"
+                        aria-colindex={y}
+                        aria-label={seatLabel(seat, selectedHere)}
+                        aria-pressed={selectedHere}
+                        aria-disabled={seat.status !== "available"}
+                        // Only the focused seat is tabbable; arrows do the rest.
+                        tabIndex={isFocusTarget ? 0 : -1}
+                        onFocus={() => setFocused({ x, y })}
+                        onKeyDown={(e) => onGridKeyDown(e, x, y)}
                         onClick={() => toggleSeat(key)}
                         disabled={seat.status !== "available"}
-                        className={`${base} ${
+                        className={`${base} focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${
                           selectedHere
                             ? selectedStyle
                             : styleByStatus[seat.status]
                         }`}
                         title={`${seat.tier} • ${seat.price.toFixed(2)}`}
                       >
-                        {x}-{y}
+                        <span aria-hidden="true">
+                          {x}-{y}
+                        </span>
                       </button>
                     );
                   })}

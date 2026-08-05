@@ -10,10 +10,10 @@ import {
   Loader2Icon,
 } from "lucide-react"; // Import Loader2Icon
 import { useMyEvent } from "./hooks/useMyEvent"; // --- FIX: Removed unused 'SeatMapDoc' import ---
-import SingleImageUploader from "../../components/organizer/SingleImageUploader"; // Adjust path as needed
-import Loading from "../../components/Loading";
-import BlurCircle from "../../components/BlurCircle";
-import { apiPost, apiPut, errorMessage } from "../../lib/api";
+import SingleImageUploader from "@/components/organizer/SingleImageUploader"; // Adjust path as needed
+import Loading from "@/components/Loading";
+import BlurCircle from "@/components/BlurCircle";
+import { apiPost, apiPut, errorMessage } from "@/lib/api";
 
 
 // --- NEW Seat Map Generator Component ---

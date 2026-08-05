@@ -2,6 +2,8 @@ import { Request, Response, NextFunction } from "express";
 import passport from "passport";
 import { getAllUsers, logoutUser, registerUser } from "../services/authService";
 import { httpError } from "../utils/httpError";
+import { validatedQuery } from "../middleware/validate";
+import { PaginationInput } from "../validation/schemas";
 import "../strategies/local-strategy";
 // POST /api/auth/register
 export const register = async (
@@ -97,7 +99,7 @@ export const getUsers = async (
   next: NextFunction
 ) => {
   try {
-    const users = await getAllUsers();
+    const users = await getAllUsers(validatedQuery<PaginationInput>(req));
     return res.status(200).json(users);
   } catch (err) {
     next(err);

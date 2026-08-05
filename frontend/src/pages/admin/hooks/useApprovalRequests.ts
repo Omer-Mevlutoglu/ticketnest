@@ -2,7 +2,7 @@
 // src/admin/hooks/useApprovalRequests.ts
 import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
-import { apiGet, apiPut, errorMessage, isAbortError } from "../../../lib/api";
+import { apiGet, apiPut, errorMessage, isAbortError } from "@/lib/api";
 
 
 // ✅ match your backend

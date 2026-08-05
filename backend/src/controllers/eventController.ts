@@ -4,10 +4,12 @@ import {
   deleteEvent,
   getEventById,
   getPublishedEventById,
-  listEvents,
+  listEventsPage,
   updateEvent,
 } from "../services/eventServices";
 import { requireUser, requireUserIdString } from "../utils/requestUser";
+import { validatedQuery } from "../middleware/validate";
+import { PaginationInput } from "../validation/schemas";
 
 export const createEventController = async (
   req: Request,
@@ -31,17 +33,17 @@ export const createEventController = async (
 };
 
 export const listPublicEvents = async (
-  _req: Request,
+  req: Request,
   res: Response,
   next: NextFunction
 ) => {
   try {
-    const events = await listEvents({
-      status: "published",
-      // upcomingOnly: true,
-    });
-    return res.status(200).json(events);
-  } catch (err: any) {
+    const page = await listEventsPage(
+      { status: "published" },
+      validatedQuery<PaginationInput>(req)
+    );
+    return res.status(200).json(page);
+  } catch (err) {
     return next(err);
   }
 };
@@ -53,22 +55,25 @@ export const listMyEvents = async (
 ) => {
   try {
     // `_id`, not the `id` virtual — one form everywhere (C10).
-    const events = await listEvents({ organizerId: requireUserIdString(req) });
-    return res.status(200).json(events);
-  } catch (err: any) {
+    const page = await listEventsPage(
+      { organizerId: requireUserIdString(req) },
+      validatedQuery<PaginationInput>(req)
+    );
+    return res.status(200).json(page);
+  } catch (err) {
     return next(err);
   }
 };
 
 export const listAllEvents = async (
-  _req: Request,
+  req: Request,
   res: Response,
   next: NextFunction
 ) => {
   try {
-    const events = await listEvents({});
-    return res.status(200).json(events);
-  } catch (err: any) {
+    const page = await listEventsPage({}, validatedQuery<PaginationInput>(req));
+    return res.status(200).json(page);
+  } catch (err) {
     return next(err);
   }
 };

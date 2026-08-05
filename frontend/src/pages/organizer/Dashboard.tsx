@@ -2,8 +2,8 @@ import React from "react";
 import { CalendarIcon, EyeIcon, PlusIcon, TicketIcon } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useOrganizerDashboard } from "./hooks/useOrganizerDashboard"; // Assuming hooks are in ./hooks/
-import Loading from "../../components/Loading";
-import BlurCircle from "../../components/BlurCircle";
+import Loading from "@/components/Loading";
+import BlurCircle from "@/components/BlurCircle";
 
 const PLACEHOLDER = "/placeholder.jpg";
 

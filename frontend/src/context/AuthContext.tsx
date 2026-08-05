@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { apiGet, apiPost, isApiError, resetCsrfToken } from "../src/lib/api";
+import { apiGet, apiPost, isApiError, resetCsrfToken } from "@/lib/api";
 
 export type Role = "attendee" | "organizer" | "admin" | undefined; // Allow undefined
 
