@@ -3,6 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import BlurCircle from "@/components/BlurCircle";
 import toast from "react-hot-toast";
+import { errorMessage } from "@/lib/api";
 
 const Register: React.FC = () => {
   const nav = useNavigate();
@@ -20,11 +21,23 @@ const Register: React.FC = () => {
       return toast.error("All fields are required");
     setBusy(true);
     try {
-      await register({ username, email, password, role });
-      nav("/check-email");
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (err: any) {
-      toast.error(err?.message || "Registration failed");
+      const { verificationEmailSent } = await register({
+        username,
+        email,
+        password,
+        role,
+      });
+
+      if (verificationEmailSent) {
+        nav("/check-email");
+      } else {
+        // Email is off, so the account is already verified — send them
+        // straight to sign in rather than to an inbox that will stay empty.
+        toast.success("Account created. You can sign in now.");
+        nav("/login");
+      }
+    } catch (err) {
+      toast.error(errorMessage(err, "Registration failed"));
     } finally {
       setBusy(false);
     }

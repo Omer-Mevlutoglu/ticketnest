@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   EmptyState,
@@ -18,6 +18,8 @@ type Booking = {
   _id: string;
   userId: string;
   eventId: string;
+  /** Joined server-side — see getMyBookings. */
+  event: PublicEvent | null;
   items: BookingItem[];
   total: number;
   status: "unpaid" | "paid" | "failed" | "expired";
@@ -102,46 +104,9 @@ function useMyBookings() {
   };
 }
 
-function useEventCache(eventIds: string[]) {
-  const [eventsById, setEventsById] = useState<Record<string, PublicEvent>>({});
-
-  useEffect(() => {
-    const unique = Array.from(new Set(eventIds.filter(Boolean)));
-    const missing = unique.filter((id) => !eventsById[id]);
-    if (missing.length === 0) return;
-
-    const ac = new AbortController();
-    (async () => {
-      try {
-        const results = await Promise.all(
-          missing.map(async (id) => {
-            const ev = await apiGet<PublicEvent>(`/api/events/${id}`, ac.signal);
-            return [id, ev] as const;
-          })
-        );
-        setEventsById((prev) => {
-          const next = { ...prev };
-          for (const [id, ev] of results) next[id] = ev;
-          return next;
-        });
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      } catch (e) {
-        // ignore; per-card will degrade gracefully
-      }
-    })();
-
-    return () => ac.abort();
-  }, [eventIds.join(","), eventsById]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  return eventsById;
-}
-
 const MyBookings: React.FC = () => {
   const { bookings, loading, error, refetch } = useMyBookings();
   const navigate = useNavigate();
-
-  const eventIds = useMemo(() => bookings.map((b) => b.eventId), [bookings]);
-  const eventsById = useEventCache(eventIds);
 
   if (loading) {
     return (
@@ -179,7 +144,7 @@ const MyBookings: React.FC = () => {
       )}
 
       {bookings.map((b) => {
-        const ev = eventsById[b.eventId];
+        const ev = b.event;
         const poster = ev?.poster || PLACEHOLDER;
         const when = formatDateTimeRange(ev?.startTime, ev?.endTime);
         const seats =

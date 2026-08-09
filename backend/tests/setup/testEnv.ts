@@ -14,6 +14,8 @@ const defaults: Record<string, string> = {
   // off for the cases that need real enforcement.
   DISABLE_RATE_LIMITS: "true",
   ENABLE_MOCK_PAYMENTS: "true",
+  // Off by default, matching production. The email tests flip it per case.
+  ENABLE_EMAIL: "false",
   SESSION_SECRET: "test-session-secret",
   SENDGRID_API_KEY: "SG.test-key-not-real",
   FROM_EMAIL: "no-reply@ticketnest.test",

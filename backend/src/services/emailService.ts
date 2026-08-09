@@ -1,5 +1,6 @@
 import sgMail from "@sendgrid/mail";
 import { getConfig } from "../configs/env";
+import { isEmailEnabled } from "../configs/features";
 
 /**
  * Transactional email.
@@ -22,56 +23,80 @@ const client = () => {
   return config;
 };
 
-export const sendVerificationEmail = async (email: string, token: string) => {
+/**
+ * Sends a message, or does nothing when email is switched off.
+ *
+ * Returns whether it was actually dispatched, so callers can adapt — the
+ * signup path uses it to decide between "check your inbox" and verifying
+ * immediately.
+ */
+const dispatch = async (
+  msg: { to: string; from: string; subject: string; html: string },
+  description: string
+): Promise<boolean> => {
+  if (!isEmailEnabled()) {
+    console.log(
+      `✉️  Skipped ${description} to ${msg.to} — ENABLE_EMAIL is off.`
+    );
+    return false;
+  }
+
+  try {
+    await sgMail.send(msg);
+    console.log(`${description} sent to ${msg.to}`);
+    return true;
+  } catch (error) {
+    console.error("Email sending error:", error);
+    throw new Error(`Failed to send ${description}.`);
+  }
+};
+
+export const sendVerificationEmail = async (
+  email: string,
+  token: string
+): Promise<boolean> => {
   const { frontendUrl, fromEmail } = client();
   const verifyLink = `${frontendUrl}/verify-email?token=${token}`;
 
-  const msg = {
-    to: email,
-    from: fromEmail,
-    subject: "TicketNest - Please Verify Your Email",
-    html: `
+  return dispatch(
+    {
+      to: email,
+      from: fromEmail,
+      subject: "TicketNest - Please Verify Your Email",
+      html: `
       <h1>Welcome to TicketNest!</h1>
       <p>Please click the link below to verify your email address:</p>
       <a href="${verifyLink}" target="_blank">Verify My Email</a>
       <p>This link will expire in 1 hour.</p>
     `,
-  };
-
-  try {
-    await sgMail.send(msg);
-    console.log(`Verification email sent to ${email}`);
-  } catch (error) {
-    console.error("Email sending error:", error);
-    throw new Error("Failed to send verification email.");
-  }
+    },
+    "verification email"
+  );
 };
 
 /**
  * Sends a pre-made password reset email
  */
-export const sendPasswordResetEmail = async (email: string, token: string) => {
+export const sendPasswordResetEmail = async (
+  email: string,
+  token: string
+): Promise<boolean> => {
   const { frontendUrl, fromEmail } = client();
   const resetLink = `${frontendUrl}/reset-password?token=${token}`;
 
-  const msg = {
-    to: email,
-    from: fromEmail,
-    subject: "TicketNest - Password Reset Request",
-    html: `
+  return dispatch(
+    {
+      to: email,
+      from: fromEmail,
+      subject: "TicketNest - Password Reset Request",
+      html: `
       <h1>Password Reset</h1>
       <p>You are receiving this because you (or someone else) requested a password reset.</p>
       <p>Click the link below to set a new password:</p>
       <a href="${resetLink}" target="_blank">Reset My Password</a>
       <p>This link will expire in 15 minutes.</p>
     `,
-  };
-
-  try {
-    await sgMail.send(msg);
-    console.log(`Password reset email sent to ${email}`);
-  } catch (error) {
-    console.error("Email sending error:", error);
-    throw new Error("Failed to send password reset email.");
-  }
+    },
+    "password reset email"
+  );
 };

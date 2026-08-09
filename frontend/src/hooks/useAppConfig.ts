@@ -4,6 +4,11 @@ import { apiGet, isAbortError } from "../lib/api";
 export type AppConfig = {
   /** Whether the server still exposes the simulated payment endpoints. */
   mockPaymentsEnabled: boolean;
+  /**
+   * Whether the server sends email. When false, signup verifies immediately
+   * and password reset is unavailable.
+   */
+  emailEnabled: boolean;
 };
 
 /**
@@ -26,7 +31,7 @@ export function useAppConfig() {
         if (isAbortError(e)) return;
         // An older backend has no /api/config. Assume the simulated flow is
         // available so checkout keeps working rather than locking users out.
-        setConfig({ mockPaymentsEnabled: true });
+        setConfig({ mockPaymentsEnabled: true, emailEnabled: false });
       } finally {
         if (!ac.signal.aborted) setLoading(false);
       }

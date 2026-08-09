@@ -26,13 +26,13 @@ describe("WP2.2 — configuration", () => {
       expect(config.corsOrigins).toEqual(["https://ticketnest.example"]);
     });
 
+    // Email credentials are deliberately absent from this list: they are only
+    // required when ENABLE_EMAIL is on. See emailFlag.test.ts.
     it.each([
       "MONGO_URI",
       "SESSION_SECRET",
       "FRONTEND_URL",
       "CORS_ORIGINS",
-      "SENDGRID_API_KEY",
-      "FROM_EMAIL",
       "EMAIL_VERIFY_TOKEN_SECRET",
       "PASSWORD_RESET_TOKEN_SECRET",
     ])("refuses to start without %s", (key) => {
@@ -46,7 +46,7 @@ describe("WP2.2 — configuration", () => {
       const env = prod();
       delete env.MONGO_URI;
       delete env.FRONTEND_URL;
-      delete env.SENDGRID_API_KEY;
+      delete env.CORS_ORIGINS;
 
       try {
         loadConfig(env);
@@ -55,8 +55,22 @@ describe("WP2.2 — configuration", () => {
         const message = (err as Error).message;
         expect(message).toContain("MONGO_URI");
         expect(message).toContain("FRONTEND_URL");
-        expect(message).toContain("SENDGRID_API_KEY");
+        expect(message).toContain("CORS_ORIGINS");
       }
+    });
+
+    it("requires email credentials only once email is switched on", () => {
+      const withoutEmailKeys = prod();
+      delete withoutEmailKeys.SENDGRID_API_KEY;
+      delete withoutEmailKeys.FROM_EMAIL;
+
+      // Off: the deployment boots fine without them.
+      expect(() => loadConfig(withoutEmailKeys)).not.toThrow();
+
+      // On: they become required.
+      expect(() =>
+        loadConfig({ ...withoutEmailKeys, ENABLE_EMAIL: "true" })
+      ).toThrowError(/SENDGRID_API_KEY/);
     });
 
     it("rejects a localhost origin in the production allowlist", () => {

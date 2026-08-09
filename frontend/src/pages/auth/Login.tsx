@@ -6,11 +6,13 @@ import toast from "react-hot-toast";
 // Import an icon for the error message
 import { AlertCircleIcon } from "lucide-react";
 import BlurCircle from "@/components/BlurCircle";
+import { useAppConfig } from "@/hooks/useAppConfig";
 
 const Login: React.FC = () => {
    
   // const nav = useNavigate(); // --- FIX: REMOVED UNUSED VARIABLE ---
   const { login, loading } = useAuth(); // Get loading state
+  const { config } = useAppConfig();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -71,14 +73,18 @@ const Login: React.FC = () => {
           />
         </div>
 
-        <div className="text-right">
-          <Link
-            to="/forgot-password"
-            className="text-xs text-gray-400 hover:text-primary"
-          >
-            Forgot Password?
-          </Link>
-        </div>
+        {/* Password reset needs a delivery channel; without one the link
+            would lead to a dead end. */}
+        {config?.emailEnabled && (
+          <div className="text-right">
+            <Link
+              to="/forgot-password"
+              className="text-xs text-gray-400 hover:text-primary"
+            >
+              Forgot Password?
+            </Link>
+          </div>
+        )}
 
         <button
           disabled={isDisabled}

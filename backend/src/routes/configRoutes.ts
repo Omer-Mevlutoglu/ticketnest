@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { isMockPaymentsEnabled } from "../configs/features";
+import { isEmailEnabled, isMockPaymentsEnabled } from "../configs/features";
 
 const router = Router();
 
@@ -13,6 +13,9 @@ const router = Router();
 router.get("/", (_req, res) => {
   res.json({
     mockPaymentsEnabled: isMockPaymentsEnabled(),
+    // Drives whether the UI offers password reset and whether signup tells the
+    // user to check their inbox.
+    emailEnabled: isEmailEnabled(),
   });
 });
 

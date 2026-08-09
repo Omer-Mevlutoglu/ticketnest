@@ -14,6 +14,7 @@ import { hashPassword } from "../utils/helperHash";
 import { sendPasswordResetEmail } from "../services/emailService";
 import { getConfig } from "../configs/env";
 import { httpError } from "../utils/httpError";
+import { isEmailEnabled } from "../configs/features";
 import {
   isTokenIssuedBeforePasswordChange,
   revokeUserSessions,
@@ -98,6 +99,17 @@ router.post(
   validateBody(forgotPasswordSchema),
   async (req, res, next) => {
     try {
+      // Without a delivery channel there is no way to complete this flow. Say
+      // so plainly rather than pretending a link was sent — the UI hides the
+      // entry point too, so reaching here means a direct API call.
+      if (!isEmailEnabled()) {
+        throw httpError(
+          503,
+          "Password reset is unavailable: this deployment has email delivery switched off.",
+          { code: "EMAIL_DISABLED" }
+        );
+      }
+
       const { email } = req.body;
       const user = await userModel.findOne({ email });
 

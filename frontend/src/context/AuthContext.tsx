@@ -14,6 +14,14 @@ export type AuthUser = {
 
 type MeResponse = { user: NonNullable<AuthUser> | null };
 
+/**
+ * What signup should do next.
+ *
+ * When the server has email switched off it verifies the account immediately,
+ * so there is no inbox to send the user to.
+ */
+export type RegisterResult = { verificationEmailSent: boolean };
+
 type AuthContextType = {
   user: AuthUser;
   loading: boolean;
@@ -22,7 +30,7 @@ type AuthContextType = {
     email: string;
     password: string;
     role: "attendee" | "organizer";
-  }) => Promise<void>;
+  }) => Promise<RegisterResult>;
   login: (p: { email: string; password: string }) => Promise<void>;
   logout: () => Promise<void>;
   hydrate: (opts?: { silent?: boolean }) => Promise<AuthUser | undefined>;
@@ -91,7 +99,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   }, []);
 
   const register: AuthContextType["register"] = async (p) => {
-    await apiPost("/api/auth/register", p);
+    const res = await apiPost<{ user?: { verificationEmailSent?: boolean } }>(
+      "/api/auth/register",
+      p
+    );
+    return {
+      verificationEmailSent: res?.user?.verificationEmailSent === true,
+    };
   };
 
   const login: AuthContextType["login"] = async (p) => {

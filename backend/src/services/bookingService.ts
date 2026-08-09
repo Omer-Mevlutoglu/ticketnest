@@ -228,11 +228,59 @@ export const createBookingFromSelection = async (
   }
 };
 
+/** Event fields the bookings and checkout screens render. */
+const BOOKING_EVENT_SUMMARY =
+  "title description venueName venueAddress startTime endTime poster";
+
+export interface BookingEventSummary {
+  _id: Types.ObjectId;
+  title: string;
+  description?: string;
+  venueName?: string;
+  venueAddress?: string;
+  startTime: Date;
+  endTime: Date;
+  poster?: string;
+}
+
+/**
+ * A user's bookings, each with its event attached.
+ *
+ * The event is joined here rather than left to the client. Returning bare
+ * `eventId`s meant the bookings page fetched one event per distinct id, and
+ * checkout fetched another — a request count that grew with the list. This is
+ * two queries total, regardless of how many bookings there are.
+ *
+ * `eventId` is left in place and `event` added alongside, so nothing that reads
+ * the id has to change.
+ */
 export const getMyBookings = async (userId: string) => {
-  return BookingModel.find({ userId: new Types.ObjectId(userId) })
+  const bookings = await BookingModel.find({
+    userId: new Types.ObjectId(userId),
+  })
     .sort({ createdAt: -1 })
     .lean()
     .exec();
+
+  if (bookings.length === 0) return [];
+
+  const eventIds = Array.from(
+    new Set(bookings.map((b) => String(b.eventId)))
+  ).map((id) => new Types.ObjectId(id));
+
+  const events = await eventModel
+    .find({ _id: { $in: eventIds } })
+    .select(BOOKING_EVENT_SUMMARY)
+    .lean()
+    .exec();
+
+  const byId = new Map(events.map((e) => [String(e._id), e]));
+
+  return bookings.map((booking) => ({
+    ...booking,
+    event: (byId.get(String(booking.eventId)) ??
+      null) as BookingEventSummary | null,
+  }));
 };
 
 /**

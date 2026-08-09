@@ -283,6 +283,74 @@ describe("WP4.4 — pagination, indexes, favorites", () => {
     });
   });
 
+  describe("bookings carry their event", () => {
+    it("attaches the event to each booking, so no follow-up fetch is needed", async () => {
+      const { user } = await createAttendee({ email: "joined@example.test" });
+      const event = await createEvent({ title: "Joined Event" });
+
+      await BookingModel.create({
+        userId: user._id,
+        eventId: event._id,
+        items: [{ seatCoords: { x: 0, y: 0 }, price: 50 }],
+        total: 50,
+        status: "unpaid",
+      });
+
+      const agent = await loginAgent(app, "joined@example.test");
+      const res = await agent.get("/api/bookings");
+
+      expect(res.status).toBe(200);
+      expect(res.body[0].event.title).toBe("Joined Event");
+      expect(res.body[0].event.startTime).toBeTruthy();
+      // The id is still there, so nothing that reads it has to change.
+      expect(res.body[0].eventId).toBe(String(event._id));
+    });
+
+    it("joins many bookings without a query per booking", async () => {
+      const { user } = await createAttendee({ email: "bulk@example.test" });
+      const a = await createEvent({ title: "A" });
+      const b = await createEvent({ title: "B" });
+
+      for (let i = 0; i < 6; i++) {
+        await BookingModel.create({
+          userId: user._id,
+          eventId: i % 2 === 0 ? a._id : b._id,
+          items: [{ seatCoords: { x: i, y: 0 }, price: 10 }],
+          total: 10,
+          status: "unpaid",
+        });
+      }
+
+      const agent = await loginAgent(app, "bulk@example.test");
+      const res = await agent.get("/api/bookings");
+
+      expect(res.body).toHaveLength(6);
+      expect(
+        res.body.every((row: { event: { title: string } }) => row.event?.title)
+      ).toBe(true);
+    });
+
+    it("returns a null event rather than failing when one is missing", async () => {
+      const { user } = await createAttendee({ email: "orphan@example.test" });
+      const event = await createEvent({ title: "Doomed" });
+
+      await BookingModel.create({
+        userId: user._id,
+        eventId: event._id,
+        items: [{ seatCoords: { x: 0, y: 0 }, price: 10 }],
+        total: 10,
+        status: "paid",
+      });
+      await eventModel.deleteOne({ _id: event._id });
+
+      const agent = await loginAgent(app, "orphan@example.test");
+      const res = await agent.get("/api/bookings");
+
+      expect(res.status).toBe(200);
+      expect(res.body[0].event).toBeNull();
+    });
+  });
+
   describe("organizer list", () => {
     it("paginates an organizer's own events", async () => {
       const { user } = await createOrganizer({ email: "many@example.test" });

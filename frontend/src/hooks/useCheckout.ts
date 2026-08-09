@@ -10,6 +10,8 @@ export type Booking = {
   _id: string;
   userId: string;
   eventId: string;
+  /** Joined server-side — see getMyBookings. */
+  event: PublicEvent | null;
   items: BookingItem[];
   total: number;
   status: "unpaid" | "paid" | "failed" | "expired";
@@ -60,20 +62,11 @@ export function useCheckout(bookingId?: string) {
     setError(null);
     setLoading(true);
     try {
+      // One request: the booking arrives with its event already attached.
       const all = await apiGet<Booking[]>("/api/bookings", signal);
       const found = all.find((b) => b._id === bookingId) || null;
       setBooking(found);
-      if (!found) return;
-
-      // Event details are decoration here — the summary still renders without
-      // them, so a failure is not surfaced as a checkout error.
-      try {
-        setEvent(
-          await apiGet<PublicEvent>(`/api/events/${found.eventId}`, signal)
-        );
-      } catch {
-        setEvent(null);
-      }
+      setEvent(found?.event ?? null);
     } catch (e) {
       setError(errorMessage(e, "Failed to load checkout"));
     } finally {

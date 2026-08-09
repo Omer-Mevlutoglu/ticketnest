@@ -7,6 +7,8 @@ import { sendVerificationEmail } from "./emailService";
 import jwt from "jsonwebtoken";
 import { httpError } from "../utils/httpError";
 import { paginate } from "../utils/pagination";
+import { getConfig } from "../configs/env";
+import { isEmailEnabled } from "../configs/features";
 
 export interface RegisterDTO {
   username: string;
@@ -29,37 +31,45 @@ export const registerUser = async (userData: RegisterDTO) => {
 
   const passwordHash = await hashPassword(password);
 
-  // If they ask to be organizer, we create them but mark pending:
-  const isApproved = role === "attendee";
+  // With email switched off there is no way to deliver a verification link,
+  // and the login strategy refuses unverified accounts — so the account would
+  // be permanently unusable. Verify it up front instead.
+  const emailEnabled = isEmailEnabled();
 
   const newUser = await userModel.create({
     username,
     email,
     passwordHash,
     role,
-    emailVerified: false,
+    emailVerified: !emailEnabled,
     isApproved: role === "attendee",
   });
+
   if (role === "organizer") {
     // Organizers are not approved by default
     await userModel.findByIdAndUpdate(newUser.id, { isApproved: false });
     await createApprovalRequest(newUser.id);
   }
-  try {
-    const emailToken = jwt.sign(
-      { userId: newUser._id, intent: "verify-email" },
-      process.env.EMAIL_VERIFY_TOKEN_SECRET as string,
-      { expiresIn: "1h" } // Token expires in 1 hour
-    );
 
-    await sendVerificationEmail(newUser.email, emailToken);
-  } catch (err) {
-    console.error("Error sending verification email:", err);
-    // This is a common issue. We'll still let the user be created,
-    // but we can add a "Resend Verification" button later.
+  if (emailEnabled) {
+    try {
+      const emailToken = jwt.sign(
+        { userId: newUser._id, intent: "verify-email" },
+        getConfig().emailVerifyTokenSecret,
+        { expiresIn: "1h" }
+      );
+
+      await sendVerificationEmail(newUser.email, emailToken);
+    } catch (err) {
+      // The account exists either way; a delivery failure must not lose it.
+      console.error("Error sending verification email:", err);
+    }
   }
+
   const { passwordHash: _, ...safeUser } = newUser.toObject();
-  return safeUser;
+
+  // Tells the client whether to say "check your inbox" or send them to sign in.
+  return { ...safeUser, verificationEmailSent: emailEnabled };
 };
 
 export const logoutUser = (req: Request): Promise<void> => {

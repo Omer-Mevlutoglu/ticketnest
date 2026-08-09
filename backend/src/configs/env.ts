@@ -26,6 +26,8 @@ export interface AppConfig {
   /** Origins allowed to send credentialed cross-site requests. */
   corsOrigins: string[];
 
+  /** Whether transactional email is dispatched. See configs/features.ts. */
+  emailEnabled: boolean;
   fromEmail: string;
   sendgridApiKey: string;
   emailVerifyTokenSecret: string;
@@ -93,8 +95,26 @@ export const loadConfig = (env: NodeJS.ProcessEnv = process.env): AppConfig => {
   const mongoUri = required("MONGO_URI", env.MONGODB_URI ?? DEV_DEFAULTS.mongoUri);
   const sessionSecret = required("SESSION_SECRET", DEV_DEFAULTS.sessionSecret);
   const frontendUrl = required("FRONTEND_URL", DEV_DEFAULTS.frontendUrl);
-  const fromEmail = required("FROM_EMAIL", DEV_DEFAULTS.fromEmail);
-  const sendgridApiKey = required("SENDGRID_API_KEY", "");
+
+  // Email credentials are only required when email is actually being sent.
+  // Demanding them unconditionally would stop a fresh clone from booting for a
+  // feature it has switched off. See configs/features.ts.
+  const emailEnabled = /^(true|1|yes|on)$/i.test(
+    (env.ENABLE_EMAIL ?? "").trim()
+  );
+
+  const emailCredential = (name: string, devDefault: string): string => {
+    const value = env[name]?.trim();
+    if (value) return value;
+    if (emailEnabled) {
+      problems.push(`${name} is required when ENABLE_EMAIL is true`);
+      return "";
+    }
+    return devDefault;
+  };
+
+  const fromEmail = emailCredential("FROM_EMAIL", DEV_DEFAULTS.fromEmail);
+  const sendgridApiKey = emailCredential("SENDGRID_API_KEY", "");
   const emailVerifyTokenSecret = required(
     "EMAIL_VERIFY_TOKEN_SECRET",
     "dev-email-verify-secret"
@@ -179,6 +199,7 @@ export const loadConfig = (env: NodeJS.ProcessEnv = process.env): AppConfig => {
     sessionSecret,
     frontendUrl: frontendUrl.replace(/\/$/, ""),
     corsOrigins,
+    emailEnabled,
     fromEmail,
     sendgridApiKey,
     emailVerifyTokenSecret,

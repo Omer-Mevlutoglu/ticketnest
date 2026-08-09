@@ -94,6 +94,33 @@ All of this is covered by tests: two concurrent claims on one seat, partial-fail
 
 ---
 
+## API response shapes
+
+Two conventions worth knowing before writing a client.
+
+**List endpoints return a page, not an array.** `GET /api/events`,
+`/api/events/mine`, `/api/admin/users`, `/api/admin/events`, and
+`/api/admin/bookings` all answer:
+
+```json
+{ "data": [...], "total": 42, "page": 1, "limit": 20, "pageCount": 3 }
+```
+
+`?page=` and `?limit=` control it; `limit` is capped at 100 and defaults to 20,
+so no single request can pull a whole collection. Sorting always includes `_id`
+as a tiebreaker, so paging never repeats or skips a record.
+
+**Related data is joined server-side.** `GET /api/bookings` returns each booking
+with its `event` attached, and `GET /api/favorites` returns
+`{ ids, events }`. Neither requires a follow-up request per row.
+
+Errors are `{ message, error, code? }` — `message` and `error` carry the same
+text, the second kept for older clients. `code` is a stable identifier
+(`HOLD_EXPIRED`, `VALIDATION_FAILED`, `RATE_LIMITED`) for branching without
+matching on prose.
+
+---
+
 ## Running it locally
 
 ### Requirements
@@ -117,6 +144,13 @@ cd ../frontend && npm ci && cp .env.example .env
 ```
 
 Every backend variable is documented in `backend/.env.example` and validated at startup — a missing or malformed value crashes the process and names the variable rather than failing quietly later.
+
+**You do not need an email provider.** `ENABLE_EMAIL` defaults to `false`, and
+with it off the app runs end to end with no external service: new accounts are
+verified on creation, and password reset is hidden rather than broken. Set it to
+`true` with a `SENDGRID_API_KEY` and a verified `FROM_EMAIL` to exercise the
+real verification and reset flow — the logic is the same either way, the flag
+only controls whether a message is actually sent.
 
 Optional, for something to look at:
 
@@ -148,7 +182,7 @@ cd backend && npm run build && npm run typecheck && npm test
 cd frontend && npm run lint && npm run build
 ```
 
-135 backend tests. They spin up an in-memory MongoDB **replica set**, so transactions work and no external database is touched. They cannot reach Atlas, SendGrid, or Cloudinary: the test setup injects placeholder secrets and refuses any database URI that is not local.
+179 backend tests. They spin up an in-memory MongoDB **replica set**, so transactions work and no external database is touched. They cannot reach Atlas, SendGrid, or Cloudinary: the test setup injects placeholder secrets and refuses any database URI that is not local.
 
 The frontend has no test harness yet — `npm test` there is a labelled placeholder.
 
@@ -198,6 +232,7 @@ Requests flow **routes -> middleware -> controllers -> services -> models**. Bus
 Deliberate scope choices, not oversights:
 
 - **Payments are simulated.** No provider, no money, no refunds.
+- **Email is off by default.** Verification and password-reset logic exists and is tested, but nothing is dispatched unless `ENABLE_EMAIL=true` and a provider key is supplied. This keeps a fresh clone runnable with zero configuration.
 - **The expiry worker is single-instance.** It runs on an interval in the API process. Running two instances duplicates the work — harmless, since every write is conditional, but wasteful. A real deployment wants an external scheduler or a job queue.
 - **Seat maps are one document per event.** Fine at this scale; the 16 MB BSON limit caps it around 40,000 seats, and heavy contention on one popular event serializes on that document. A separate `seats` collection with a unique index on `(eventId, x, y)` is the fix.
 - **Money is stored as a JavaScript number.** It should be integer minor units with an explicit currency.
