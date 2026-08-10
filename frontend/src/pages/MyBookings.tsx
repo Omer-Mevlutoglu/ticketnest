@@ -22,7 +22,7 @@ type Booking = {
   event: PublicEvent | null;
   items: BookingItem[];
   total: number;
-  status: "unpaid" | "paid" | "failed" | "expired";
+  status: "unpaid" | "paid" | "failed" | "expired" | "refunded";
   expiresAt?: string; // ISO
   createdAt?: string; // ISO
   updatedAt?: string; // ISO
@@ -189,6 +189,8 @@ const MyBookings: React.FC = () => {
                     ${
                       b.status === "paid"
                         ? "border-emerald-400 text-emerald-300"
+                        : b.status === "refunded"
+                        ? "border-sky-400 text-sky-300"
                         : b.status === "unpaid"
                         ? "border-yellow-400 text-yellow-300"
                         : b.status === "expired"
@@ -198,7 +200,9 @@ const MyBookings: React.FC = () => {
                   >
                     {isExpiredByTime && b.status === "unpaid"
                       ? "expired"
-                      : b.status}
+                      : b.status === "refunded"
+                        ? "closed (demo payment)"
+                        : b.status}
                   </span>
                   {canPay && expiresAt && (
                     <span className="text-xs text-gray-400">

@@ -79,11 +79,6 @@ export const createBookingFromSelection = async (
     throw httpError(400, "Invalid event ID");
   }
 
-  const event = await eventModel.findById(dto.eventId).lean().exec();
-  if (!event || event.status !== "published") {
-    throw httpError(404, "Event not found or not published");
-  }
-
   // De-dup & validate seats
   const seatMap = new Map<string, { x: number; y: number }>();
   for (const s of dto.seats || []) {
@@ -145,6 +140,25 @@ export const createBookingFromSelection = async (
     let booking!: IBooking;
 
     await session.withTransaction(async () => {
+      // Booking creation and cancellation both write this same event document
+      // in their transactions. MongoDB's write-conflict retry then forces a
+      // racing operation to re-evaluate the lifecycle state after the winner
+      // commits; a stale "published" read can never create a booking after a
+      // cancellation has won.
+      const lifecycleGuard = await eventModel.updateOne(
+        {
+          _id: eventOid,
+          status: "published",
+          isCancelled: { $ne: true },
+        },
+        { $inc: { lifecycleVersion: 1 } },
+        { session }
+      );
+
+      if (lifecycleGuard.matchedCount !== 1) {
+        throw httpError(404, "Event not found or not published");
+      }
+
       const items: IBookingItem[] = [];
       const failed: Array<{ x: number; y: number }> = [];
 

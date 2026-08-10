@@ -292,133 +292,264 @@ export interface CancelEventResult {
   releasedBookings: number;
   /** Seats returned to `available`. */
   releasedSeats: number;
+  /** True when this request observed an already-completed cancellation. */
+  alreadyCancelled: boolean;
+  /** TicketNest currently has simulated payments only. */
+  paymentMode: "simulated";
+  /** Explicitly avoids claiming that the mock flow moved money. */
+  realRefundsProcessed: false;
 }
 
 /**
  * Cancels an event and unwinds everything attached to it.
  *
- * Previously this only set two flags: paid bookings stayed `paid`, their seats
- * stayed `sold`, and ticket holders were never told. The `refunded` status
- * existed in the enum and no code path ever set it.
+ * The database transition is one transaction: event, bookings, seats and its
+ * audit row either all commit or all roll back. Repeating the call returns the
+ * saved outcome without applying destructive work or sending duplicate mail.
  *
- * Now the state machine completes. Note what is *not* claimed: no money moves,
- * because no provider ever took any. `refunded` here records the booking's
- * final state, and the audit entry records that a real refund is owed if a
- * provider is ever connected — see Phase 6 Option A.
+ * `refunded` is the terminal booking state retained by the existing schema.
+ * TicketNest only has simulated payments, so the result and audit metadata are
+ * explicit that no real charge or refund was processed.
  */
 export const deleteEvent = async (
   eventId: string,
   userId: string
 ): Promise<CancelEventResult> => {
-  const existing = await getEventById(eventId);
-
-  if (existing.organizerId.toString() !== userId) {
-    throw httpError(403, "Forbidden: you don’t own this event");
-  }
-
-  if (existing.isCancelled) {
-    throw httpError(409, "This event is already cancelled");
+  if (!Types.ObjectId.isValid(eventId)) {
+    throw httpError(400, "Invalid event ID");
   }
 
   const eventOid = new Types.ObjectId(eventId);
+  const session = await mongoose.startSession();
+  let result!: CancelEventResult;
+  let shouldNotify = false;
+  let eventTitle = "";
 
-  await eventModel.findByIdAndUpdate(eventId, {
-    $set: { isCancelled: true, status: "archived" },
-  });
+  try {
+    await session.withTransaction(async () => {
+      // withTransaction may retry this callback after a write conflict.
+      shouldNotify = false;
 
-  // Paid bookings become refundable; unpaid holds simply lapse. Both are
-  // conditional, so re-running after a partial failure is safe.
-  const [refunded, released] = await Promise.all([
-    BookingModel.updateMany(
-      { eventId: eventOid, status: "paid" },
-      { $set: { status: "refunded" } }
-    ),
-    BookingModel.updateMany(
-      { eventId: eventOid, status: "unpaid" },
-      { $set: { status: "expired" } }
-    ),
-  ]);
+      const existing = await eventModel.findById(eventOid).session(session).lean();
+      if (!existing) throw httpError(404, "Event not found");
+      if (existing.organizerId.toString() !== userId) {
+        throw httpError(403, "Forbidden: you don’t own this event");
+      }
 
-  // Free every seat: nobody holds a seat at an event that is not happening.
-  const seatMap = await SeatMapModel.findOne({ eventId: eventOid })
-    .select("seats")
-    .lean();
+      eventTitle = existing.title;
 
-  let releasedSeats = 0;
-  if (seatMap) {
-    releasedSeats = seatMap.seats.filter((s) => s.status !== "available").length;
+      if (existing.isCancelled) {
+        const saved = existing.cancellationSummary;
+        result = {
+          refundedBookings: saved?.refundedBookings ?? 0,
+          releasedBookings: saved?.releasedBookings ?? 0,
+          releasedSeats: saved?.releasedSeats ?? 0,
+          alreadyCancelled: true,
+          paymentMode: "simulated",
+          realRefundsProcessed: false,
+        };
+        return;
+      }
 
-    await SeatMapModel.updateOne(
-      { eventId: eventOid },
-      {
-        $set: { "seats.$[held].status": "available" },
-        $unset: {
-          "seats.$[held].reservedBy": "",
-          "seats.$[held].reservedUntil": "",
+      // Booking creation uses the same event-level write. If they race,
+      // MongoDB retries the loser against the winner's committed state.
+      const transitioned = await eventModel.updateOne(
+        {
+          _id: eventOid,
+          organizerId: existing.organizerId,
+          isCancelled: { $ne: true },
         },
-      },
-      { arrayFilters: [{ "held.status": { $ne: "available" } }] }
-    );
+        {
+          $set: { isCancelled: true, status: "archived" },
+          $inc: { lifecycleVersion: 1 },
+        },
+        { session }
+      );
+      if (transitioned.matchedCount !== 1) {
+        throw httpError(409, "Event lifecycle changed; retry cancellation");
+      }
+
+      // Operations are deliberately sequential: parallel commands are not
+      // supported on a MongoDB transaction session.
+      const refunded = await BookingModel.updateMany(
+        { eventId: eventOid, status: "paid" },
+        { $set: { status: "refunded" } },
+        { session }
+      );
+      const released = await BookingModel.updateMany(
+        { eventId: eventOid, status: "unpaid" },
+        { $set: { status: "expired" } },
+        { session }
+      );
+
+      const seatMap = await SeatMapModel.findOne({ eventId: eventOid })
+        .select("seats")
+        .session(session)
+        .lean();
+      const releasedSeats =
+        seatMap?.seats.filter((seat) => seat.status !== "available").length ?? 0;
+
+      if (releasedSeats > 0) {
+        await SeatMapModel.updateOne(
+          { eventId: eventOid },
+          {
+            $set: { "seats.$[held].status": "available" },
+            $unset: {
+              "seats.$[held].reservedBy": "",
+              "seats.$[held].reservedUntil": "",
+            },
+          },
+          {
+            arrayFilters: [{ "held.status": { $ne: "available" } }],
+            session,
+          }
+        );
+      }
+
+      const summary = {
+        cancelledAt: new Date(),
+        refundedBookings: refunded.modifiedCount,
+        releasedBookings: released.modifiedCount,
+        releasedSeats,
+        paymentMode: "simulated" as const,
+        realRefundsProcessed: false as const,
+      };
+
+      await eventModel.updateOne(
+        { _id: eventOid, isCancelled: true },
+        { $set: { cancellationSummary: summary } },
+        { session }
+      );
+
+      result = {
+        refundedBookings: summary.refundedBookings,
+        releasedBookings: summary.releasedBookings,
+        releasedSeats: summary.releasedSeats,
+        alreadyCancelled: false,
+        paymentMode: summary.paymentMode,
+        realRefundsProcessed: summary.realRefundsProcessed,
+      };
+
+      // Unlike ordinary best-effort audit writes, this row is required: a
+      // cancellation must not commit without its durable explanation.
+      await recordAudit(
+        {
+          action: "event.cancelled",
+          actorId: userId,
+          targetType: "event",
+          targetId: eventId,
+          metadata: {
+            title: existing.title,
+            ...result,
+            bookingStateForPaid: "refunded",
+            paymentMode: "simulated",
+            realRefundsProcessed: false,
+          },
+        },
+        { session, throwOnError: true }
+      );
+
+      shouldNotify = true;
+    });
+  } finally {
+    await session.endSession();
   }
 
-  const result: CancelEventResult = {
-    refundedBookings: refunded.modifiedCount,
-    releasedBookings: released.modifiedCount,
-    releasedSeats,
-  };
-
-  await recordAudit({
-    action: "event.cancelled",
-    actorId: userId,
-    targetType: "event",
-    targetId: eventId,
-    metadata: {
-      title: existing.title,
-      ...result,
-      // Flags the obligation without pretending it was met.
-      refundsOwed: result.refundedBookings > 0,
-    },
-  });
-
-  // Awaited, not fire-and-forget: a floating promise would outlive the request
-  // and log confusing failures against a closed connection. A mail failure is
-  // swallowed here so it cannot undo a cancellation already applied.
-  try {
-    await notifyTicketHolders(eventOid, existing.title);
-  } catch (err) {
-    console.error(
-      JSON.stringify({
-        level: "error",
-        event: "event.cancel.notify_failed",
-        eventId,
-        message: err instanceof Error ? err.message : String(err),
-      })
-    );
+  // Email is outside the transaction. Provider failure cannot undo correct
+  // database state, and its outcome is still visible in the audit trail.
+  if (shouldNotify) {
+    const notification = await notifyTicketHolders(eventOid, eventTitle);
+    await recordAudit({
+      action: "event.cancellation_notification",
+      actorId: userId,
+      targetType: "event",
+      targetId: eventId,
+      metadata: { ...notification },
+    });
   }
 
   return result;
 };
 
-/** Emails everyone who held a ticket. No-ops when email is switched off. */
+interface CancellationNotificationResult {
+  outcome: "no_recipients" | "disabled" | "sent" | "partial_failure" | "failed";
+  recipients: number;
+  sent: number;
+  skipped: number;
+  failed: number;
+}
+
+/** Emails every paid ticket holder and reports a non-throwing outcome. */
 const notifyTicketHolders = async (
   eventId: Types.ObjectId,
   title: string
-): Promise<void> => {
-  const affected = await BookingModel.find({
-    eventId,
-    status: "refunded",
-  })
+): Promise<CancellationNotificationResult> => {
+  const affected = await BookingModel.find({ eventId, status: "refunded" })
     .select("userId")
     .lean();
 
-  if (affected.length === 0) return;
+  if (affected.length === 0) {
+    return {
+      outcome: "no_recipients",
+      recipients: 0,
+      sent: 0,
+      skipped: 0,
+      failed: 0,
+    };
+  }
 
   const recipients = await userModel
-    .find({ _id: { $in: affected.map((b) => b.userId) } })
+    .find({ _id: { $in: affected.map((booking) => booking.userId) } })
     .select("email")
     .lean();
 
-  for (const recipient of recipients) {
-    await sendEventCancelledEmail(recipient.email, title);
+  if (recipients.length === 0) {
+    return {
+      outcome: "no_recipients",
+      recipients: 0,
+      sent: 0,
+      skipped: 0,
+      failed: 0,
+    };
   }
+
+  let sent = 0;
+  let skipped = 0;
+  let failed = 0;
+
+  for (const recipient of recipients) {
+    try {
+      const dispatched = await sendEventCancelledEmail(recipient.email, title);
+      if (dispatched) sent++;
+      else skipped++;
+    } catch (err) {
+      failed++;
+      console.error(
+        JSON.stringify({
+          level: "error",
+          event: "event.cancel.notify_failed",
+          eventId: String(eventId),
+          recipientId: String(recipient._id),
+          message: err instanceof Error ? err.message : String(err),
+        })
+      );
+    }
+  }
+
+  const outcome: CancellationNotificationResult["outcome"] =
+    failed === recipients.length
+      ? "failed"
+      : failed > 0
+        ? "partial_failure"
+        : sent > 0
+          ? "sent"
+          : "disabled";
+
+  return {
+    outcome,
+    recipients: recipients.length,
+    sent,
+    skipped,
+    failed,
+  };
 };

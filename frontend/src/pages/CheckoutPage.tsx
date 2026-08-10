@@ -136,6 +136,8 @@ const CheckoutPage: React.FC = () => {
                     ${
                       booking.status === "paid"
                         ? "border-emerald-400 text-emerald-300"
+                        : booking.status === "refunded"
+                        ? "border-sky-400 text-sky-300"
                         : booking.status === "unpaid"
                         ? "border-yellow-400 text-yellow-300"
                         : booking.status === "expired"
@@ -145,7 +147,9 @@ const CheckoutPage: React.FC = () => {
                 >
                   {isExpired && booking.status === "unpaid"
                     ? "expired"
-                    : booking.status}
+                    : booking.status === "refunded"
+                      ? "closed (demo payment)"
+                      : booking.status}
                 </span>
                 {canPay && countdown && (
                   <span className="text-xs text-gray-400">

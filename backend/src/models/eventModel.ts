@@ -17,6 +17,21 @@ export interface IEvent extends Document {
   updatedAt: Date;
   poster?: string;
   isCancelled: boolean;
+  /**
+   * Incremented by every booking claim and by cancellation. Those operations
+   * therefore contend on this document inside their transactions instead of
+   * being able to commit contradictory lifecycle decisions.
+   */
+  lifecycleVersion: number;
+  /** Stable outcome returned when cancellation is safely retried. */
+  cancellationSummary?: {
+    cancelledAt: Date;
+    refundedBookings: number;
+    releasedBookings: number;
+    releasedSeats: number;
+    paymentMode: "simulated";
+    realRefundsProcessed: false;
+  };
 }
 
 const eventSchema = new Schema<IEvent>(
@@ -50,6 +65,16 @@ const eventSchema = new Schema<IEvent>(
     startTime: { type: Date, required: true },
     endTime: { type: Date, required: true },
     isCancelled: { type: Boolean, default: false },
+    lifecycleVersion: { type: Number, default: 0, required: true },
+    cancellationSummary: {
+      _id: false,
+      cancelledAt: { type: Date },
+      refundedBookings: { type: Number, min: 0 },
+      releasedBookings: { type: Number, min: 0 },
+      releasedSeats: { type: Number, min: 0 },
+      paymentMode: { type: String, enum: ["simulated"] },
+      realRefundsProcessed: { type: Boolean, enum: [false] },
+    },
   },
   { timestamps: true }
 );

@@ -8,6 +8,7 @@ const STATUS_OPTIONS: (BookingStatus | "all")[] = [
   "all",
   "unpaid",
   "paid",
+  "refunded",
   "expired",
   "failed",
 ];
@@ -33,6 +34,7 @@ function fmtRange(start?: string, end?: string) {
 function Badge({ status }: { status: BookingStatus }) {
   const map: Record<BookingStatus, string> = {
     paid: "border-emerald-400 text-emerald-300",
+    refunded: "border-sky-400 text-sky-300",
     unpaid: "border-yellow-400 text-yellow-300",
     expired: "border-gray-400 text-red-600",
     failed: "border-rose-400 text-rose-300",
@@ -42,7 +44,7 @@ function Badge({ status }: { status: BookingStatus }) {
     <span
       className={`text-[9px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded-full border whitespace-nowrap ${map[status]}`}
     >
-      {status}
+      {status === "refunded" ? "closed (demo)" : status}
     </span>
   );
 }

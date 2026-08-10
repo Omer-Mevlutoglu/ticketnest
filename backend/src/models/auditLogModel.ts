@@ -14,6 +14,7 @@ export type AuditAction =
   | "venue.disabled"
   | "venue.delete_blocked"
   | "event.cancelled"
+  | "event.cancellation_notification"
   | "user.suspended"
   | "user.unsuspended"
   | "user.approval_changed";
@@ -60,23 +61,41 @@ export interface RecordAuditInput {
   metadata?: Record<string, unknown>;
 }
 
+export interface RecordAuditOptions {
+  /** Include the audit row in the caller's transaction. */
+  session?: mongoose.ClientSession;
+  /** Atomic workflows must fail, not silently commit without their audit row. */
+  throwOnError?: boolean;
+}
+
 /**
  * Writes an audit entry.
  *
- * Never throws: losing the record of an action is bad, but failing the action
- * itself because the record could not be written is worse. A failure is logged
- * and swallowed.
+ * Best-effort by default: a failure is logged and swallowed. Atomic workflows
+ * can opt into `throwOnError` so their transaction cannot commit without its
+ * required audit row.
  */
-export const recordAudit = async (input: RecordAuditInput): Promise<void> => {
+export const recordAudit = async (
+  input: RecordAuditInput,
+  options: RecordAuditOptions = {}
+): Promise<void> => {
   try {
-    await auditLogModel.create({
+    const document = {
       action: input.action,
       actorId: input.actorId ? new Types.ObjectId(input.actorId) : undefined,
       targetType: input.targetType,
       targetId: new Types.ObjectId(input.targetId),
       metadata: input.metadata,
-    });
+    };
+
+    if (options.session) {
+      await auditLogModel.create([document], { session: options.session });
+    } else {
+      await auditLogModel.create(document);
+    }
   } catch (err) {
+    if (options.throwOnError) throw err;
+
     console.error(
       JSON.stringify({
         level: "error",

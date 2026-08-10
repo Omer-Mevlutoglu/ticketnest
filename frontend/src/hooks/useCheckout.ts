@@ -14,7 +14,7 @@ export type Booking = {
   event: PublicEvent | null;
   items: BookingItem[];
   total: number;
-  status: "unpaid" | "paid" | "failed" | "expired";
+  status: "unpaid" | "paid" | "failed" | "expired" | "refunded";
   expiresAt?: string; // ISO
   createdAt?: string; // ISO
   updatedAt?: string; // ISO

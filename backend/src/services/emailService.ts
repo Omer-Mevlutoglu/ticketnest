@@ -92,7 +92,7 @@ export const sendEventCancelledEmail = async (
       html: `
       <h1>Your event has been cancelled</h1>
       <p>The organizer has cancelled <strong>${eventTitle}</strong>, and your booking has been cancelled with it.</p>
-      <p>Your seats have been released. No further action is needed.</p>
+      <p>Your seats have been released. TicketNest's portfolio checkout is simulated, so no real charge was made and no real refund is required.</p>
       <p><a href="${frontendUrl}/my-bookings" target="_blank">View your bookings</a></p>
     `,
     },

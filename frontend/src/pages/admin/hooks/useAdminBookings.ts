@@ -2,7 +2,12 @@ import { useEffect, useState } from "react";
 import { apiGetAll, errorMessage, isAbortError } from "@/lib/api";
 
 
-export type BookingStatus = "unpaid" | "paid" | "failed" | "expired";
+export type BookingStatus =
+  | "unpaid"
+  | "paid"
+  | "failed"
+  | "expired"
+  | "refunded";
 
 export type BookingItem = {
   seatCoords: { x: number; y: number };

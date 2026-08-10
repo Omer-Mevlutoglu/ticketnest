@@ -136,8 +136,13 @@ export const deleteEventController = async (
 ) => {
   try {
     const userId = requireUserIdString(req);
-    await deleteEvent(String(req.params.id), userId);
-    return res.status(204).json({ message: "Event deleted successfully" });
+    const cancellation = await deleteEvent(String(req.params.id), userId);
+    return res.status(200).json({
+      message: cancellation.alreadyCancelled
+        ? "Event was already cancelled"
+        : "Event cancelled successfully",
+      cancellation,
+    });
   } catch (err) {
     return next(err);
   }
