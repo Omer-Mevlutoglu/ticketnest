@@ -20,7 +20,10 @@ type MeResponse = { user: NonNullable<AuthUser> | null };
  * When the server has email switched off it verifies the account immediately,
  * so there is no inbox to send the user to.
  */
-export type RegisterResult = { verificationEmailSent: boolean };
+export type RegisterResult = {
+  verificationEmailSent: boolean;
+  emailVerificationRequired: boolean;
+};
 
 type AuthContextType = {
   user: AuthUser;
@@ -99,12 +102,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   }, []);
 
   const register: AuthContextType["register"] = async (p) => {
-    const res = await apiPost<{ user?: { verificationEmailSent?: boolean } }>(
-      "/api/auth/register",
-      p
-    );
+    const res = await apiPost<{
+      user?: {
+        verificationEmailSent?: boolean;
+        emailVerificationRequired?: boolean;
+      };
+    }>("/api/auth/register", p);
     return {
       verificationEmailSent: res?.user?.verificationEmailSent === true,
+      emailVerificationRequired:
+        res?.user?.emailVerificationRequired === true,
     };
   };
 

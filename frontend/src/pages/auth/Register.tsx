@@ -4,10 +4,12 @@ import { useAuth } from "@/context/AuthContext";
 import BlurCircle from "@/components/BlurCircle";
 import toast from "react-hot-toast";
 import { errorMessage } from "@/lib/api";
+import { useAppConfig } from "@/hooks/useAppConfig";
 
 const Register: React.FC = () => {
   const nav = useNavigate();
   const { register } = useAuth();
+  const { config } = useAppConfig();
 
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -21,15 +23,20 @@ const Register: React.FC = () => {
       return toast.error("All fields are required");
     setBusy(true);
     try {
-      const { verificationEmailSent } = await register({
+      const { verificationEmailSent, emailVerificationRequired } = await register({
         username,
         email,
         password,
         role,
       });
 
-      if (verificationEmailSent) {
-        nav("/check-email");
+      if (emailVerificationRequired) {
+        if (!verificationEmailSent) {
+          toast.error(
+            "Account created, but delivery failed. Request a new verification link."
+          );
+        }
+        nav("/check-email", { state: { email, verificationEmailSent } });
       } else {
         // Email is off, so the account is already verified — send them
         // straight to sign in rather than to an inbox that will stay empty.
@@ -65,6 +72,12 @@ const Register: React.FC = () => {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
+          {config?.emailEnabled === false && (
+            <p className="text-xs text-gray-400 mt-1">
+              In portfolio mode this is an unverified login identifier. Do not
+              enter a sensitive or private address.
+            </p>
+          )}
         </div>
         <div>
           <label className="text-sm text-gray-300">Password</label>

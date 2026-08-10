@@ -59,6 +59,12 @@ export const forgotPasswordLimiter = make({
   limit: 5,
 });
 
+/** Protects provider spend while keeping the response non-enumerating. */
+export const resendVerificationLimiter = make({
+  windowMs: 60 * 60 * 1000,
+  limit: 5,
+});
+
 /** Verification and reset token submissions — guards against token guessing. */
 export const tokenLimiter = make({
   windowMs: 15 * 60 * 1000,

@@ -38,6 +38,16 @@ describe("API harness — session authentication", () => {
       .send({ email: "wrongpw@example.test", password: "not-the-password" });
 
     expect(res.status).toBe(401);
+    expect(res.body.message).toBe("Invalid email or password.");
+  });
+
+  it("uses the same login response for an unknown email", async () => {
+    const res = await request(app)
+      .post("/api/auth/login")
+      .send({ email: "missing@example.test", password: "not-the-password" });
+
+    expect(res.status).toBe(401);
+    expect(res.body.message).toBe("Invalid email or password.");
   });
 
   it("refuses a login for an unverified email", async () => {
@@ -51,6 +61,21 @@ describe("API harness — session authentication", () => {
       .send({ email: "unverified@example.test", password: DEFAULT_PASSWORD });
 
     expect(res.status).toBe(401);
+    expect(res.body.message).toBe("Invalid email or password.");
+  });
+
+  it("uses the same login response for a suspended account", async () => {
+    await createAttendee({
+      email: "suspended@example.test",
+      isSuspended: true,
+    });
+
+    const res = await request(app)
+      .post("/api/auth/login")
+      .send({ email: "suspended@example.test", password: DEFAULT_PASSWORD });
+
+    expect(res.status).toBe(401);
+    expect(res.body.message).toBe("Invalid email or password.");
   });
 
   it("keeps sessions isolated between agents", async () => {

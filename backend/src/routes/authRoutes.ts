@@ -5,6 +5,7 @@ import {
   forgotPasswordSchema,
   loginSchema,
   registerSchema,
+  resendVerificationSchema,
   resetPasswordSchema,
   verifyEmailSchema,
 } from "../validation/schemas";
@@ -23,8 +24,10 @@ import {
   forgotPasswordLimiter,
   loginLimiter,
   registerLimiter,
+  resendVerificationLimiter,
   tokenLimiter,
 } from "../middleware/rateLimiters";
+import { resendVerificationEmail } from "../services/authService";
 
 const router = Router();
 
@@ -131,6 +134,23 @@ router.post(
       });
     } catch (err) {
       next(err);
+    }
+  }
+);
+
+router.post(
+  "/resend-verification",
+  resendVerificationLimiter,
+  validateBody(resendVerificationSchema),
+  async (req, res, next) => {
+    try {
+      await resendVerificationEmail(req.body.email);
+      res.status(202).json({
+        message:
+          "If an unverified account with that email exists, a new verification link will be sent.",
+      });
+    } catch (error) {
+      next(error);
     }
   }
 );

@@ -23,6 +23,13 @@ import { httpError } from "../utils/httpError";
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
+declare module "express-session" {
+  interface SessionData {
+    /** Ensures the anonymous session used to sign a CSRF token is persisted. */
+    csrfInitialized?: boolean;
+  }
+}
+
 const normalize = (value: string): string => value.trim().replace(/\/$/, "");
 
 /**
@@ -88,8 +95,25 @@ const { generateCsrfToken, doubleCsrfProtection } = doubleCsrf({
 });
 
 /** `GET /api/csrf-token` — issues a token and sets its paired cookie. */
-export const issueCsrfToken = (req: Request, res: Response) => {
-  res.json({ csrfToken: generateCsrfToken(req, res) });
+export const issueCsrfToken = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  // The HMAC includes req.sessionID. With saveUninitialized=false, merely
+  // reading that ID does not set connect.sid, so the following write would get
+  // a different session and reject an otherwise valid token. Touch and save a
+  // harmless marker before generating the token so both requests share the ID.
+  req.session.csrfInitialized = true;
+  req.session.save((saveError) => {
+    if (saveError) return next(saveError);
+
+    try {
+      return res.json({ csrfToken: generateCsrfToken(req, res) });
+    } catch (error) {
+      return next(error);
+    }
+  });
 };
 
 /**
@@ -106,5 +130,18 @@ export const csrfProtection = (
   next: NextFunction
 ) => {
   if (!getConfig().isProduction) return next();
-  return doubleCsrfProtection(req, res, next);
+  return doubleCsrfProtection(req, res, (error?: unknown) => {
+    if (!error) return next();
+
+    const shaped = error as { code?: unknown };
+    if (shaped?.code === "CSRF_INVALID") {
+      return next(
+        httpError(403, "Invalid or missing CSRF token.", {
+          code: "CSRF_INVALID",
+        })
+      );
+    }
+
+    return next(error);
+  });
 };

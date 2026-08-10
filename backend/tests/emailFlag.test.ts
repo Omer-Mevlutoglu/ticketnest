@@ -1,9 +1,16 @@
 import type { Express } from "express";
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 import userModel from "../src/models/userModel";
 import { loadConfig } from "../src/configs/env";
 import { buildTestApp } from "./helpers";
+
+const sendgrid = vi.hoisted(() => ({
+  send: vi.fn(),
+  setApiKey: vi.fn(),
+}));
+
+vi.mock("@sendgrid/mail", () => ({ default: sendgrid }));
 
 /**
  * ENABLE_EMAIL — the project must run end to end with no email provider.
@@ -17,6 +24,11 @@ describe("ENABLE_EMAIL", () => {
 
   beforeAll(() => {
     app = buildTestApp();
+  });
+
+  beforeEach(() => {
+    sendgrid.send.mockReset();
+    sendgrid.send.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -53,6 +65,8 @@ describe("ENABLE_EMAIL", () => {
     it("tells the client no verification email was sent", async () => {
       const res = await signUp("noemail@example.test");
       expect(res.body.user.verificationEmailSent).toBe(false);
+      expect(res.body.user.emailVerificationRequired).toBe(false);
+      expect(sendgrid.send).not.toHaveBeenCalled();
     });
 
     it("lets the new account sign in straight away", async () => {
@@ -118,10 +132,13 @@ describe("ENABLE_EMAIL", () => {
 
     it("leaves a new account unverified", async () => {
       withEmailOn();
-      await signUp("onmode@example.test");
+      const res = await signUp("onmode@example.test");
 
       const user = await userModel.findOne({ email: "onmode@example.test" }).lean();
       expect(user!.emailVerified).toBe(false);
+      expect(res.body.user.emailVerificationRequired).toBe(true);
+      expect(res.body.user.verificationEmailSent).toBe(true);
+      expect(sendgrid.send).toHaveBeenCalledOnce();
     });
 
     it("blocks sign-in until the address is verified", async () => {
@@ -136,15 +153,49 @@ describe("ENABLE_EMAIL", () => {
     });
 
     it("creates the account even when delivery fails", async () => {
-      // The test key is not a real SendGrid credential, so the send throws.
-      // A delivery failure must not lose the account.
+      sendgrid.send.mockRejectedValueOnce(new Error("provider unavailable"));
       withEmailOn();
       const res = await signUp("delivery@example.test");
 
       expect(res.status).toBe(201);
+      expect(res.body.user.emailVerificationRequired).toBe(true);
+      expect(res.body.user.verificationEmailSent).toBe(false);
+      expect(res.body.message).toMatch(/could not be sent/i);
       await expect(
         userModel.countDocuments({ email: "delivery@example.test" })
       ).resolves.toBe(1);
+    });
+
+    it("resends verification without revealing whether the account exists", async () => {
+      withEmailOn();
+      await signUp("resend@example.test");
+      sendgrid.send.mockClear();
+
+      const known = await request(app)
+        .post("/api/auth/resend-verification")
+        .send({ email: "resend@example.test" });
+      const unknown = await request(app)
+        .post("/api/auth/resend-verification")
+        .send({ email: "unknown@example.test" });
+
+      expect(known.status).toBe(202);
+      expect(unknown.status).toBe(202);
+      expect(known.body).toEqual(unknown.body);
+      expect(sendgrid.send).toHaveBeenCalledOnce();
+    });
+
+    it("keeps the resend response generic when the provider fails", async () => {
+      withEmailOn();
+      await signUp("retry-later@example.test");
+      sendgrid.send.mockClear();
+      sendgrid.send.mockRejectedValueOnce(new Error("provider unavailable"));
+
+      const res = await request(app)
+        .post("/api/auth/resend-verification")
+        .send({ email: "retry-later@example.test" });
+
+      expect(res.status).toBe(202);
+      expect(res.body.message).toMatch(/if an unverified account/i);
     });
 
     it("accepts the password reset request", async () => {

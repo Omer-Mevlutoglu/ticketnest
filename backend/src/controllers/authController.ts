@@ -15,9 +15,13 @@ export const register = async (
     // userData must match RegisterDTO shape: { username, email, password, role }
     const newUser = await registerUser(req.body);
     // return safe user info (without passwordHash)
-    res
-      .status(201)
-      .json({ message: "User registered successfully", user: newUser });
+    const message = newUser.emailVerificationRequired
+      ? newUser.verificationEmailSent
+        ? "User registered successfully. Check your email to verify the account."
+        : "User registered successfully, but the verification email could not be sent. Request a new link to continue."
+      : "User registered successfully. You can sign in now.";
+
+    res.status(201).json({ message, user: newUser });
   } catch (err) {
     next(err);
   }

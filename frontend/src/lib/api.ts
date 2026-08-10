@@ -161,13 +161,24 @@ export async function api<T = unknown>(
   };
 
   let res = await send(isWrite ? await getCsrfToken() : null);
+  let body = await parseBody(res);
 
-  if (res.status === 403 && isWrite) {
+  // Refresh only for a real CSRF rejection. Retrying every 403 would submit
+  // forbidden role/demo mutations twice.
+  const isCsrfFailure =
+    res.status === 403 &&
+    body !== null &&
+    typeof body === "object" &&
+    (body as { code?: unknown }).code === "CSRF_INVALID";
+
+  if (isWrite && isCsrfFailure) {
     const refreshed = await getCsrfToken(true);
-    if (refreshed) res = await send(refreshed);
+    if (refreshed) {
+      res = await send(refreshed);
+      body = await parseBody(res);
+    }
   }
 
-  const body = await parseBody(res);
   if (!res.ok) throw toApiError(res.status, body);
 
   return body as T;
