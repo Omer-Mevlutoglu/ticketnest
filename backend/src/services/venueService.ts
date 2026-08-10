@@ -1,6 +1,8 @@
 import { Types } from "mongoose";
 import venueModel, { IVenue } from "../models/venueModel";
 import { httpError } from "../utils/httpError";
+import { eventModel } from "../models/eventModel";
+import { recordAudit } from "../models/auditLogModel";
 
 export interface CreateVenueDTO {
   name: string;
@@ -62,12 +64,66 @@ export const updateVenue = async (id: string, venueData: CreateVenueDTO) => {
   }
 };
 
-export const deleteVenue = async (id: string) => {
+/**
+ * Retires a venue.
+ *
+ * This used to be `findByIdAndDelete` with no reference check, which left every
+ * event built on that template pointing at a `templateVenueId` that no longer
+ * resolved — the event detail page silently lost its venue images and there was
+ * no way to tell why.
+ *
+ * Two changes: deletion is refused while live events depend on it, and what
+ * remains is a soft-disable. The `isActive` flag was already on the model, so
+ * soft-delete was the original intent.
+ */
+export const deleteVenue = async (
+  id: string,
+  actorId?: string
+): Promise<{ eventsAffected: number }> => {
   if (!Types.ObjectId.isValid(id)) {
     throw httpError(400, "Invalid venue ID");
   }
-  const result = await venueModel.findByIdAndDelete(id).exec();
-  if (!result) {
+
+  const venue = await venueModel.findById(id).lean().exec();
+  if (!venue) {
     throw httpError(404, "Venue not found");
   }
+
+  // Archived events keep their reference for the historical record; only live
+  // ones block removal.
+  const inUse = await eventModel.countDocuments({
+    templateVenueId: new Types.ObjectId(id),
+    status: { $ne: "archived" },
+    isCancelled: { $ne: true },
+  });
+
+  if (inUse > 0) {
+    await recordAudit({
+      action: "venue.delete_blocked",
+      actorId,
+      targetType: "venue",
+      targetId: id,
+      metadata: { eventsAffected: inUse },
+    });
+
+    throw httpError(
+      409,
+      `This venue is used by ${inUse} active event${
+        inUse === 1 ? "" : "s"
+      }. Cancel or archive them first.`,
+      { code: "VENUE_IN_USE" }
+    );
+  }
+
+  await venueModel.findByIdAndUpdate(id, { $set: { isActive: false } }).exec();
+
+  await recordAudit({
+    action: "venue.disabled",
+    actorId,
+    targetType: "venue",
+    targetId: id,
+    metadata: { name: venue.name },
+  });
+
+  return { eventsAffected: 0 };
 };

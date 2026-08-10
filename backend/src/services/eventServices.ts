@@ -4,6 +4,11 @@ import venueModel from "../models/venueModel";
 import { upsertSeatMap } from "./seatMapService";
 import { httpError } from "../utils/httpError";
 import { paginate, Page } from "../utils/pagination";
+import BookingModel from "../models/bookingModel";
+import SeatMapModel from "../models/seatMapModel";
+import userModel from "../models/userModel";
+import { recordAudit } from "../models/auditLogModel";
+import { sendEventCancelledEmail } from "./emailService";
 
 export interface CreateEventDTO {
   title: string;
@@ -280,21 +285,140 @@ export const updateEvent = async (
   }
 };
 
+export interface CancelEventResult {
+  /** Paid bookings moved to `refunded`. */
+  refundedBookings: number;
+  /** Unpaid holds released. */
+  releasedBookings: number;
+  /** Seats returned to `available`. */
+  releasedSeats: number;
+}
+
+/**
+ * Cancels an event and unwinds everything attached to it.
+ *
+ * Previously this only set two flags: paid bookings stayed `paid`, their seats
+ * stayed `sold`, and ticket holders were never told. The `refunded` status
+ * existed in the enum and no code path ever set it.
+ *
+ * Now the state machine completes. Note what is *not* claimed: no money moves,
+ * because no provider ever took any. `refunded` here records the booking's
+ * final state, and the audit entry records that a real refund is owed if a
+ * provider is ever connected — see Phase 6 Option A.
+ */
 export const deleteEvent = async (
   eventId: string,
   userId: string
-): Promise<void> => {
-  // 1) Fetch & validate
+): Promise<CancelEventResult> => {
   const existing = await getEventById(eventId);
 
-  // 2) Ownership
   if (existing.organizerId.toString() !== userId) {
     throw httpError(403, "Forbidden: you don’t own this event");
   }
 
-  // 3) Delete
+  if (existing.isCancelled) {
+    throw httpError(409, "This event is already cancelled");
+  }
+
+  const eventOid = new Types.ObjectId(eventId);
+
   await eventModel.findByIdAndUpdate(eventId, {
-    isCancelled: true,
-    status: "archived",
+    $set: { isCancelled: true, status: "archived" },
   });
+
+  // Paid bookings become refundable; unpaid holds simply lapse. Both are
+  // conditional, so re-running after a partial failure is safe.
+  const [refunded, released] = await Promise.all([
+    BookingModel.updateMany(
+      { eventId: eventOid, status: "paid" },
+      { $set: { status: "refunded" } }
+    ),
+    BookingModel.updateMany(
+      { eventId: eventOid, status: "unpaid" },
+      { $set: { status: "expired" } }
+    ),
+  ]);
+
+  // Free every seat: nobody holds a seat at an event that is not happening.
+  const seatMap = await SeatMapModel.findOne({ eventId: eventOid })
+    .select("seats")
+    .lean();
+
+  let releasedSeats = 0;
+  if (seatMap) {
+    releasedSeats = seatMap.seats.filter((s) => s.status !== "available").length;
+
+    await SeatMapModel.updateOne(
+      { eventId: eventOid },
+      {
+        $set: { "seats.$[held].status": "available" },
+        $unset: {
+          "seats.$[held].reservedBy": "",
+          "seats.$[held].reservedUntil": "",
+        },
+      },
+      { arrayFilters: [{ "held.status": { $ne: "available" } }] }
+    );
+  }
+
+  const result: CancelEventResult = {
+    refundedBookings: refunded.modifiedCount,
+    releasedBookings: released.modifiedCount,
+    releasedSeats,
+  };
+
+  await recordAudit({
+    action: "event.cancelled",
+    actorId: userId,
+    targetType: "event",
+    targetId: eventId,
+    metadata: {
+      title: existing.title,
+      ...result,
+      // Flags the obligation without pretending it was met.
+      refundsOwed: result.refundedBookings > 0,
+    },
+  });
+
+  // Awaited, not fire-and-forget: a floating promise would outlive the request
+  // and log confusing failures against a closed connection. A mail failure is
+  // swallowed here so it cannot undo a cancellation already applied.
+  try {
+    await notifyTicketHolders(eventOid, existing.title);
+  } catch (err) {
+    console.error(
+      JSON.stringify({
+        level: "error",
+        event: "event.cancel.notify_failed",
+        eventId,
+        message: err instanceof Error ? err.message : String(err),
+      })
+    );
+  }
+
+  return result;
+};
+
+/** Emails everyone who held a ticket. No-ops when email is switched off. */
+const notifyTicketHolders = async (
+  eventId: Types.ObjectId,
+  title: string
+): Promise<void> => {
+  const affected = await BookingModel.find({
+    eventId,
+    status: "refunded",
+  })
+    .select("userId")
+    .lean();
+
+  if (affected.length === 0) return;
+
+  const recipients = await userModel
+    .find({ _id: { $in: affected.map((b) => b.userId) } })
+    .select("email")
+    .lean();
+
+  for (const recipient of recipients) {
+    await sendEventCancelledEmail(recipient.email, title);
+  }
 };

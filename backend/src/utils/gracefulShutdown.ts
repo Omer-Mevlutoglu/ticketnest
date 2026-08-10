@@ -10,6 +10,8 @@ export interface ShutdownOptions {
   logger?: Pick<Console, "log" | "error">;
   /** Injectable so tests do not kill the runner. */
   exit?: (code: number) => void;
+  /** Injectable so tests do not close the connection they share. */
+  closeDatabase?: () => Promise<void>;
 }
 
 const DEFAULT_TIMEOUT_MS = 15_000;
@@ -37,6 +39,7 @@ export const createShutdownHandler = ({
   timeoutMs = DEFAULT_TIMEOUT_MS,
   logger = console,
   exit = (code) => process.exit(code),
+  closeDatabase = () => mongoose.connection.close(false),
 }: ShutdownOptions) => {
   let shuttingDown = false;
 
@@ -68,7 +71,7 @@ export const createShutdownHandler = ({
         server.closeIdleConnections?.();
       });
 
-      await mongoose.connection.close(false);
+      await closeDatabase();
 
       clearTimeout(deadline);
       logger.log(JSON.stringify({ event: "shutdown.complete", signal }));

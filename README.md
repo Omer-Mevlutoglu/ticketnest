@@ -152,11 +152,14 @@ verified on creation, and password reset is hidden rather than broken. Set it to
 real verification and reset flow — the logic is the same either way, the flag
 only controls whether a message is actually sent.
 
-Optional, for something to look at:
+Apply schema migrations, then optionally seed something to look at:
 
 ```bash
-cd backend && npm run seed:demo
+cd backend && npm run migrate && npm run seed:demo
 ```
+
+Migrations are explicit rather than run at boot — startup only warns about
+pending ones, and `/readyz` reports unready until they are applied.
 
 ### Run
 
@@ -182,7 +185,7 @@ cd backend && npm run build && npm run typecheck && npm test
 cd frontend && npm run lint && npm run build
 ```
 
-179 backend tests. They spin up an in-memory MongoDB **replica set**, so transactions work and no external database is touched. They cannot reach Atlas, SendGrid, or Cloudinary: the test setup injects placeholder secrets and refuses any database URI that is not local.
+226 backend tests, plus a GitHub Actions workflow that runs all of it on push. They spin up an in-memory MongoDB **replica set**, so transactions work and no external database is touched. They cannot reach Atlas, SendGrid, or Cloudinary: the test setup injects placeholder secrets and refuses any database URI that is not local.
 
 The frontend has no test harness yet — `npm test` there is a labelled placeholder.
 
@@ -212,6 +215,25 @@ frontend/
 ```
 
 Requests flow **routes -> middleware -> controllers -> services -> models**. Business rules and ownership checks live in the services, so they hold regardless of which route reaches them.
+
+---
+
+## Operations
+
+`GET /healthz` — liveness. Answers without touching MongoDB, so a database
+blip does not restart otherwise-healthy processes.
+
+`GET /readyz` — readiness. Fails when the database is unreachable, when
+migrations are pending, or while the process is shutting down. This is the one
+a load balancer should watch.
+
+Every response carries an `x-request-id`, echoed from the request when one is
+supplied. It appears in the structured log line for the request and in anything
+the error handler records, so one string traces a failure end to end.
+
+On SIGTERM the process reports unready first, then stops the expiry worker,
+drains in-flight requests, and closes MongoDB — with a deadline, so a stuck
+shutdown still terminates.
 
 ---
 

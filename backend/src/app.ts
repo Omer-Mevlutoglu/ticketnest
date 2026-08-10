@@ -27,6 +27,8 @@ import venuePublicRoutes from "./routes/venuePublicRoutes";
 import organizerRoutes from "./routes/organizerRoutes";
 import favoritesRoutes from "./routes/favoritesRoutes";
 import configRoutes from "./routes/configRoutes";
+import { createHealthRoutes } from "./routes/healthRoutes";
+import { requestContext } from "./middleware/requestContext";
 import { getConfig } from "./configs/env";
 
 /**
@@ -41,7 +43,12 @@ import { getConfig } from "./configs/env";
  * Requires an already-established Mongoose connection, because the session
  * store reuses its MongoDB client.
  */
-export const createApp = (): Express => {
+export interface CreateAppOptions {
+  /** Lets the readiness probe fail as soon as shutdown begins. */
+  isShuttingDown?: () => boolean;
+}
+
+export const createApp = (options: CreateAppOptions = {}): Express => {
   if (mongoose.connection.readyState !== 1) {
     throw new Error(
       "createApp() requires an active Mongoose connection (the session store reuses it)."
@@ -50,6 +57,9 @@ export const createApp = (): Express => {
 
   const config = getConfig();
   const app = express();
+
+  // First in the chain: everything logged below carries the request id.
+  app.use(requestContext);
 
   // Behind a proxy (Render/Vercel), trust the first hop so secure cookies and
   // client IPs resolve correctly.
@@ -74,6 +84,10 @@ export const createApp = (): Express => {
   );
   app.use(express.json({ limit: "1mb" }));
   app.use(cookieParser(config.sessionSecret));
+
+  // Before sessions, CSRF and the rate limiter. A probe must not be throttled,
+  // must not need a token, and must not mint a session document per poll.
+  app.use(createHealthRoutes({ isShuttingDown: options.isShuttingDown }));
 
   app.use(
     session({

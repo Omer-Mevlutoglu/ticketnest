@@ -1,35 +1,35 @@
 import dotenv from "dotenv";
-import mongoose from "mongoose";
 import { createApp } from "./app";
 import { ExpiryWorker } from "./jobs/expiryWorker";
-import userModel from "./models/userModel";
 import connectDB from "./configs/db";
 import { assertFeatureFlags } from "./configs/features";
 import { getConfig } from "./configs/env";
 import { seedAdmins } from "./services/adminSeedService";
+import { pendingMigrationIds } from "./migrations";
+import { createShutdownHandler } from "./utils/gracefulShutdown";
 
 dotenv.config();
 
 const EXPIRE_JOB_MS = 60 * 1000;
 
-// Backfills `isSuspended` on user documents created before the field existed.
-// TODO(WP5.2): move this into an explicit, versioned migration script.
-async function migrateUsers() {
-  try {
-    console.log("Checking for user schema migration...");
-    const result = await userModel.updateMany(
-      { isSuspended: { $exists: false } },
-      { $set: { isSuspended: false } }
+/**
+ * Warns about migrations that have not been applied.
+ *
+ * Deliberately a warning and not a failure: refusing to boot would take the
+ * whole service down for a schema change that may be additive and harmless.
+ * The readiness probe reports unready instead, so an orchestrator holds traffic
+ * back without killing the process.
+ */
+async function checkMigrations() {
+  const pending = await pendingMigrationIds();
+
+  if (pending.length > 0) {
+    console.warn(
+      `⚠️  ${pending.length} pending migration(s): ${pending.join(", ")}. ` +
+        `Run "npm run migrate". /readyz will report not ready until then.`
     );
-    if (result.modifiedCount > 0) {
-      console.log(
-        `✅ Migrated ${result.modifiedCount} users (added 'isSuspended' field).`
-      );
-    } else {
-      console.log("✅ User schema is up to date.");
-    }
-  } catch (err) {
-    console.error("❌ User migration failed:", err);
+  } else {
+    console.log("✅ Schema is up to date.");
   }
 }
 
@@ -41,10 +41,17 @@ async function bootstrap() {
   assertFeatureFlags();
 
   await connectDB();
+  await checkMigrations();
 
-  await migrateUsers();
+  // Auto-expire unpaid bookings. Single-instance only — see ExpiryWorker.
+  const expiryWorker = new ExpiryWorker({ intervalMs: EXPIRE_JOB_MS });
 
-  const app = createApp();
+  // Built before the worker starts and before listen(), so the readiness probe
+  // can consult the shutdown flag from the first request onwards.
+  let shutdownHandler: { isShuttingDown: () => boolean } | null = null;
+  const app = createApp({
+    isShuttingDown: () => shutdownHandler?.isShuttingDown() ?? false,
+  });
 
   // Awaited: an admin account half-created while requests are already being
   // served is worse than a slower boot.
@@ -53,31 +60,17 @@ async function bootstrap() {
     initialPassword: config.adminInitialPassword,
   });
 
-  // Auto-expire unpaid bookings. Single-instance only — see ExpiryWorker.
-  const expiryWorker = new ExpiryWorker({ intervalMs: EXPIRE_JOB_MS });
   expiryWorker.start();
 
   const server = app.listen(config.port, () => {
     console.log(`✅ Server is running on port ${config.port}`);
   });
 
-  // Stop scheduling new sweeps and let the in-flight one finish.
-  // TODO(WP5.2): also drain in-flight HTTP requests and close MongoDB.
-  let shuttingDown = false;
-  const shutdown = async (signal: string) => {
-    if (shuttingDown) return;
-    shuttingDown = true;
-    console.log(`${signal} received, shutting down…`);
+  const handler = createShutdownHandler({ server, worker: expiryWorker });
+  shutdownHandler = handler;
 
-    await expiryWorker.stop();
-    server.close(async () => {
-      await mongoose.connection.close().catch(() => {});
-      process.exit(0);
-    });
-  };
-
-  process.on("SIGINT", () => void shutdown("SIGINT"));
-  process.on("SIGTERM", () => void shutdown("SIGTERM"));
+  process.on("SIGINT", () => void handler.shutdown("SIGINT"));
+  process.on("SIGTERM", () => void handler.shutdown("SIGTERM"));
 }
 
 bootstrap().catch((err) => {

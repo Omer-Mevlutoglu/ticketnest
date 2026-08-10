@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit -p tests/tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
-    "seed:demo": "ts-node src/scripts/seedDemo.ts"
+    "seed:demo": "ts-node src/scripts/seedDemo.ts",
+    "migrate": "ts-node src/scripts/migrate.ts"
   },
   "keywords": [],
   "author": "",

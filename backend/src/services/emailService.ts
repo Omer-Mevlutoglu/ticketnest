@@ -77,6 +77,29 @@ export const sendVerificationEmail = async (
 /**
  * Sends a pre-made password reset email
  */
+/** Tells a ticket holder their event is off. */
+export const sendEventCancelledEmail = async (
+  email: string,
+  eventTitle: string
+): Promise<boolean> => {
+  const { frontendUrl, fromEmail } = client();
+
+  return dispatch(
+    {
+      to: email,
+      from: fromEmail,
+      subject: `TicketNest - "${eventTitle}" has been cancelled`,
+      html: `
+      <h1>Your event has been cancelled</h1>
+      <p>The organizer has cancelled <strong>${eventTitle}</strong>, and your booking has been cancelled with it.</p>
+      <p>Your seats have been released. No further action is needed.</p>
+      <p><a href="${frontendUrl}/my-bookings" target="_blank">View your bookings</a></p>
+    `,
+    },
+    "event cancellation email"
+  );
+};
+
 export const sendPasswordResetEmail = async (
   email: string,
   token: string

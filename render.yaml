@@ -1,0 +1,67 @@
+# Render Blueprint for the TicketNest API.
+#
+# This documents how the backend is deployed. An existing service created
+# through the dashboard is not managed by this file — Render adopts it only if
+# you point a Blueprint at the repo. Either way it is the reference for what
+# the service needs, and it is version-controlled rather than living only in a
+# web form.
+#
+# The frontend is not here: it is deployed by Vercel from the same repo.
+
+services:
+  - type: web
+    name: ticketnest-api
+    runtime: node
+    plan: free
+    rootDir: backend
+
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+
+    # Render polls this to decide whether an instance should receive traffic.
+    # /healthz answers without touching MongoDB, so a database blip does not
+    # trigger a restart loop. /readyz is the stricter check — use it manually
+    # after a deploy to confirm migrations have been applied.
+    healthCheckPath: /healthz
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+      # Render provides PORT; the app reads it from config.
+      - key: PORT
+        value: 5000
+
+      # --- set these in the dashboard, never in this file ---
+      - key: MONGO_URI
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: EMAIL_VERIFY_TOKEN_SECRET
+        generateValue: true
+      - key: PASSWORD_RESET_TOKEN_SECRET
+        generateValue: true
+
+      # Absolute origin of the deployed frontend. The API refuses to start
+      # without these two, and CORS is built from them.
+      - key: FRONTEND_URL
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+
+      # The portfolio demo marks bookings paid without a payment provider.
+      # Remove this once Phase 6 Option A (Stripe) lands.
+      - key: ENABLE_MOCK_PAYMENTS
+        value: "true"
+
+      # Off unless a provider key is supplied — see backend/.env.example.
+      - key: ENABLE_EMAIL
+        value: "false"
+
+      # Image uploads.
+      - key: CLOUD_NAME
+        sync: false
+      - key: CLOUD_API_KEY
+        sync: false
+      - key: CLOUD_API_SECRET
+        sync: false

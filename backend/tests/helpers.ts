@@ -1,10 +1,11 @@
 import type { Express } from "express";
 import request from "supertest";
-import { createApp } from "../src/app";
+import { createApp, CreateAppOptions } from "../src/app";
 import { DEFAULT_PASSWORD } from "./factories";
 
 /** Builds the real Express app against the already-connected test database. */
-export const buildTestApp = (): Express => createApp();
+export const buildTestApp = (options: CreateAppOptions = {}): Express =>
+  createApp(options);
 
 /**
  * Returns a Supertest agent that has completed the session login flow, so

@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+import { requireUserIdString } from "../utils/requestUser";
 import {
   createVenue,
   deleteVenue,
@@ -66,7 +67,7 @@ export const deleteVenueController = async (
   next: NextFunction
 ) => {
   try {
-    await deleteVenue(String(req.params.id));
+    await deleteVenue(String(req.params.id), requireUserIdString(req));
     return res.status(200).json({ message: "Venue deleted successfully" });
   } catch (err) {
     return next(err);
