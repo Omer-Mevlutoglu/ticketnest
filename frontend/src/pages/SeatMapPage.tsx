@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 import Loading from "../components/Loading";
 import BlurCircle from "../components/BlurCircle";
 import { apiGet, apiPost, errorMessage, isAbortError } from "../lib/api";
+import { tierStyle } from "../lib/seatTiers";
 
 type Seat = {
   x: number;
@@ -33,9 +34,14 @@ type BookingResponse = {
 // enforces it too, this is only to fail fast in the UI.
 const MAX_SELECT = 6;
 
-const SeatMapPage: React.FC = () => {
+interface SeatMapPageProps {
+  mode?: "booking" | "organizer-preview";
+}
+
+const SeatMapPage: React.FC<SeatMapPageProps> = ({ mode = "booking" }) => {
   const { id: eventId } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const isPreview = mode === "organizer-preview";
 
   const [seatMap, setSeatMap] = useState<SeatMap | null>(null);
   const [loading, setLoading] = useState(true);
@@ -65,9 +71,10 @@ const SeatMapPage: React.FC = () => {
         setError(null);
         setSelected(new Map()); // Clear selection when map loads/reloads
 
-        setSeatMap(
-          await apiGet<SeatMap>(`/api/events/${eventId}/seatmap`, ac.signal)
-        );
+        const endpoint = isPreview
+          ? `/api/events/mine/${eventId}/seatmap`
+          : `/api/events/${eventId}/seatmap`;
+        setSeatMap(await apiGet<SeatMap>(endpoint, ac.signal));
       } catch (e) {
         if (isAbortError(e)) return;
         setError(errorMessage(e, "Failed to load seat map"));
@@ -78,7 +85,7 @@ const SeatMapPage: React.FC = () => {
     })();
 
     return () => ac.abort();
-  }, [eventId]);
+  }, [eventId, isPreview]);
 
   // Build grid dims + map
   const { rows, cols, seatByKey } = useMemo(() => {
@@ -99,7 +106,24 @@ const SeatMapPage: React.FC = () => {
     return t;
   }, [selected]);
 
+  const tierLegend = useMemo(() => {
+    const tiers = new Map<string, { name: string; prices: number[] }>();
+    for (const seat of seatMap?.seats ?? []) {
+      const key = seat.tier.trim().toLowerCase();
+      const existing = tiers.get(key) ?? { name: seat.tier, prices: [] };
+      existing.prices.push(seat.price);
+      tiers.set(key, existing);
+    }
+
+    return [...tiers.values()].sort((a, b) => {
+      if (a.name.toLowerCase() === "standard") return -1;
+      if (b.name.toLowerCase() === "standard") return 1;
+      return a.name.localeCompare(b.name);
+    });
+  }, [seatMap]);
+
   const toggleSeat = (key: string) => {
+    if (isPreview) return;
     const seat = seatByKey.get(key);
     if (!seat) return;
     if (seat.status !== "available") {
@@ -195,23 +219,56 @@ const SeatMapPage: React.FC = () => {
     >
       {/* Left column: legend + summary */}
       <div className="w-full md:w-60 flex-shrink-0 bg-primary/10 border border-primary/20 rounded-lg py-6 h-max md:sticky md:top-30">
-        <p className="text-lg font-semibold px-6 mb-4">Your Selection</p>
-        <div className="px-6 text-sm space-y-2">
-          <div className="flex items-center justify-between">
-            <span>Seats</span>
-            <span className="tabular-nums">{selected.size}</span>
+        <p className="text-lg font-semibold px-6 mb-4">
+          {isPreview ? "Seat Map Preview" : "Your Selection"}
+        </p>
+        {!isPreview && (
+          <div className="px-6 text-sm space-y-2">
+            <div className="flex items-center justify-between">
+              <span>Seats</span>
+              <span className="tabular-nums">{selected.size}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span>Total</span>
+              <span className="tabular-nums">{totalPrice.toFixed(2)}</span>
+            </div>
+            {selected.size > 0 && (
+              <div className="mt-3 space-y-1 border-t border-white/10 pt-3 text-xs">
+                {[...selected.values()].map((seat) => (
+                  <div
+                    key={`${seat.x},${seat.y}`}
+                    className="flex items-center justify-between gap-2"
+                  >
+                    <span className="truncate">
+                      {seat.x}-{seat.y} · {seat.tier}
+                    </span>
+                    <span className="tabular-nums">{seat.price.toFixed(2)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-          <div className="flex items-center justify-between">
-            <span>Total</span>
-            <span className="tabular-nums">{totalPrice.toFixed(2)}</span>
-          </div>
-        </div>
+        )}
 
         <div className="px-6 mt-6 text-xs space-y-2">
-          <div className="flex items-center gap-2">
-            <span className="inline-block w-3 h-3 rounded bg-emerald-500/60 border border-emerald-400/60" />
-            <span>Available</span>
-          </div>
+          <p className="mb-2 font-medium text-gray-300">Available tiers</p>
+          {tierLegend.map((tier) => {
+            const prices = [...new Set(tier.prices)].sort((a, b) => a - b);
+            const priceLabel =
+              prices.length === 1
+                ? prices[0].toFixed(2)
+                : `${prices[0].toFixed(2)}–${prices.at(-1)!.toFixed(2)}`;
+            return (
+              <div key={tier.name} className="flex items-center gap-2">
+                <span
+                  className={`inline-block w-3 h-3 rounded border ${tierStyle(tier.name).dot}`}
+                />
+                <span className="min-w-0 flex-1 truncate">{tier.name}</span>
+                <span className="tabular-nums text-gray-400">{priceLabel}</span>
+              </div>
+            );
+          })}
+          <div className="my-3 border-t border-white/10" />
           <div className="flex items-center gap-2">
             <span className="inline-block w-3 h-3 rounded bg-yellow-500/50 border border-yellow-400/60" />
             <span>Reserved</span>
@@ -220,14 +277,16 @@ const SeatMapPage: React.FC = () => {
             <span className="inline-block w-3 h-3 rounded bg-rose-500/60 border border-rose-400/60" />
             <span>Sold</span>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="inline-block w-3 h-3 rounded bg-primary/80 border border-primary/60" />
-            <span>Selected</span>
-          </div>
+          {!isPreview && (
+            <div className="flex items-center gap-2">
+              <span className="inline-block w-3 h-3 rounded bg-primary/80 border border-primary/60" />
+              <span>Selected</span>
+            </div>
+          )}
         </div>
 
         {/* Checkout Button (moved here for mobile) */}
-        <div className="px-6 mt-6 md:hidden">
+        {!isPreview && <div className="px-6 mt-6 md:hidden">
           <button
             onClick={proceedToCheckout}
             disabled={isBooking || selected.size === 0} // Disable while booking or if none selected
@@ -235,7 +294,18 @@ const SeatMapPage: React.FC = () => {
           >
             {isBooking ? "Booking..." : "Proceed to checkout"}
           </button>
-        </div>
+        </div>}
+        {isPreview && (
+          <div className="px-6 mt-6">
+            <button
+              type="button"
+              onClick={() => navigate(`/organizer/events/${eventId}/manage`)}
+              className="w-full rounded-md border border-white/10 px-3 py-2 text-sm hover:bg-white/10"
+            >
+              Back to event
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Right: grid */}
@@ -243,7 +313,9 @@ const SeatMapPage: React.FC = () => {
         <BlurCircle top="-100px" left="-100px" />
         <BlurCircle bottom="0" right="0" />
 
-        <h1 className="text-2xl font-semibold mb-2">Select Your Seats</h1>
+        <h1 className="text-2xl font-semibold mb-2">
+          {isPreview ? "Organizer Seat Preview" : "Select Your Seats"}
+        </h1>
         <p className="text-gray-400 text-sm mb-6">SCREEN SIDE</p>
 
         {/* Announces selection changes, which are otherwise silent to a screen
@@ -287,11 +359,13 @@ const SeatMapPage: React.FC = () => {
                     }
 
                     const selectedHere = selected.has(key);
-                    const base =
-                      "w-8 h-8 rounded border text-xs grid place-items-center cursor-pointer transition";
-                    const styleByStatus: Record<Seat["status"], string> = {
-                      available:
-                        "border-emerald-400/60 bg-emerald-500/20 hover:bg-emerald-500/30",
+                    const base = `w-8 h-8 rounded border text-xs grid place-items-center transition ${
+                      isPreview ? "cursor-default" : "cursor-pointer"
+                    }`;
+                    const styleByStatus: Record<
+                      Exclude<Seat["status"], "available">,
+                      string
+                    > = {
                       reserved:
                         "border-yellow-400/60 bg-yellow-500/30 cursor-not-allowed",
                       sold: "border-rose-400/60 bg-rose-500/40 cursor-not-allowed",
@@ -315,11 +389,13 @@ const SeatMapPage: React.FC = () => {
                         onFocus={() => setFocused({ x, y })}
                         onKeyDown={(e) => onGridKeyDown(e, x, y)}
                         onClick={() => toggleSeat(key)}
-                        disabled={seat.status !== "available"}
+                        disabled={isPreview || seat.status !== "available"}
                         className={`${base} focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${
                           selectedHere
                             ? selectedStyle
-                            : styleByStatus[seat.status]
+                            : seat.status === "available"
+                              ? tierStyle(seat.tier).seat
+                              : styleByStatus[seat.status]
                         }`}
                         title={`${seat.tier} • ${seat.price.toFixed(2)}`}
                       >
@@ -337,13 +413,13 @@ const SeatMapPage: React.FC = () => {
         {/* --- END RESPONSIVENESS FIX --- */}
 
         {/* Checkout Button (desktop only) */}
-        <button
+        {!isPreview && <button
           onClick={proceedToCheckout}
           disabled={isBooking || selected.size === 0} // Disable while booking or if none selected
           className="hidden md:flex items-center gap-2 mt-10 px-10 py-3 text-sm bg-primary hover:bg-primary-dull transition rounded-full font-medium cursor-pointer active:scale-95 disabled:opacity-50"
         >
           {isBooking ? "Booking..." : "Proceed to checkout"}
-        </button>
+        </button>}
       </div>
     </div>
   );

@@ -13,6 +13,7 @@ import {
 import { ensureAuth } from "../middleware/ensureAuth";
 import {
   generateSeatMapFromSpecController,
+  getMySeatMapController,
   getSeatMapController,
   upsertSeatMapController,
 } from "../controllers/seatMapController";
@@ -43,6 +44,14 @@ router.get(
   ensureApproved,
   validateQuery(paginationSchema),
   listMyEvents
+);
+router.get(
+  "/mine/:id/seatmap",
+  ensureAuth,
+  ensureRole(["organizer"]),
+  ensureApproved,
+  validateParams(idParamSchema),
+  getMySeatMapController
 );
 router.get(
   "/mine/:id",

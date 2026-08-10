@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { apiGet, errorMessage } from "@/lib/api";
 
 
@@ -40,7 +40,7 @@ export function useMyEvent(eventId: string | undefined) {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  async function load(signal?: AbortSignal) {
+  const load = useCallback(async (signal?: AbortSignal) => {
     if (!eventId) return;
     setError(null);
     setLoading(true);
@@ -52,7 +52,10 @@ export function useMyEvent(eventId: string | undefined) {
       // A missing seat map is normal for a draft event.
       try {
         setSeatMap(
-          await apiGet<SeatMapDoc>(`/api/events/${eventId}/seatmap`, signal)
+          await apiGet<SeatMapDoc>(
+            `/api/events/mine/${eventId}/seatmap`,
+            signal
+          )
         );
       } catch {
         setSeatMap(null);
@@ -62,13 +65,13 @@ export function useMyEvent(eventId: string | undefined) {
     } finally {
       setLoading(false);
     }
-  }
+  }, [eventId]);
 
   useEffect(() => {
     const ac = new AbortController();
     load(ac.signal);
     return () => ac.abort();
-  }, [eventId]);
+  }, [load]);
 
   const seatSummary = seatMap
     ? seatMap.seats.reduce(

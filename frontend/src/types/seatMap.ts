@@ -14,4 +14,12 @@ export interface GridSeatMapSpec {
     x: number;
     y: number;
   }>;
+  seatOverrides?: SeatPricingOverride[];
+}
+
+export interface SeatPricingOverride {
+  x: number;
+  y: number;
+  tier: string;
+  price: number;
 }

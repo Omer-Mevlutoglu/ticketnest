@@ -9,7 +9,12 @@ import SingleImageUploader from "@/components/organizer/SingleImageUploader"; //
 import BlurCircle from "@/components/BlurCircle";
 import Loading from "@/components/Loading";
 import { apiPost, errorMessage } from "@/lib/api";
-import type { GridSeatMapSpec } from "@/types/seatMap";
+import SeatPricingOverridesEditor from "@/components/organizer/SeatPricingOverridesEditor";
+import { validateSeatPricingOverrides } from "@/lib/seatMapSpec";
+import type {
+  GridSeatMapSpec,
+  SeatPricingOverride,
+} from "@/types/seatMap";
 
 
 type VenueType = "template" | "custom";
@@ -21,6 +26,7 @@ type GridSpec = {
   defaultTier: string;
   defaultPrice: number;
   blocked?: string; // comma separated "x,y; x,y"
+  seatOverrides: SeatPricingOverride[];
 };
 
 const CreateEventPage: React.FC = () => {
@@ -54,6 +60,7 @@ const CreateEventPage: React.FC = () => {
     defaultTier: "Standard",
     defaultPrice: 100,
     blocked: "",
+    seatOverrides: [],
   });
 
   const categories = useMemo(
@@ -105,6 +112,17 @@ const CreateEventPage: React.FC = () => {
     if (venueType === "custom" && (!venueName || !venueAddress)) {
       setSubmitting(false);
       return toast.error("Please fill custom venue name and address.");
+    }
+    if (venueType === "custom") {
+      const overrideError = validateSeatPricingOverrides(
+        grid.seatOverrides,
+        grid.rows,
+        grid.cols
+      );
+      if (overrideError) {
+        setSubmitting(false);
+        return toast.error(overrideError);
+      }
     }
     // Check backend rules on client-side
     if (venueType === "custom" && status === "published") {
@@ -173,6 +191,7 @@ const CreateEventPage: React.FC = () => {
           cols: grid.cols,
           default: { tier: grid.defaultTier, price: Number(grid.defaultPrice) },
           blockedSeats: blockedSeats,
+          seatOverrides: grid.seatOverrides,
         };
 
         try {
@@ -478,6 +497,17 @@ const CreateEventPage: React.FC = () => {
                       }
                     />
                   </div>
+
+                  <SeatPricingOverridesEditor
+                    rows={grid.rows}
+                    cols={grid.cols}
+                    defaultPrice={grid.defaultPrice}
+                    value={grid.seatOverrides}
+                    onChange={(seatOverrides) =>
+                      setGrid({ ...grid, seatOverrides })
+                    }
+                    disabled={submitting}
+                  />
 
                   <div className="mt-3 rounded-md border border-yellow-400/30 bg-yellow-500/10 p-2 sm:p-3 text-xs text-yellow-200">
                     Custom venue events are created as <b>draft</b>.

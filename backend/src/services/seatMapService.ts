@@ -186,13 +186,20 @@ export const buildGridSeats = (spec: GridSeatMapSpec): SeatDTO[] => {
   const blocked = new Set(
     (spec.blockedSeats ?? []).map((seat) => `${seat.x},${seat.y}`)
   );
+  const overrides = new Map(
+    (spec.seatOverrides ?? []).map((seat) => [
+      `${seat.x},${seat.y}`,
+      { tier: seat.tier, price: seat.price },
+    ])
+  );
 
   const seats: SeatDTO[] = [];
   for (let x = 1; x <= spec.rows; x += 1) {
     const { tier, price } = tierByRow.get(x)!;
     for (let y = 1; y <= spec.cols; y += 1) {
       if (blocked.has(`${x},${y}`)) continue;
-      seats.push({ x, y, tier, price, status: "available" });
+      const seatPrice = overrides.get(`${x},${y}`) ?? { tier, price };
+      seats.push({ x, y, ...seatPrice, status: "available" });
     }
   }
 

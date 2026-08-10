@@ -180,6 +180,19 @@ export const generateSeatMapSchema = z
       .array(z.object({ x: gridCoordinate, y: gridCoordinate }).strict())
       .max(39_999)
       .optional(),
+    seatOverrides: z
+      .array(
+        z
+          .object({
+            x: gridCoordinate,
+            y: gridCoordinate,
+            tier: trimmed(50),
+            price: z.number().min(0).max(1_000_000),
+          })
+          .strict()
+      )
+      .max(40_000)
+      .optional(),
   })
   .strict()
   .superRefine((spec, ctx) => {
@@ -231,6 +244,33 @@ export const generateSeatMapSchema = z
         message: "A seat map must contain at least one usable seat",
         path: ["blockedSeats"],
       });
+    }
+
+    const overridden = new Set<string>();
+    for (const [index, seat] of (spec.seatOverrides ?? []).entries()) {
+      const key = `${seat.x},${seat.y}`;
+      if (seat.x > spec.rows || seat.y > spec.cols) {
+        ctx.addIssue({
+          code: "custom",
+          message: `Seat override (${seat.x},${seat.y}) is outside the grid`,
+          path: ["seatOverrides", index],
+        });
+      }
+      if (overridden.has(key)) {
+        ctx.addIssue({
+          code: "custom",
+          message: `Seat override (${seat.x},${seat.y}) is duplicated`,
+          path: ["seatOverrides", index],
+        });
+      }
+      if (blocked.has(key)) {
+        ctx.addIssue({
+          code: "custom",
+          message: `Blocked seat (${seat.x},${seat.y}) cannot have a pricing override`,
+          path: ["seatOverrides", index],
+        });
+      }
+      overridden.add(key);
     }
   });
 

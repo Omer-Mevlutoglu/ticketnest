@@ -5,8 +5,29 @@ import {
   generateSeatMapFromSpec,
   GridSeatMapSpec,
 } from "../services/seatMapService";
-import { getPublishedEventById } from "../services/eventServices";
+import { getEventById, getPublishedEventById } from "../services/eventServices";
 import { requireUserIdString } from "../utils/requestUser";
+import { httpError } from "../utils/httpError";
+
+const publicSeatMap = (seatmap: Awaited<ReturnType<typeof getSeatMap>>) => {
+  const now = new Date();
+  return {
+    ...seatmap,
+    seats: seatmap.seats.map((seat) => {
+      const expired =
+        seat.status === "reserved" &&
+        seat.reservedUntil &&
+        new Date(seat.reservedUntil) < now;
+      return {
+        x: seat.x,
+        y: seat.y,
+        tier: seat.tier,
+        price: seat.price,
+        status: expired ? "available" : seat.status,
+      };
+    }),
+  };
+};
 
 export const getSeatMapController = async (
   req: Request,
@@ -18,29 +39,28 @@ export const getSeatMapController = async (
     // detail page is — otherwise a draft event's seat map is readable by ID.
     await getPublishedEventById(String(req.params.id));
 
-    const seatmap = await getSeatMap(String(req.params.id));
-    const now = new Date();
-
-    const safe = {
-      ...seatmap,
-      seats: seatmap.seats.map((s: any) => {
-        const expired =
-          s.status === "reserved" &&
-          s.reservedUntil &&
-          new Date(s.reservedUntil) < now;
-        const effectiveStatus = expired ? "available" : s.status;
-        return {
-          x: s.x,
-          y: s.y,
-          tier: s.tier,
-          price: s.price,
-          status: effectiveStatus,
-        };
-      }),
-    };
-
-    res.status(200).json(safe);
+    res
+      .status(200)
+      .json(publicSeatMap(await getSeatMap(String(req.params.id))));
   } catch (error: any) {
+    return next(error);
+  }
+};
+
+export const getMySeatMapController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const eventId = String(req.params.id);
+    const event = await getEventById(eventId);
+    if (event.organizerId.toString() !== requireUserIdString(req)) {
+      return next(httpError(403, "Forbidden: you don't own this event"));
+    }
+
+    return res.status(200).json(publicSeatMap(await getSeatMap(eventId)));
+  } catch (error) {
     return next(error);
   }
 };

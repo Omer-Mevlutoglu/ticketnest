@@ -14,7 +14,12 @@ import SingleImageUploader from "@/components/organizer/SingleImageUploader"; //
 import Loading from "@/components/Loading";
 import BlurCircle from "@/components/BlurCircle";
 import { apiPost, apiPut, errorMessage } from "@/lib/api";
-import type { GridSeatMapSpec } from "@/types/seatMap";
+import SeatPricingOverridesEditor from "@/components/organizer/SeatPricingOverridesEditor";
+import { validateSeatPricingOverrides } from "@/lib/seatMapSpec";
+import type {
+  GridSeatMapSpec,
+  SeatPricingOverride,
+} from "@/types/seatMap";
 
 
 // --- NEW Seat Map Generator Component ---
@@ -30,15 +35,23 @@ const GridGenerator: React.FC<{
   const [cols, setCols] = useState(12);
   const [tier, setTier] = useState("Standard");
   const [price, setPrice] = useState(50);
+  const [seatOverrides, setSeatOverrides] = useState<SeatPricingOverride[]>([]);
 
   const generate = async () => {
     if (isBusy || !eventId) return;
+    const overrideError = validateSeatPricingOverrides(
+      seatOverrides,
+      rows,
+      cols
+    );
+    if (overrideError) return toast.error(overrideError);
     setBusy(true);
     try {
       const spec: GridSeatMapSpec = {
         rows,
         cols,
         default: { tier, price },
+        seatOverrides,
       };
       await apiPost(`/api/events/${eventId}/seatmap/generate`, spec);
       toast.success("Seat map generated!");
@@ -109,6 +122,16 @@ const GridGenerator: React.FC<{
             "Generate"
           )}
         </button>
+      </div>
+      <div className="col-span-2 md:col-span-3 lg:col-span-5">
+        <SeatPricingOverridesEditor
+          rows={rows}
+          cols={cols}
+          defaultPrice={price}
+          value={seatOverrides}
+          onChange={setSeatOverrides}
+          disabled={isBusy}
+        />
       </div>
     </div>
   );
@@ -391,12 +414,10 @@ const ManageEventPage: React.FC = () => {
               {/* Link to view seatmap (if it exists) */}
               {hasSeatMap && (
                 <a
-                  href={`/events/${event._id}/seatmap`} // Link to public seatmap page
-                  target="_blank"
-                  rel="noreferrer"
+                  href={`/organizer/events/${event._id}/seatmap-preview`}
                   className="text-xs px-3 py-1.5 rounded-md border border-white/10 hover:bg-white/10 transition"
                 >
-                  View Seat Map
+                  Preview Seat Map
                 </a>
               )}
             </div>

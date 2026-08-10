@@ -45,6 +45,7 @@ describe("seat-map generation contract and lifecycle", () => {
       default: { tier: "Standard", price: 50 },
       rules: [{ rows: [1], tier: "VIP", price: 120 }],
       blockedSeats: [{ x: 2, y: 3 }],
+      seatOverrides: [{ x: 2, y: 2, tier: "Premium", price: 85 }],
     });
 
     expect(response.status).toBe(200);
@@ -59,6 +60,15 @@ describe("seat-map generation contract and lifecycle", () => {
     ).toBe(true);
     expect(response.body.seats).not.toContainEqual(
       expect.objectContaining({ x: 2, y: 3 })
+    );
+    expect(response.body.seats).toContainEqual(
+      expect.objectContaining({
+        x: 2,
+        y: 2,
+        tier: "Premium",
+        price: 85,
+        status: "available",
+      })
     );
 
     const linked = await eventModel.findById(event._id).lean();
@@ -125,6 +135,28 @@ describe("seat-map generation contract and lifecycle", () => {
         cols: 1,
         default: { tier: "Standard", price: 20 },
         blockedSeats: [{ x: 1, y: 1 }],
+      },
+    },
+    {
+      name: "duplicate individual seat overrides",
+      body: {
+        rows: 2,
+        cols: 2,
+        default: { tier: "Standard", price: 20 },
+        seatOverrides: [
+          { x: 1, y: 1, tier: "Premium", price: 40 },
+          { x: 1, y: 1, tier: "VIP", price: 50 },
+        ],
+      },
+    },
+    {
+      name: "an override for a blocked seat",
+      body: {
+        rows: 2,
+        cols: 2,
+        default: { tier: "Standard", price: 20 },
+        blockedSeats: [{ x: 2, y: 2 }],
+        seatOverrides: [{ x: 2, y: 2, tier: "VIP", price: 50 }],
       },
     },
   ])("rejects $name", async ({ body }) => {
@@ -241,5 +273,38 @@ describe("seat-map generation contract and lifecycle", () => {
     });
 
     expect(response.status).toBe(403);
+  });
+
+  it("lets only the owner preview a draft seat map", async () => {
+    const { event, agent } = await ownedDraft();
+    await createSeatMap({
+      eventId: event._id as Types.ObjectId,
+      seats: [
+        { x: 1, y: 1, tier: "Standard", price: 50, status: "available" },
+        { x: 1, y: 2, tier: "Premium", price: 90, status: "available" },
+      ],
+    });
+
+    const ownerResponse = await agent.get(
+      `/api/events/mine/${event._id}/seatmap`
+    );
+    const publicResponse = await request(app).get(
+      `/api/events/${event._id}/seatmap`
+    );
+
+    const { user: otherOrganizer } = await createOrganizer();
+    const otherAgent = await loginAgent(app, otherOrganizer.email);
+    const otherResponse = await otherAgent.get(
+      `/api/events/mine/${event._id}/seatmap`
+    );
+
+    expect(ownerResponse.status).toBe(200);
+    expect(ownerResponse.body.seats).toHaveLength(2);
+    expect(ownerResponse.body.seats[1]).toMatchObject({
+      tier: "Premium",
+      price: 90,
+    });
+    expect(publicResponse.status).toBe(404);
+    expect(otherResponse.status).toBe(403);
   });
 });

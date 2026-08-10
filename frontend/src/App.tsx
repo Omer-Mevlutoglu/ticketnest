@@ -159,6 +159,10 @@ const App = () => {
           <Route path="myevents" element={<MyEventsPage />} />
           <Route path="events/new" element={<CreateEventPage />} />
           <Route path="events/:id/manage" element={<ManageEventPage />} />
+          <Route
+            path="events/:id/seatmap-preview"
+            element={<SeatMapPage mode="organizer-preview" />}
+          />
           <Route path="*" element={<Navigate to="/organizer" replace />} />
         </Route>
 
