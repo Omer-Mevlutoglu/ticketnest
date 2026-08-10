@@ -54,7 +54,7 @@ export const upsertSeatMapController = async (
     // 1) Extract and cast
     const eventId = String(req.params.id);
     const userId = requireUserIdString(req);
-    const { layoutType, seats } = req.body;
+    const { seats } = req.body;
 
     // 2) Delegate to service
     const seatMap = await upsertSeatMap(eventId, userId, seats);

@@ -14,6 +14,7 @@ import SingleImageUploader from "@/components/organizer/SingleImageUploader"; //
 import Loading from "@/components/Loading";
 import BlurCircle from "@/components/BlurCircle";
 import { apiPost, apiPut, errorMessage } from "@/lib/api";
+import type { GridSeatMapSpec } from "@/types/seatMap";
 
 
 // --- NEW Seat Map Generator Component ---
@@ -34,13 +35,13 @@ const GridGenerator: React.FC<{
     if (isBusy || !eventId) return;
     setBusy(true);
     try {
-      const spec = {
+      const spec: GridSeatMapSpec = {
         rows,
         cols,
         default: { tier, price },
       };
       await apiPost(`/api/events/${eventId}/seatmap/generate`, spec);
-      toast.success("Seat map (re)generated!");
+      toast.success("Seat map generated!");
       onGenerated(); // This will call refetch()
     } catch (e) {
       toast.error(errorMessage(e, "Failed to generate seat map"));
@@ -433,23 +434,32 @@ const ManageEventPage: React.FC = () => {
               </div>
             )}
 
-            {/* New Generator UI */}
             <div className="mt-4 pt-4 border-t border-white/10">
-              <p className="text-xs text-gray-400 mb-2">
-                {hasSeatMap ? "Regenerate Grid" : "Generate Grid"}
-                {hasSeatMap && (
-                  <span className="text-yellow-400">
-                    {" "}
-                    (Warning: This replaces the existing map)
-                  </span>
-                )}
-              </p>
-              <GridGenerator
-                eventId={event._id}
-                isBusy={isGenBusy}
-                setBusy={setIsGenBusy}
-                onGenerated={refetch}
-              />
+              {event.status === "draft" && event.venueType === "custom" ? (
+                <>
+                  <p className="text-xs text-gray-400 mb-2">
+                    {hasSeatMap ? "Regenerate Draft Grid" : "Generate Grid"}
+                    {hasSeatMap && (
+                      <span className="text-yellow-400">
+                        {" "}
+                        (This replaces the available draft layout)
+                      </span>
+                    )}
+                  </p>
+                  <GridGenerator
+                    eventId={event._id}
+                    isBusy={isGenBusy}
+                    setBusy={setIsGenBusy}
+                    onGenerated={refetch}
+                  />
+                </>
+              ) : (
+                <p className="text-xs text-gray-400">
+                  {event.venueType === "template"
+                    ? "This seat map is managed by its venue template."
+                    : "Seat-map structure is locked after publication. Existing reservations and sold seats are preserved."}
+                </p>
+              )}
             </div>
 
             {!hasSeatMap && (

@@ -9,6 +9,7 @@ import SingleImageUploader from "@/components/organizer/SingleImageUploader"; //
 import BlurCircle from "@/components/BlurCircle";
 import Loading from "@/components/Loading";
 import { apiPost, errorMessage } from "@/lib/api";
+import type { GridSeatMapSpec } from "@/types/seatMap";
 
 
 type VenueType = "template" | "custom";
@@ -167,7 +168,7 @@ const CreateEventPage: React.FC = () => {
             });
         }
 
-        const spec = {
+        const spec: GridSeatMapSpec = {
           rows: grid.rows,
           cols: grid.cols,
           default: { tier: grid.defaultTier, price: Number(grid.defaultPrice) },

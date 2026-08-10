@@ -152,26 +152,87 @@ export const upsertSeatMapSchema = z
     { message: "Seat coordinates must be unique within a map", path: ["seats"] }
   );
 
+const gridCoordinate = z.number().int().min(1).max(200);
+
 export const generateSeatMapSchema = z
   .object({
     rows: z.number().int().min(1).max(200),
     cols: z.number().int().min(1).max(200),
-    tiers: z
+    default: z
+      .object({
+        tier: trimmed(50),
+        price: z.number().min(0).max(1_000_000),
+      })
+      .strict(),
+    rules: z
       .array(
         z
           .object({
-            name: trimmed(50),
+            rows: z.array(gridCoordinate).min(1).max(200),
+            tier: trimmed(50),
             price: z.number().min(0).max(1_000_000),
-            fromRow: z.number().int().min(1).optional(),
-            toRow: z.number().int().min(1).optional(),
           })
           .strict()
       )
-      .min(1)
-      .max(20),
-    blockedSeats: z.array(seatCoordsSchema).max(40_000).optional(),
+      .max(200)
+      .optional(),
+    blockedSeats: z
+      .array(z.object({ x: gridCoordinate, y: gridCoordinate }).strict())
+      .max(39_999)
+      .optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((spec, ctx) => {
+    const ruleRows = new Set<number>();
+    for (const [ruleIndex, rule] of (spec.rules ?? []).entries()) {
+      for (const [rowIndex, row] of rule.rows.entries()) {
+        if (row > spec.rows) {
+          ctx.addIssue({
+            code: "custom",
+            message: `Row ${row} is outside this ${spec.rows}-row grid`,
+            path: ["rules", ruleIndex, "rows", rowIndex],
+          });
+        }
+        if (ruleRows.has(row)) {
+          ctx.addIssue({
+            code: "custom",
+            message: `Row ${row} is assigned by more than one rule`,
+            path: ["rules", ruleIndex, "rows", rowIndex],
+          });
+        }
+        ruleRows.add(row);
+      }
+    }
+
+    const blocked = new Set<string>();
+    for (const [index, seat] of (spec.blockedSeats ?? []).entries()) {
+      if (seat.x > spec.rows || seat.y > spec.cols) {
+        ctx.addIssue({
+          code: "custom",
+          message: `Blocked seat (${seat.x},${seat.y}) is outside the grid`,
+          path: ["blockedSeats", index],
+        });
+      }
+
+      const key = `${seat.x},${seat.y}`;
+      if (blocked.has(key)) {
+        ctx.addIssue({
+          code: "custom",
+          message: `Blocked seat (${seat.x},${seat.y}) is duplicated`,
+          path: ["blockedSeats", index],
+        });
+      }
+      blocked.add(key);
+    }
+
+    if (blocked.size >= spec.rows * spec.cols) {
+      ctx.addIssue({
+        code: "custom",
+        message: "A seat map must contain at least one usable seat",
+        path: ["blockedSeats"],
+      });
+    }
+  });
 
 // --- bookings -----------------------------------------------------------
 
