@@ -8,13 +8,17 @@ import {
   RocketIcon,
   ShieldOffIcon,
   Loader2Icon,
+  AlertTriangleIcon,
 } from "lucide-react"; // Import Loader2Icon
 import { useMyEvent } from "./hooks/useMyEvent"; // --- FIX: Removed unused 'SeatMapDoc' import ---
 import SingleImageUploader from "@/components/organizer/SingleImageUploader"; // Adjust path as needed
 import Loading from "@/components/Loading";
 import BlurCircle from "@/components/BlurCircle";
-import { apiPost, apiPut, errorMessage } from "@/lib/api";
+import { apiDelete, apiPost, apiPut, errorMessage } from "@/lib/api";
 import SeatPricingOverridesEditor from "@/components/organizer/SeatPricingOverridesEditor";
+import CancelEventDialog, {
+  type EventCancellationResult,
+} from "@/components/organizer/CancelEventDialog";
 import { validateSeatPricingOverrides } from "@/lib/seatMapSpec";
 import type {
   GridSeatMapSpec,
@@ -156,6 +160,10 @@ const ManageEventPage: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [isGenBusy, setIsGenBusy] = useState(false); // For grid generator
+  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [cancellationResult, setCancellationResult] =
+    useState<EventCancellationResult | null>(null);
 
   // seed form when event changes
   React.useEffect(() => {
@@ -230,6 +238,37 @@ const ManageEventPage: React.FC = () => {
     }
   }
 
+  async function cancelEvent() {
+    if (!id || isCancelling || event?.status !== "published") return;
+
+    setIsCancelling(true);
+    try {
+      const response = await apiDelete<{
+        message: string;
+        cancellation: EventCancellationResult;
+      }>(`/api/events/${id}`);
+      setCancellationResult(response.cancellation);
+      toast.success(
+        response.cancellation.alreadyCancelled
+          ? "This event was already cancelled"
+          : "Event cancelled safely"
+      );
+    } catch (error) {
+      toast.error(errorMessage(error, "Failed to cancel event"));
+    } finally {
+      setIsCancelling(false);
+    }
+  }
+
+  function closeCancellationDialog() {
+    if (isCancelling) return;
+    if (cancellationResult) {
+      navigate("/organizer/myevents", { replace: true });
+      return;
+    }
+    setIsCancelDialogOpen(false);
+  }
+
   // Removed old generateGrid, it's in the component now
 
   if (loading) return <Loading />;
@@ -249,7 +288,7 @@ const ManageEventPage: React.FC = () => {
 
   // const canEditVenueBasics = event.venueType === "custom"; // This was the other unused var
   const hasSeatMap = !!event.seatMapId;
-  const isBusy = isSaving || isPublishing || isGenBusy;
+  const isBusy = isSaving || isPublishing || isGenBusy || isCancelling;
 
   return (
     <div className="relative p-2 py-4 sm:px-6 md:px-8 overflow-x-hidden">
@@ -529,8 +568,43 @@ const ManageEventPage: React.FC = () => {
               </div>
             )}
           </div>
+
+          {event.status === "published" && (
+            <div className="rounded-xl border border-rose-400/25 bg-rose-500/5 p-3 sm:p-4">
+              <div className="flex items-start gap-2 text-rose-200">
+                <AlertTriangleIcon className="mt-0.5 h-4 w-4 shrink-0" />
+                <div>
+                  <p className="text-sm font-medium">Danger zone</p>
+                  <p className="mt-1 text-xs text-gray-400">
+                    Permanently cancel this published event, close its bookings,
+                    and release its seats.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setCancellationResult(null);
+                  setIsCancelDialogOpen(true);
+                }}
+                disabled={isBusy}
+                className="mt-4 w-full rounded-md border border-rose-400/40 px-3 py-2 text-sm text-rose-200 transition hover:bg-rose-500/15 disabled:opacity-50"
+              >
+                Cancel event
+              </button>
+            </div>
+          )}
         </div>
       </div>
+
+      <CancelEventDialog
+        open={isCancelDialogOpen}
+        eventTitle={event.title}
+        busy={isCancelling}
+        result={cancellationResult}
+        onClose={closeCancellationDialog}
+        onConfirm={cancelEvent}
+      />
     </div>
   );
 };
