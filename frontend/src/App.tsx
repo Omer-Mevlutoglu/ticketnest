@@ -57,8 +57,18 @@ import {
 const AfterAuthRedirect: React.FC<{ role: Role }> = ({ role }) => {
   const location = useLocation();
   const from = (location.state as { from?: { pathname?: string } } | null)?.from;
+  const returnPath = from?.pathname;
 
-  return <Navigate to={from?.pathname ?? roleHomePath(role)} replace />;
+  // Changing a password destroys the server session and clears the local user.
+  // During that transition RequireAuth can remember /change-password as the
+  // page to resume after login. Returning there creates a false rotation loop
+  // even though the backend has already cleared mustChangePassword.
+  const destination =
+    returnPath && returnPath !== "/change-password"
+      ? returnPath
+      : roleHomePath(role);
+
+  return <Navigate to={destination} replace />;
 };
 
 const App = () => {
