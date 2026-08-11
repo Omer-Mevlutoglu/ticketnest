@@ -54,6 +54,27 @@ describe("WP2.5 — admin seeding", () => {
     expect(admin!.mustChangePassword).toBe(true);
     expect(admin!.role).toBe("admin");
     expect(admin!.emailVerified).toBe(true);
+    expect(admin!.isSystemAdmin).toBe(true);
+    expect(admin!.isDemoAccount).toBe(false);
+  });
+
+  it("reconciles an existing admin as trusted without changing its password", async () => {
+    const { user } = await createUser({
+      email: "existing-admin@example.test",
+      role: "admin",
+    });
+    const originalHash = user.passwordHash;
+
+    await seedAdmins({
+      emails: ["existing-admin@example.test"],
+      initialPassword: PASSWORD,
+      logger: silent,
+    });
+
+    const reconciled = await userModel.findById(user._id).lean();
+    expect(reconciled!.isSystemAdmin).toBe(true);
+    expect(reconciled!.isDemoAccount).toBe(false);
+    expect(reconciled!.passwordHash).toBe(originalHash);
   });
 
   it("never overwrites an existing non-admin account", async () => {

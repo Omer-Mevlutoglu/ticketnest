@@ -51,6 +51,13 @@ export const seedAdmins = async ({
         logger.warn(
           `⚠️  ${email} is listed in ADMIN_EMAILS but already exists with role "${existing.role}". Not modified.`
         );
+      } else {
+        // ADMIN_EMAILS is the deliberate reconciliation path for existing
+        // owner accounts. No request body can set this server-owned marker.
+        await userModel.updateOne(
+          { _id: existing._id, role: "admin" },
+          { $set: { isSystemAdmin: true, isDemoAccount: false } }
+        );
       }
       continue;
     }
@@ -63,6 +70,8 @@ export const seedAdmins = async ({
       emailVerified: true,
       isApproved: true,
       mustChangePassword: true,
+      isSystemAdmin: true,
+      isDemoAccount: false,
     });
 
     created.push(email);

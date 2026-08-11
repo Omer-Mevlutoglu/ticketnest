@@ -9,6 +9,8 @@ export type AppConfig = {
    * and password reset is unavailable.
    */
   emailEnabled: boolean;
+  /** Whether this deployment is the protected public portfolio demo. */
+  demoMode: boolean;
 };
 
 /**
@@ -31,7 +33,11 @@ export function useAppConfig() {
         if (isAbortError(e)) return;
         // An older backend has no /api/config. Assume the simulated flow is
         // available so checkout keeps working rather than locking users out.
-        setConfig({ mockPaymentsEnabled: true, emailEnabled: false });
+        setConfig({
+          mockPaymentsEnabled: true,
+          emailEnabled: false,
+          demoMode: false,
+        });
       } finally {
         if (!ac.signal.aborted) setLoading(false);
       }

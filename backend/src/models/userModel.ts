@@ -22,6 +22,10 @@ export interface IUser extends Document {
   passwordChangedAt?: Date;
   /** Seeded admins must set their own password before doing anything else. */
   mustChangePassword?: boolean;
+  /** Set only by the private ADMIN_EMAILS bootstrap path. */
+  isSystemAdmin: boolean;
+  /** Marks the three public fixture identities created by seed:demo. */
+  isDemoAccount: boolean;
 }
 
 const userSchema = new Schema<IUser>(
@@ -42,6 +46,8 @@ const userSchema = new Schema<IUser>(
     sessionVersion: { type: Number, default: 0, required: true },
     passwordChangedAt: { type: Date },
     mustChangePassword: { type: Boolean, default: false },
+    isSystemAdmin: { type: Boolean, default: false, required: true },
+    isDemoAccount: { type: Boolean, default: false, required: true },
   },
   { timestamps: true }
 );

@@ -10,6 +10,8 @@ export type AuthUser = {
   isApproved?: boolean;
   username?: string;
   mustChangePassword?: boolean;
+  /** Server-calculated capability; never used as the security boundary. */
+  canPerformProtectedWrites?: boolean;
 } | null;
 
 type MeResponse = { user: NonNullable<AuthUser> | null };

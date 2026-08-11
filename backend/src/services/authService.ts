@@ -71,7 +71,12 @@ export const registerUser = async (userData: RegisterDTO) => {
     }
   }
 
-  const { passwordHash: _, ...safeUser } = newUser.toObject();
+  const {
+    passwordHash: _,
+    isSystemAdmin: _systemAdmin,
+    isDemoAccount: _demoAccount,
+    ...safeUser
+  } = newUser.toObject();
 
   // Tells the client whether to say "check your inbox" or send them to sign in.
   return {

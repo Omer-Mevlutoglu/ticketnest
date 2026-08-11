@@ -39,6 +39,7 @@ function ApprovalBadge({ ok }: { ok?: boolean }) {
 
 const AdminUsers: React.FC = () => {
   const { user: adminUser } = useAuth(); // <-- 3. Get current admin user
+  const demoRestricted = adminUser?.canPerformProtectedWrites === false;
   const {
     loading,
     error,
@@ -65,8 +66,8 @@ const AdminUsers: React.FC = () => {
   }> = ({ onClick, disabled, children, className, title }) => (
     <button
       onClick={onClick}
-      disabled={disabled}
-      title={title}
+      disabled={disabled || demoRestricted}
+      title={demoRestricted ? "Disabled in the hosted demo" : title}
       className={`inline-flex items-center justify-center gap-1 px-2 py-1 text-[10px] sm:text-xs rounded border transition disabled:opacity-50 ${className}`}
     >
       {children}

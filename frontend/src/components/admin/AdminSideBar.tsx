@@ -49,7 +49,18 @@ const AdminSideBar: React.FC = () => {
       <p className="mt-2 text-base hidden md:block">{firstName}</p>
 
       <div className="w-full">
-        {adminNavLinks.map(({ name, path, icon: Icon }) => (
+        {adminNavLinks.map(({ name, path, icon: Icon }) =>
+          path === "/admin/venue-create" &&
+          user?.canPerformProtectedWrites === false ? (
+            <div
+              key={path}
+              title="Disabled in the hosted demo"
+              className="relative flex w-full cursor-not-allowed items-center justify-center gap-2 py-2.5 text-gray-600 md:justify-start md:pl-10"
+            >
+              <Icon className="h-4 w-4" />
+              <p className="hidden md:block">{name} (demo locked)</p>
+            </div>
+          ) : (
           <NavLink
             key={path}
             to={path}
@@ -74,7 +85,8 @@ const AdminSideBar: React.FC = () => {
               </>
             )}
           </NavLink>
-        ))}
+          )
+        )}
       </div>
     </div>
   );

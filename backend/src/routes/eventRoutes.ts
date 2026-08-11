@@ -31,6 +31,7 @@ import {
   updateEventSchema,
   upsertSeatMapSchema,
 } from "../validation/schemas";
+import { requireDemoWriteAccess } from "../middleware/demoPolicy";
 
 const router = Router();
 
@@ -68,6 +69,7 @@ router.post(
   ensureAuth,
   ensureRole(["organizer"]),
   ensureApproved,
+  requireDemoWriteAccess,
   validateBody(createEventSchema),
   createEventController
 );
@@ -77,6 +79,7 @@ router.put(
   ensureAuth,
   ensureRole(["organizer"]),
   ensureApproved,
+  requireDemoWriteAccess,
   validateParams(idParamSchema),
   validateBody(updateEventSchema),
   updateEventController
@@ -87,6 +90,7 @@ router.delete(
   ensureAuth,
   ensureRole(["organizer"]),
   ensureApproved,
+  requireDemoWriteAccess,
   validateParams(idParamSchema),
   deleteEventController
 );
@@ -100,6 +104,7 @@ router.put(
   ensureAuth,
   ensureRole(["organizer"]),
   ensureApproved,
+  requireDemoWriteAccess,
   validateParams(idParamSchema),
   validateBody(upsertSeatMapSchema),
   upsertSeatMapController
@@ -110,6 +115,7 @@ router.post(
   ensureAuth,
   ensureRole(["organizer"]),
   ensureApproved,
+  requireDemoWriteAccess,
   validateParams(idParamSchema),
   validateBody(generateSeatMapSchema),
   generateSeatMapFromSpecController

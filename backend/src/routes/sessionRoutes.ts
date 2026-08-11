@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { ensureAuth } from "../middleware/ensureAuth";
 import { requireUser } from "../utils/requestUser";
+import { isDemoMode } from "../configs/features";
 
 /**
  * Session hydration for the browser client.
@@ -26,6 +27,9 @@ router.get("/me", ensureAuth, (req, res) => {
       isApproved: user.isApproved,
       username: user.username,
       mustChangePassword: user.mustChangePassword === true,
+      canPerformProtectedWrites:
+        !isDemoMode() ||
+        (user.role === "admin" && user.isSystemAdmin === true),
     },
   });
 });

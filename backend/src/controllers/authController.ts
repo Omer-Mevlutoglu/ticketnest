@@ -5,6 +5,7 @@ import { httpError } from "../utils/httpError";
 import { validatedQuery } from "../middleware/validate";
 import { PaginationInput } from "../validation/schemas";
 import "../strategies/local-strategy";
+import { isDemoMode } from "../configs/features";
 // POST /api/auth/register
 export const register = async (
   req: Request,
@@ -65,6 +66,10 @@ export const login = (req: Request, res: Response, next: NextFunction) => {
               role: (user as any).role,
               isApproved: (user as any).isApproved,
               mustChangePassword: (user as any).mustChangePassword === true,
+              canPerformProtectedWrites:
+                !isDemoMode() ||
+                ((user as any).role === "admin" &&
+                  (user as any).isSystemAdmin === true),
             },
           });
         });

@@ -21,7 +21,10 @@ export const createApprovalRequest = async (
  */
 export const getPendingRequests = async (): Promise<IApprovalRequest[]> => {
   return ApprovalRequest.find({ status: "pending" })
-    .populate("organizerId", "username email role isApproved")
+    .populate(
+      "organizerId",
+      "username email role isApproved isDemoAccount"
+    )
     .exec();
 };
 

@@ -27,6 +27,8 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: DEMO_MODE
+        value: "true"
 
       # Render provides PORT; the app reads it from config.
       - key: PORT

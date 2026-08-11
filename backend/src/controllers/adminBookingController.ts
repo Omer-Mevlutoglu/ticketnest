@@ -19,7 +19,10 @@ export const listAllBookingsController = async (
       // Matches the (status, createdAt) index added for this listing.
       sort: { createdAt: -1 },
       populate: [
-        { path: "userId", select: "email username role" },
+        {
+          path: "userId",
+          select: "email username role isDemoAccount",
+        },
         {
           path: "eventId",
           select: "title startTime endTime venueName venueAddress poster",

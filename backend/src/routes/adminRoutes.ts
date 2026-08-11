@@ -33,29 +33,50 @@ import {
   adminBookingQuerySchema,
   paginationSchema,
 } from "../validation/schemas";
+import {
+  requireDemoWriteAccess,
+  sanitizeDemoAdminResponses,
+} from "../middleware/demoPolicy";
 
 const router = Router();
 
 router.use(ensureAuth, ensureRole(["admin"]));
+router.use(sanitizeDemoAdminResponses);
 
 router.get("/users", validateQuery(paginationSchema), getUsers);
 
 // User management
-router.put("/users/:id/set-approval", setApprovalController);
-router.put("/users/:id/suspend", suspendUserController);
-router.put("/users/:id/unsuspend", unsuspendUserController);
+router.put(
+  "/users/:id/set-approval",
+  requireDemoWriteAccess,
+  setApprovalController
+);
+router.put("/users/:id/suspend", requireDemoWriteAccess, suspendUserController);
+router.put(
+  "/users/:id/unsuspend",
+  requireDemoWriteAccess,
+  unsuspendUserController
+);
 
 // --- Organizer Approval ---
 router.get("/organizers/pending", listPendingOrganizers);
-router.put("/organizers/:organizerId/approve", approveOrganizer);
-router.put("/organizers/:organizerId/reject", rejectOrganizer);
+router.put(
+  "/organizers/:organizerId/approve",
+  requireDemoWriteAccess,
+  approveOrganizer
+);
+router.put(
+  "/organizers/:organizerId/reject",
+  requireDemoWriteAccess,
+  rejectOrganizer
+);
 
 // --- Venue Management ---
-router.post("/venues", createVenueController);
-router.put("/venues/:id", updateVenueController);
+router.post("/venues", requireDemoWriteAccess, createVenueController);
+router.put("/venues/:id", requireDemoWriteAccess, updateVenueController);
 router.get("/venues", getActiveVenues);
 router.get("/venues/:id", getVenueByIdController);
-router.delete("/venues/:id", deleteVenueController);
+router.delete("/venues/:id", requireDemoWriteAccess, deleteVenueController);
 router.get("/stats", getStatsController);
 // Events
 router.get("/events", validateQuery(paginationSchema), listAllEvents);

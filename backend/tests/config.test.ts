@@ -22,6 +22,7 @@ describe("WP2.2 — configuration", () => {
       const config = loadConfig(prod());
 
       expect(config.isProduction).toBe(true);
+      expect(config.demoMode).toBe(false);
       expect(config.frontendUrl).toBe("https://ticketnest.example");
       expect(config.corsOrigins).toEqual(["https://ticketnest.example"]);
     });
@@ -105,6 +106,15 @@ describe("WP2.2 — configuration", () => {
       expect(config.frontendUrl).toBe("http://localhost:5173");
       expect(config.corsOrigins).toContain("http://localhost:5173");
       expect(config.isProduction).toBe(false);
+    });
+
+    it("parses demo mode strictly", () => {
+      expect(
+        loadConfig({ NODE_ENV: "development", DEMO_MODE: "true" }).demoMode
+      ).toBe(true);
+      expect(() =>
+        loadConfig({ NODE_ENV: "development", DEMO_MODE: "sometimes" })
+      ).toThrowError(/DEMO_MODE/);
     });
   });
 

@@ -12,6 +12,7 @@ type Props = {
   onChange: (url: string) => void; // Function to update the parent's URL state
   endpoint: string; // The API endpoint to upload to
   uploadField?: string; // The FormData field name (e.g., "poster")
+  disabled?: boolean;
 };
 
 const SingleImageUploader: React.FC<Props> = ({
@@ -20,6 +21,7 @@ const SingleImageUploader: React.FC<Props> = ({
   onChange,
   endpoint,
   uploadField = "poster",
+  disabled = false,
 }) => {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -65,7 +67,7 @@ const SingleImageUploader: React.FC<Props> = ({
           <button
             type="button"
             onClick={clearImage}
-            disabled={uploading}
+            disabled={uploading || disabled}
             className="absolute top-2 right-2 p-1.5 bg-black/60 text-white rounded-full hover:bg-red-500/80 transition disabled:opacity-50"
             aria-label="Remove image"
           >
@@ -85,7 +87,7 @@ const SingleImageUploader: React.FC<Props> = ({
             accept="image/png, image/jpeg, image/webp"
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
             onChange={handleFileChange}
-            disabled={uploading}
+            disabled={uploading || disabled}
           />
           {uploading ? (
             <div className="flex flex-col items-center justify-center text-gray-400">

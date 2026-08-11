@@ -6,8 +6,11 @@ import { useVenues } from "./hooks/useVenues";
 import BlurCircle from "@/components/BlurCircle";
 import { API_BASE } from "@/lib/api";
 import Loading from "@/components/Loading";
+import { useAuth } from "@/context/AuthContext";
 
 const VenuesList: React.FC = () => {
+  const { user } = useAuth();
+  const demoRestricted = user?.canPerformProtectedWrites === false;
   const nav = useNavigate();
   const { venues, loading, error, deleteVenue } = useVenues();
 
@@ -30,8 +33,10 @@ const VenuesList: React.FC = () => {
         </h1>
         <button
           onClick={() => nav("/admin/venue-create")}
+          disabled={demoRestricted}
+          title={demoRestricted ? "Disabled in the hosted demo" : undefined}
           // Base text-xs, padding py-1
-          className="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-md bg-primary hover:bg-primary-dull transition text-[10px] sm:text-xs w-full sm:w-auto"
+          className="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-md bg-primary hover:bg-primary-dull transition text-[10px] sm:text-xs w-full sm:w-auto disabled:cursor-not-allowed disabled:opacity-50"
         >
           <PlusIcon className="w-3 h-3 sm:w-4 sm:h-4" /> Add Venue
         </button>
@@ -82,6 +87,8 @@ const VenuesList: React.FC = () => {
                 <button
                   // *** UPDATED NAVIGATION ***
                   onClick={() => nav(`/admin/venue-edit/${v._id}`)}
+                  disabled={demoRestricted}
+                  title={demoRestricted ? "Disabled in the hosted demo" : undefined}
                   className="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs rounded-md border border-white/15 hover:bg-white/10 transition"
                 >
                   <PencilIcon className="w-3 h-3 sm:w-4 sm:h-4" />
@@ -89,6 +96,8 @@ const VenuesList: React.FC = () => {
                 </button>
                 <button
                   onClick={() => deleteVenue(v._id!)}
+                  disabled={demoRestricted}
+                  title={demoRestricted ? "Disabled in the hosted demo" : undefined}
                   className="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs rounded-md border border-rose-400/30 text-rose-300 hover:bg-rose-500/10 transition"
                 >
                   <Trash2Icon className="w-3 h-3 sm:w-4 sm:h-4" />

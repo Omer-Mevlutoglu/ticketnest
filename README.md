@@ -23,10 +23,18 @@ All three use the password **`DemoPassword123!`**
 | Role | Email | What you can do |
 | --- | --- | --- |
 | Attendee | `attendee@demo.ticketnest` | Browse, hold seats, check out, view bookings |
-| Organizer | `organizer@demo.ticketnest` | Create events, generate seat maps, publish |
-| Admin | `admin@demo.ticketnest` | Approve organizers, manage venues and users |
+| Organizer | `organizer@demo.ticketnest` | Inspect the dashboard, events, pricing, and seat-map preview (management writes are read-only) |
+| Admin | `admin@demo.ticketnest` | Inspect metrics, masked users, bookings, requests, and venues (management writes are read-only) |
 
-These are created by `npm run seed:demo` and are safe to share — they exist only in the demo database.
+These are created by `npm run seed:demo` and are safe to share. The hosted site
+runs with `DEMO_MODE=true`: attendee flows remain interactive, while every
+organizer and the public demo admin receive `DEMO_RESTRICTED` for sensitive
+writes. Private admins seeded from `ADMIN_EMAILS` remain trusted. A local clone
+defaults to `DEMO_MODE=false`, exposing the complete feature set.
+
+> **Public demo privacy:** the database is disposable and may be reset. Do not
+> enter real personal information. Visitor identifiers shown to the demo admin
+> are masked; private trusted admins retain the operational view.
 
 > **Payments are simulated.** No payment provider is involved and no money moves. Card details are validated in the browser and never sent to the server. Replacing this with Stripe is the next planned step.
 
@@ -145,6 +153,9 @@ cd ../frontend && npm ci && cp .env.example .env
 
 Every backend variable is documented in `backend/.env.example` and validated at startup — a missing or malformed value crashes the process and names the variable rather than failing quietly later.
 
+`DEMO_MODE` defaults to `false`. Set it to `true` only on a public portfolio
+deployment where organizer and demo-admin management writes must be protected.
+
 **You do not need an email provider.** `ENABLE_EMAIL` defaults to `false`, and
 with it off the app runs end to end with no external service: new accounts are
 verified on creation, and password reset is hidden rather than broken. Set it to
@@ -185,7 +196,7 @@ cd backend && npm run build && npm run typecheck && npm test
 cd frontend && npm run lint && npm run build
 ```
 
-226 backend tests, plus a GitHub Actions workflow that runs all of it on push. They spin up an in-memory MongoDB **replica set**, so transactions work and no external database is touched. They cannot reach Atlas, SendGrid, or Cloudinary: the test setup injects placeholder secrets and refuses any database URI that is not local.
+269 backend tests, plus a GitHub Actions workflow that runs all of it on push. They spin up an in-memory MongoDB **replica set**, so transactions work and no external database is touched. They cannot reach Atlas, SendGrid, or Cloudinary: the test setup injects placeholder secrets and refuses any database URI that is not local.
 
 The frontend has no test harness yet — `npm test` there is a labelled placeholder.
 

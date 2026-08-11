@@ -39,6 +39,10 @@ import CheckEmailPage from "./pages/auth/CheckEmailPage";
 import VerifyEmailPage from "./pages/auth/VerifyEmailPage";
 import ForgotPasswordPage from "./pages/auth/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/auth/ResetPasswordPage";
+import {
+  DemoModeBanner,
+  DemoProtectedPage,
+} from "./components/DemoModeNotice";
 // Common
 
 /**
@@ -75,6 +79,7 @@ const App = () => {
   return (
     <>
       <Toaster />
+      <DemoModeBanner />
 
       {/* Chrome renders for anonymous visitors too — otherwise the public
           pages have no navigation and no way to sign in. */}
@@ -157,7 +162,16 @@ const App = () => {
           {/* Index route for approved organizers */}
           <Route index element={<Dashboard />} />
           <Route path="myevents" element={<MyEventsPage />} />
-          <Route path="events/new" element={<CreateEventPage />} />
+          <Route
+            path="events/new"
+            element={
+              user?.canPerformProtectedWrites === false ? (
+                <DemoProtectedPage />
+              ) : (
+                <CreateEventPage />
+              )
+            }
+          />
           <Route path="events/:id/manage" element={<ManageEventPage />} />
           <Route
             path="events/:id/seatmap-preview"
@@ -180,8 +194,26 @@ const App = () => {
           <Route index element={<AdminDashboard />} />
           <Route path="requests" element={<OrganizerApprovals />} />
           <Route path="venue-list" element={<VenuesList />} />
-          <Route path="venue-create" element={<VenueEditor />} />
-          <Route path="venue-edit/:id" element={<VenueEditor />} />
+          <Route
+            path="venue-create"
+            element={
+              user?.canPerformProtectedWrites === false ? (
+                <DemoProtectedPage />
+              ) : (
+                <VenueEditor />
+              )
+            }
+          />
+          <Route
+            path="venue-edit/:id"
+            element={
+              user?.canPerformProtectedWrites === false ? (
+                <DemoProtectedPage />
+              ) : (
+                <VenueEditor />
+              )
+            }
+          />
           <Route path="list-bookings" element={<AdminBookings />} />
           <Route path="users" element={<AdminUsers />} />
           <Route path="*" element={<Navigate to="/admin" replace />} />

@@ -25,6 +25,8 @@ export interface CreateUserOptions {
   emailVerified?: boolean;
   isApproved?: boolean;
   isSuspended?: boolean;
+  isSystemAdmin?: boolean;
+  isDemoAccount?: boolean;
 }
 
 /** Creates a login-ready user. Returns the document plus its plaintext password. */
@@ -42,6 +44,8 @@ export const createUser = async (
     emailVerified: overrides.emailVerified ?? true,
     isApproved: overrides.isApproved ?? true,
     isSuspended: overrides.isSuspended ?? false,
+    isSystemAdmin: overrides.isSystemAdmin ?? false,
+    isDemoAccount: overrides.isDemoAccount ?? false,
   });
 
   return { user, password };

@@ -10,6 +10,7 @@ import {
 import useMyEvents from "./hooks/useMyEvents"; // Assuming hooks are in ./hooks/
 import Loading from "@/components/Loading";
 import BlurCircle from "@/components/BlurCircle";
+import { useAuth } from "@/context/AuthContext";
 
 const PLACEHOLDER = "/placeholder.jpg";
 
@@ -53,6 +54,7 @@ const StatusPill: React.FC<{ status: "draft" | "published" | "archived" }> = ({
 // --- End Helper Functions ---
 
 const MyEventsPage: React.FC = () => {
+  const { user } = useAuth();
   const [status, setStatus] = useState<
     "all" | "draft" | "published" | "archived"
   >("all");
@@ -103,8 +105,10 @@ const MyEventsPage: React.FC = () => {
         {/* Base text-base */}
         <button
           onClick={() => navigate("/organizer/events/new")}
+          disabled={user?.canPerformProtectedWrites === false}
+          title={user?.canPerformProtectedWrites === false ? "Disabled in the hosted demo" : undefined}
           // Base text-[10px], padding py-1
-          className="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded bg-primary hover:bg-primary-dull transition text-[10px] sm:text-xs w-full sm:w-auto" // Base text-[10px]
+          className="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded bg-primary hover:bg-primary-dull transition text-[10px] sm:text-xs w-full sm:w-auto disabled:cursor-not-allowed disabled:opacity-50" // Base text-[10px]
         >
           <PlusIcon className="w-3 h-3 sm:w-4 sm:h-4" />{" "}
           {/* Base size w-3 h-3 */}

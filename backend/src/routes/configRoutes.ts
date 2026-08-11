@@ -1,5 +1,9 @@
 import { Router } from "express";
-import { isEmailEnabled, isMockPaymentsEnabled } from "../configs/features";
+import {
+  isDemoMode,
+  isEmailEnabled,
+  isMockPaymentsEnabled,
+} from "../configs/features";
 
 const router = Router();
 
@@ -16,6 +20,7 @@ router.get("/", (_req, res) => {
     // Drives whether the UI offers password reset and whether signup tells the
     // user to check their inbox.
     emailEnabled: isEmailEnabled(),
+    demoMode: isDemoMode(),
   });
 });
 

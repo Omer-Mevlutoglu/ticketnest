@@ -28,6 +28,8 @@ export interface AppConfig {
 
   /** Whether transactional email is dispatched. See configs/features.ts. */
   emailEnabled: boolean;
+  /** Hosted portfolio policy; false restores the complete self-hosted app. */
+  demoMode: boolean;
   fromEmail: string;
   sendgridApiKey: string;
   emailVerifyTokenSecret: string;
@@ -81,6 +83,15 @@ export const loadConfig = (env: NodeJS.ProcessEnv = process.env): AppConfig => {
   const isProduction = nodeEnv === "production";
   const problems: string[] = [];
 
+  const booleanSetting = (name: string, defaultValue: boolean): boolean => {
+    const raw = env[name]?.trim().toLowerCase();
+    if (!raw) return defaultValue;
+    if (["true", "1", "yes", "on"].includes(raw)) return true;
+    if (["false", "0", "no", "off"].includes(raw)) return false;
+    problems.push(`${name} must be true or false`);
+    return defaultValue;
+  };
+
   /** Required in production; falls back to `devDefault` elsewhere. */
   const required = (name: string, devDefault: string): string => {
     const value = env[name]?.trim();
@@ -102,6 +113,7 @@ export const loadConfig = (env: NodeJS.ProcessEnv = process.env): AppConfig => {
   const emailEnabled = /^(true|1|yes|on)$/i.test(
     (env.ENABLE_EMAIL ?? "").trim()
   );
+  const demoMode = booleanSetting("DEMO_MODE", false);
 
   const emailCredential = (name: string, devDefault: string): string => {
     const value = env[name]?.trim();
@@ -200,6 +212,7 @@ export const loadConfig = (env: NodeJS.ProcessEnv = process.env): AppConfig => {
     frontendUrl: frontendUrl.replace(/\/$/, ""),
     corsOrigins,
     emailEnabled,
+    demoMode,
     fromEmail,
     sendgridApiKey,
     emailVerifyTokenSecret,

@@ -4,6 +4,8 @@ import { CloudinaryStorage } from "multer-storage-cloudinary";
 import cloudinary from "../configs/cloudinary";
 import { ensureAuth } from "../middleware/ensureAuth";
 import { ensureRole } from "../middleware/ensureRole";
+import { requireDemoWriteAccess } from "../middleware/demoPolicy";
+import { isHttpError } from "../utils/httpError";
 
 const router = Router();
 
@@ -32,6 +34,7 @@ router.post(
   "/venue-images",
   ensureAuth,
   ensureRole(["admin"]),
+  requireDemoWriteAccess,
   upload.array("images", 10),
   (req: Request, res: Response) => {
     if (!req.files || !Array.isArray(req.files) || req.files.length === 0) {
@@ -41,6 +44,7 @@ router.post(
     res.status(201).json({ urls });
   },
   (err: any, req: Request, res: Response, next: NextFunction) => {
+    if (isHttpError(err)) return next(err);
     if (err instanceof multer.MulterError) {
       return res.status(400).json({ message: `Multer error: ${err.message}` });
     }

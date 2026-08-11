@@ -65,12 +65,20 @@ export const isEmailEnabled = (): boolean => {
   return parseBooleanFlag("ENABLE_EMAIL", raw);
 };
 
+/** Whether this deployment is the locked-down public portfolio demo. */
+export const isDemoMode = (): boolean => {
+  const raw = process.env.DEMO_MODE;
+  if (raw === undefined || raw.trim() === "") return false;
+  return parseBooleanFlag("DEMO_MODE", raw);
+};
+
 /**
  * Validates every flag at boot so a typo fails fast instead of silently
  * changing behaviour. Call once during bootstrap.
  */
 export const assertFeatureFlags = (): void => {
   const mockPayments = isMockPaymentsEnabled();
+  const demoMode = isDemoMode();
 
   if (mockPayments && process.env.NODE_ENV === "production") {
     console.warn(
@@ -90,6 +98,13 @@ export const assertFeatureFlags = (): void => {
     console.log(
       "✉️  Email delivery is OFF. New accounts are auto-verified and password " +
         "reset is unavailable. Set ENABLE_EMAIL=true to send real email."
+    );
+  }
+
+
+  if (demoMode) {
+    console.warn(
+      "🛡️  DEMO_MODE is ON. Organizer writes and untrusted admin writes are protected."
     );
   }
 };

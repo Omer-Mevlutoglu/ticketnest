@@ -24,6 +24,7 @@ import type {
   GridSeatMapSpec,
   SeatPricingOverride,
 } from "@/types/seatMap";
+import { useAuth } from "@/context/AuthContext";
 
 
 // --- NEW Seat Map Generator Component ---
@@ -142,6 +143,7 @@ const GridGenerator: React.FC<{
 };
 
 const ManageEventPage: React.FC = () => {
+  const { user } = useAuth();
   const { id } = useParams();
   const { event, seatSummary, loading, error, refetch } = useMyEvent(id);
   const navigate = useNavigate(); // Added navigate
@@ -288,7 +290,9 @@ const ManageEventPage: React.FC = () => {
 
   // const canEditVenueBasics = event.venueType === "custom"; // This was the other unused var
   const hasSeatMap = !!event.seatMapId;
-  const isBusy = isSaving || isPublishing || isGenBusy || isCancelling;
+  const demoRestricted = user?.canPerformProtectedWrites === false;
+  const isBusy =
+    demoRestricted || isSaving || isPublishing || isGenBusy || isCancelling;
 
   return (
     <div className="relative p-2 py-4 sm:px-6 md:px-8 overflow-x-hidden">
@@ -427,6 +431,7 @@ const ManageEventPage: React.FC = () => {
                 value={poster}
                 onChange={setPoster}
                 endpoint="/api/organizer/uploads/poster"
+                disabled={demoRestricted}
               />
             </div>
 
