@@ -37,6 +37,10 @@ type AuthContextType = {
     role: "attendee" | "organizer";
   }) => Promise<RegisterResult>;
   login: (p: { email: string; password: string }) => Promise<void>;
+  changePassword: (p: {
+    currentPassword: string;
+    newPassword: string;
+  }) => Promise<void>;
   logout: () => Promise<void>;
   hydrate: (opts?: { silent?: boolean }) => Promise<AuthUser | undefined>;
 };
@@ -138,9 +142,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
+  const changePassword: AuthContextType["changePassword"] = async (p) => {
+    await apiPost("/api/auth/change-password", p);
+    resetCsrfToken();
+    setUser(null);
+    saveLocal(null);
+  };
+
   return (
     <AuthContext.Provider
-      value={{ user, loading, register, login, logout, hydrate }}
+      value={{
+        user,
+        loading,
+        register,
+        login,
+        logout,
+        changePassword,
+        hydrate,
+      }}
     >
       {children}
     </AuthContext.Provider>

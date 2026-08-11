@@ -1,4 +1,5 @@
 import mongoose, { Document, Schema, Types } from "mongoose";
+import { redactSensitive } from "../utils/redactSensitive";
 
 /**
  * A record of consequential actions.
@@ -101,7 +102,7 @@ export const recordAudit = async (
         level: "error",
         event: "audit.write_failed",
         action: input.action,
-        message: err instanceof Error ? err.message : String(err),
+        message: redactSensitive(err instanceof Error ? err.message : err),
       })
     );
   }

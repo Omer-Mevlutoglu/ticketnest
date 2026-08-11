@@ -4,6 +4,7 @@ import {
   setUserSuspension,
 } from "../services/adminUserService";
 import { httpError } from "../utils/httpError";
+import { requireUserIdString } from "../utils/requestUser";
 
 export const setApprovalController = async (
   req: Request,
@@ -16,7 +17,11 @@ export const setApprovalController = async (
       throw httpError(400, "Invalid 'isApproved' value.");
     }
 
-    const user = await setUserApproval(String(req.params.id), isApproved);
+    const user = await setUserApproval(
+      String(req.params.id),
+      isApproved,
+      requireUserIdString(req)
+    );
     return res.status(200).json(user);
   } catch (err) {
     return next(err);
@@ -29,7 +34,11 @@ export const suspendUserController = async (
   next: NextFunction
 ) => {
   try {
-    const user = await setUserSuspension(String(req.params.id), true);
+    const user = await setUserSuspension(
+      String(req.params.id),
+      true,
+      requireUserIdString(req)
+    );
     return res.status(200).json(user);
   } catch (err) {
     return next(err);
@@ -42,7 +51,11 @@ export const unsuspendUserController = async (
   next: NextFunction
 ) => {
   try {
-    const user = await setUserSuspension(String(req.params.id), false);
+    const user = await setUserSuspension(
+      String(req.params.id),
+      false,
+      requireUserIdString(req)
+    );
     return res.status(200).json(user);
   } catch (err) {
     return next(err);

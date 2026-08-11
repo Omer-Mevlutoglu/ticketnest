@@ -68,3 +68,16 @@ export const RequireRole: React.FC<{
 
   return <>{children}</>;
 };
+
+export const RequirePasswordChangeComplete: React.FC<{
+  children: React.ReactNode;
+}> = ({ children }) => {
+  const { user, loading } = useAuth();
+
+  if (loading) return <Loading />;
+  if (user?.role === "admin" && user.mustChangePassword === true) {
+    return <Navigate to="/change-password" replace />;
+  }
+
+  return <>{children}</>;
+};

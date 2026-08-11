@@ -1,11 +1,15 @@
-import { Request, Response } from "express";
+import { NextFunction, Request, Response } from "express";
 import { getAdminStats } from "../services/adminStatsService";
 
-export const getStatsController = async (req: Request, res: Response) => {
+export const getStatsController = async (
+  _req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   try {
     const stats = await getAdminStats();
     res.json(stats);
-  } catch (err: any) {
-    res.status(500).json({ message: err?.message || "Failed to load stats" });
+  } catch (err) {
+    next(err);
   }
 };

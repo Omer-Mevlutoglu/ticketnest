@@ -3,6 +3,10 @@ import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import request from "supertest";
 import { createAttendee, DEFAULT_PASSWORD } from "./factories";
 import { buildTestApp, loginAgent } from "./helpers";
+import {
+  areRateLimitsDisabled,
+  rateLimitKey,
+} from "../src/middleware/rateLimiters";
 
 /** WP2.3 — headers, origin validation, and per-endpoint rate limits. */
 describe("WP2.3 — security middleware", () => {
@@ -13,6 +17,7 @@ describe("WP2.3 — security middleware", () => {
   });
 
   afterEach(() => {
+    process.env.NODE_ENV = "test";
     process.env.DISABLE_RATE_LIMITS = "true";
   });
 
@@ -96,6 +101,36 @@ describe("WP2.3 — security middleware", () => {
   });
 
   describe("rate limits", () => {
+    it("normalizes anonymous IPv4 and IPv6 keys safely", () => {
+      const requestFor = (ip: string) => ({ ip }) as never;
+
+      expect(rateLimitKey(requestFor("203.0.113.10"))).toBe(
+        "ip:203.0.113.10"
+      );
+      expect(rateLimitKey(requestFor("2001:db8:abcd:1200::1"))).toBe(
+        rateLimitKey(requestFor("2001:db8:abcd:12ff::99"))
+      );
+      expect(rateLimitKey(requestFor("2001:db8:abcd:1200::1"))).not.toBe(
+        rateLimitKey(requestFor("2001:db8:abcd:1300::1"))
+      );
+    });
+
+    it("uses the authenticated user id instead of the network address", () => {
+      const first = { ip: "203.0.113.1", user: { _id: "user-1" } } as never;
+      const second = { ip: "2001:db8::1", user: { _id: "user-1" } } as never;
+
+      expect(rateLimitKey(first)).toBe("user:user-1");
+      expect(rateLimitKey(second)).toBe("user:user-1");
+    });
+
+    it("cannot disable rate limiting in production", () => {
+      process.env.DISABLE_RATE_LIMITS = "true";
+      process.env.NODE_ENV = "production";
+      expect(areRateLimitsDisabled()).toBe(false);
+      process.env.NODE_ENV = "test";
+      expect(areRateLimitsDisabled()).toBe(true);
+    });
+
     it("throttles repeated login attempts", async () => {
       await createAttendee({ email: "throttle@example.test" });
       process.env.DISABLE_RATE_LIMITS = "false";

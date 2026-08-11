@@ -1,4 +1,4 @@
-import rateLimit, { Options } from "express-rate-limit";
+import rateLimit, { ipKeyGenerator, Options } from "express-rate-limit";
 import { Request } from "express";
 
 /**
@@ -26,7 +26,8 @@ const base: Partial<Options> = {
 };
 
 /**
- * Limits are per IP.
+ * Anonymous limits are per normalized IP; authenticated limits can use the
+ * stable user id so IPv6 rotation and shared networks do not distort them.
  *
  * `DISABLE_RATE_LIMITS` exists so the integration suite — which drives hundreds
  * of requests from 127.0.0.1 — is not throttled by its own traffic. It is
@@ -34,11 +35,22 @@ const base: Partial<Options> = {
  * that need real enforcement. It has no effect in production, where the
  * variable is not set.
  */
+export const areRateLimitsDisabled = (): boolean =>
+  process.env.NODE_ENV !== "production" &&
+  process.env.DISABLE_RATE_LIMITS === "true";
+
+export const rateLimitKey = (req: Request): string => {
+  const userId = (req.user as { _id?: unknown } | undefined)?._id;
+  return userId
+    ? `user:${String(userId)}`
+    : `ip:${ipKeyGenerator(req.ip ?? "unknown")}`;
+};
+
 const make = (options: Partial<Options>) =>
   rateLimit({
     ...base,
     ...options,
-    skip: () => process.env.DISABLE_RATE_LIMITS === "true",
+    skip: areRateLimitsDisabled,
   });
 
 /** Credential stuffing is the threat; 10 tries per 15 minutes is generous. */
@@ -71,6 +83,13 @@ export const tokenLimiter = make({
   limit: 20,
 });
 
+/** A stolen session must not provide unlimited guesses at the current password. */
+export const passwordChangeLimiter = make({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  keyGenerator: rateLimitKey,
+});
+
 /**
  * A wide backstop for everything else. High enough that ordinary authenticated
  * browsing never notices it.
@@ -80,8 +99,5 @@ export const globalLimiter = make({
   limit: 600,
   // Authenticated users get their own budget rather than sharing one with
   // everybody behind the same NAT.
-  keyGenerator: (req: Request) => {
-    const userId = (req.user as { _id?: unknown } | undefined)?._id;
-    return userId ? `user:${String(userId)}` : `ip:${req.ip}`;
-  },
+  keyGenerator: rateLimitKey,
 });

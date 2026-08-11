@@ -1,4 +1,5 @@
-import dotenv from "dotenv";
+import "dotenv/config";
+import { redactSensitive } from "./utils/redactSensitive";
 import { createApp } from "./app";
 import { ExpiryWorker } from "./jobs/expiryWorker";
 import connectDB from "./configs/db";
@@ -7,8 +8,6 @@ import { getConfig } from "./configs/env";
 import { seedAdmins } from "./services/adminSeedService";
 import { pendingMigrationIds } from "./migrations";
 import { createShutdownHandler } from "./utils/gracefulShutdown";
-
-dotenv.config();
 
 const EXPIRE_JOB_MS = 60 * 1000;
 
@@ -74,6 +73,6 @@ async function bootstrap() {
 }
 
 bootstrap().catch((err) => {
-  console.error("❌ Failed to bootstrap server:", err);
+  console.error("❌ Failed to bootstrap server:", redactSensitive(err));
   process.exit(1);
 });

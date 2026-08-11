@@ -1,6 +1,7 @@
 import sgMail from "@sendgrid/mail";
 import { getConfig } from "../configs/env";
 import { isEmailEnabled } from "../configs/features";
+import { redactSensitive } from "../utils/redactSensitive";
 
 /**
  * Transactional email.
@@ -35,18 +36,16 @@ const dispatch = async (
   description: string
 ): Promise<boolean> => {
   if (!isEmailEnabled()) {
-    console.log(
-      `✉️  Skipped ${description} to ${msg.to} — ENABLE_EMAIL is off.`
-    );
+    console.log(`✉️  Skipped ${description} — ENABLE_EMAIL is off.`);
     return false;
   }
 
   try {
     await sgMail.send(msg);
-    console.log(`${description} sent to ${msg.to}`);
+    console.log(`${description} sent.`);
     return true;
   } catch (error) {
-    console.error("Email sending error:", error);
+    console.error("Email sending error:", redactSensitive(error));
     throw new Error(`Failed to send ${description}.`);
   }
 };

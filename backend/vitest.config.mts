@@ -12,7 +12,12 @@ export default defineConfig({
     globalSetup: ["tests/setup/globalSetup.ts"],
 
     // Order matters: env defaults must exist before Mongoose/app modules load.
-    setupFiles: ["tests/setup/testEnv.ts", "tests/setup/testDb.ts"],
+    setupFiles: [
+      "tests/setup/testEnv.ts",
+      "tests/setup/mockCloudinary.ts",
+      "tests/setup/blockNetwork.ts",
+      "tests/setup/testDb.ts",
+    ],
 
     // Every suite shares one database, so files must not run concurrently.
     pool: "forks",

@@ -28,8 +28,9 @@ router.get("/me", ensureAuth, (req, res) => {
       username: user.username,
       mustChangePassword: user.mustChangePassword === true,
       canPerformProtectedWrites:
-        !isDemoMode() ||
-        (user.role === "admin" && user.isSystemAdmin === true),
+        user.mustChangePassword !== true &&
+        (!isDemoMode() ||
+          (user.role === "admin" && user.isSystemAdmin === true)),
     },
   });
 });

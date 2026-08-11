@@ -1,6 +1,7 @@
 import userModel, { IUser } from "../models/userModel";
 import { hashPassword } from "../utils/helperHash";
 import { Request } from "express";
+import { redactSensitive } from "../utils/redactSensitive";
 import passport from "passport";
 import { createApprovalRequest } from "./approvalService";
 import { sendVerificationEmail } from "./emailService";
@@ -67,7 +68,7 @@ export const registerUser = async (userData: RegisterDTO) => {
       );
     } catch (err) {
       // The account exists either way; a delivery failure must not lose it.
-      console.error("Error sending verification email:", err);
+      console.error("Error sending verification email:", redactSensitive(err));
     }
   }
 
@@ -116,7 +117,10 @@ export const resendVerificationEmail = async (email: string): Promise<void> => {
   } catch (error) {
     // Returning provider status here would reveal which addresses are users.
     // Keep the public response generic and let the account retry later.
-    console.error("Error resending verification email:", error);
+    console.error(
+      "Error resending verification email:",
+      redactSensitive(error)
+    );
   }
 };
 

@@ -75,6 +75,28 @@ describe("WP2.5 — admin seeding", () => {
     expect(reconciled!.isSystemAdmin).toBe(true);
     expect(reconciled!.isDemoAccount).toBe(false);
     expect(reconciled!.passwordHash).toBe(originalHash);
+    expect(reconciled!.mustChangePassword).toBe(true);
+  });
+
+  it("does not require rotation again after the admin changed the password", async () => {
+    const { user } = await createUser({
+      email: "rotated-admin@example.test",
+      role: "admin",
+    });
+    await userModel.updateOne(
+      { _id: user._id },
+      { $set: { passwordChangedAt: new Date(), mustChangePassword: false } }
+    );
+
+    await seedAdmins({
+      emails: ["rotated-admin@example.test"],
+      initialPassword: PASSWORD,
+      logger: silent,
+    });
+
+    await expect(
+      userModel.findById(user._id).then((admin) => admin?.mustChangePassword)
+    ).resolves.toBe(false);
   });
 
   it("never overwrites an existing non-admin account", async () => {

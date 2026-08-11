@@ -9,6 +9,7 @@ import SeatMapModel from "../models/seatMapModel";
 import userModel from "../models/userModel";
 import { recordAudit } from "../models/auditLogModel";
 import { sendEventCancelledEmail } from "./emailService";
+import { redactSensitive } from "../utils/redactSensitive";
 
 export interface CreateEventDTO {
   title: string;
@@ -530,7 +531,7 @@ const notifyTicketHolders = async (
           event: "event.cancel.notify_failed",
           eventId: String(eventId),
           recipientId: String(recipient._id),
-          message: err instanceof Error ? err.message : String(err),
+          message: redactSensitive(err instanceof Error ? err.message : err),
         })
       );
     }

@@ -42,6 +42,16 @@ export const loginSchema = z
   })
   .strict();
 
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, "Current password is required").max(200),
+    newPassword: z
+      .string()
+      .min(12, "New password must be at least 12 characters")
+      .max(200),
+  })
+  .strict();
+
 export const forgotPasswordSchema = z
   .object({
     email: z.string().trim().toLowerCase().email("Invalid email address"),

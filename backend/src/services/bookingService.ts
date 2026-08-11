@@ -3,6 +3,7 @@ import BookingModel, { IBooking, IBookingItem } from "../models/bookingModel";
 import SeatMapModel from "../models/seatMapModel";
 import { eventModel } from "../models/eventModel";
 import { httpError } from "../utils/httpError";
+import { redactSensitive } from "../utils/redactSensitive";
 
 const HOLD_MS = 10 * 60 * 1000;
 
@@ -589,7 +590,7 @@ export const expireOverdueBookings = async (): Promise<ExpireOverdueResult> => {
       failedCount++;
       console.error(
         `Failed to expire booking ${String(booking._id)}; leaving it for the next run.`,
-        err
+        redactSensitive(err)
       );
     }
   }

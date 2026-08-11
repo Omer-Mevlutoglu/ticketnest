@@ -1,15 +1,8 @@
-import { Types } from "mongoose";
+import mongoose, { Types } from "mongoose";
+import { recordAudit } from "../models/auditLogModel";
 import userModel, { IUser } from "../models/userModel";
 import { httpError } from "../utils/httpError";
-
-/**
- * Admin operations on user accounts.
- *
- * These lived as inline handlers in `adminRoutes.ts`, talking to the model
- * directly while the rest of the codebase went routes → controllers → services.
- * Rules like "suspension must end live sessions" belong here, at the service
- * boundary, so they hold no matter which route reaches them.
- */
+import { setOrganizerApproval } from "./approvalService";
 
 const PUBLIC_FIELDS = "-passwordHash";
 
@@ -19,56 +12,75 @@ const requireValidId = (userId: string) => {
   }
 };
 
-/**
- * Grants or withdraws approval.
- *
- * Withdrawing it is a privilege removal, so existing sessions end. Granting it
- * is not — there is no reason to sign someone out at the moment they gain
- * access.
- */
+/** Change an organizer privilege and its approval record in one transaction. */
 export const setUserApproval = async (
   userId: string,
-  isApproved: boolean
+  isApproved: boolean,
+  actorId: string
 ): Promise<IUser> => {
   requireValidId(userId);
+  await setOrganizerApproval({ organizerId: userId, actorId, isApproved });
 
-  const updated = await userModel
-    .findByIdAndUpdate(
-      userId,
-      {
-        $set: { isApproved },
-        ...(isApproved ? {} : { $inc: { sessionVersion: 1 } }),
-      },
-      { new: true, select: PUBLIC_FIELDS }
-    )
-    .exec();
-
-  if (!updated) throw httpError(404, "User not found.");
-  return updated;
+  const user = await userModel.findById(userId).select(PUBLIC_FIELDS).exec();
+  if (!user) throw httpError(404, "User not found.");
+  return user;
 };
 
 /**
- * Suspends or reinstates an account.
- *
- * Both directions bump `sessionVersion`. Suspension has to take effect now
- * rather than at the user's next login — up to fourteen days away — and
- * lifting it must not resurrect the sessions that were open when it was
- * applied.
+ * Suspension changes and their audit rows commit together. Both directions
+ * revoke all existing sessions; lifting a suspension must not revive an old
+ * authenticated session.
  */
 export const setUserSuspension = async (
   userId: string,
-  isSuspended: boolean
+  isSuspended: boolean,
+  actorId: string
 ): Promise<IUser> => {
   requireValidId(userId);
 
-  const updated = await userModel
-    .findByIdAndUpdate(
-      userId,
-      { $set: { isSuspended }, $inc: { sessionVersion: 1 } },
-      { new: true, select: PUBLIC_FIELDS }
-    )
-    .exec();
+  const session = await mongoose.startSession();
+  let result: IUser | null = null;
+  try {
+    await session.withTransaction(async () => {
+      const user = await userModel.findById(userId).session(session);
+      if (!user) throw httpError(404, "User not found.");
 
-  if (!updated) throw httpError(404, "User not found.");
-  return updated;
+      if (Boolean(user.isSuspended) !== isSuspended) {
+        const update = await userModel.updateOne(
+          { _id: user._id, isSuspended: user.isSuspended },
+          {
+            $set: { isSuspended },
+            $inc: { sessionVersion: 1 },
+          },
+          { session }
+        );
+        if (update.modifiedCount !== 1) {
+          throw httpError(409, "Suspension changed in another request. Try again.", {
+            code: "SUSPENSION_CHANGE_CONFLICT",
+          });
+        }
+
+        await recordAudit(
+          {
+            action: isSuspended ? "user.suspended" : "user.unsuspended",
+            actorId,
+            targetType: "user",
+            targetId: user._id,
+            metadata: { previousSuspended: user.isSuspended, isSuspended },
+          },
+          { session, throwOnError: true }
+        );
+      }
+
+      result = await userModel
+        .findById(userId)
+        .select(PUBLIC_FIELDS)
+        .session(session);
+    });
+  } finally {
+    await session.endSession();
+  }
+
+  if (!result) throw new Error("Suspension transaction completed without a result.");
+  return result;
 };

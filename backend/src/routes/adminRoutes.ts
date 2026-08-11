@@ -37,10 +37,12 @@ import {
   requireDemoWriteAccess,
   sanitizeDemoAdminResponses,
 } from "../middleware/demoPolicy";
+import { requirePasswordRotationComplete } from "../middleware/requirePasswordRotation";
 
 const router = Router();
 
 router.use(ensureAuth, ensureRole(["admin"]));
+router.use(requirePasswordRotationComplete);
 router.use(sanitizeDemoAdminResponses);
 
 router.get("/users", validateQuery(paginationSchema), getUsers);

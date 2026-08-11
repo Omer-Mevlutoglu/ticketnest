@@ -27,6 +27,7 @@ export interface CreateUserOptions {
   isSuspended?: boolean;
   isSystemAdmin?: boolean;
   isDemoAccount?: boolean;
+  mustChangePassword?: boolean;
 }
 
 /** Creates a login-ready user. Returns the document plus its plaintext password. */
@@ -46,6 +47,7 @@ export const createUser = async (
     isSuspended: overrides.isSuspended ?? false,
     isSystemAdmin: overrides.isSystemAdmin ?? false,
     isDemoAccount: overrides.isDemoAccount ?? false,
+    mustChangePassword: overrides.mustChangePassword ?? false,
   });
 
   return { user, password };

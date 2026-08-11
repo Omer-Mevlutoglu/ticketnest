@@ -3,6 +3,7 @@ import { register, login, logout } from "../controllers/authController";
 import { validateBody } from "../middleware/validate";
 import {
   forgotPasswordSchema,
+  changePasswordSchema,
   loginSchema,
   registerSchema,
   resendVerificationSchema,
@@ -23,11 +24,18 @@ import {
 import {
   forgotPasswordLimiter,
   loginLimiter,
+  passwordChangeLimiter,
   registerLimiter,
   resendVerificationLimiter,
   tokenLimiter,
 } from "../middleware/rateLimiters";
-import { resendVerificationEmail } from "../services/authService";
+import {
+  logoutUser,
+  resendVerificationEmail,
+} from "../services/authService";
+import { ensureAuth } from "../middleware/ensureAuth";
+import { requireUserIdString } from "../utils/requestUser";
+import { changePassword } from "../services/passwordService";
 
 const router = Router();
 
@@ -53,6 +61,33 @@ router.post(
   loginLimiter,
   validateBody(loginSchema),
   login
+);
+
+router.post(
+  "/change-password",
+  ensureAuth,
+  passwordChangeLimiter,
+  validateBody(changePasswordSchema),
+  async (req, res, next) => {
+    try {
+      await changePassword(
+        requireUserIdString(req),
+        req.body.currentPassword,
+        req.body.newPassword
+      );
+      await logoutUser(req);
+      res.clearCookie("connect.sid", {
+        path: "/",
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+      });
+      return res.json({
+        message: "Password changed. Sign in again with your new password.",
+      });
+    } catch (error) {
+      return next(error);
+    }
+  }
 );
 
 router.post(

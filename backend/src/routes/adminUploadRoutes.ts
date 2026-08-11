@@ -46,12 +46,12 @@ router.post(
   (err: any, req: Request, res: Response, next: NextFunction) => {
     if (isHttpError(err)) return next(err);
     if (err instanceof multer.MulterError) {
-      return res.status(400).json({ message: `Multer error: ${err.message}` });
+      return res.status(400).json({ message: "The image upload was rejected." });
     }
-    if (err) {
-      return res.status(400).json({ message: `Upload error: ${err.message}` });
+    if (err?.message === "File is not an image!") {
+      return res.status(400).json({ message: "Only image files are allowed." });
     }
-    next();
+    return err ? next(err) : next();
   }
 );
 

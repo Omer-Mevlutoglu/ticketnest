@@ -56,7 +56,17 @@ export const seedAdmins = async ({
         // owner accounts. No request body can set this server-owned marker.
         await userModel.updateOne(
           { _id: existing._id, role: "admin" },
-          { $set: { isSystemAdmin: true, isDemoAccount: false } }
+          {
+            $set: {
+              isSystemAdmin: true,
+              isDemoAccount: false,
+              // Reconcile admins created before this safety flag existed, but
+              // never re-lock an account after it has completed rotation.
+              ...(existing.passwordChangedAt
+                ? {}
+                : { mustChangePassword: true }),
+            },
+          }
         );
       }
       continue;

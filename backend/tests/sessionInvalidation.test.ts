@@ -4,7 +4,12 @@ import { beforeAll, describe, expect, it } from "vitest";
 import request from "supertest";
 import userModel from "../src/models/userModel";
 import { isTokenIssuedBeforePasswordChange } from "../src/services/sessionService";
-import { createAdmin, createAttendee, DEFAULT_PASSWORD } from "./factories";
+import {
+  createAdmin,
+  createAttendee,
+  createOrganizer,
+  DEFAULT_PASSWORD,
+} from "./factories";
 import { buildTestApp, loginAgent } from "./helpers";
 
 /**
@@ -157,8 +162,11 @@ describe("WP2.4 — session and credential invalidation", () => {
   });
 
   describe("privilege withdrawal", () => {
-    it("ends sessions when approval is revoked but not when it is granted", async () => {
-      const { user } = await createAttendee({ email: "org@example.test" });
+    it("ends sessions whenever organizer approval changes", async () => {
+      const { user } = await createOrganizer({
+        email: "org@example.test",
+        isApproved: false,
+      });
       await createAdmin({ email: "admin4@example.test" });
 
       const member = await loginAgent(app, "org@example.test");
@@ -168,17 +176,19 @@ describe("WP2.4 — session and credential invalidation", () => {
         .put(`/api/admin/users/${user._id}/set-approval`)
         .send({ isApproved: true });
 
-      // Granting access should not sign anyone out.
+      // A privilege grant takes effect only in a freshly issued session.
       await expect(
         member.get("/api/auth/me").then((r) => r.status)
-      ).resolves.toBe(200);
+      ).resolves.toBe(401);
+
+      const approvedMember = await loginAgent(app, "org@example.test");
 
       await admin
         .put(`/api/admin/users/${user._id}/set-approval`)
         .send({ isApproved: false });
 
       await expect(
-        member.get("/api/auth/me").then((r) => r.status)
+        approvedMember.get("/api/auth/me").then((r) => r.status)
       ).resolves.toBe(401);
     });
   });

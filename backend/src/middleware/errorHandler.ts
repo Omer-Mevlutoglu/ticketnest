@@ -1,5 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import { isHttpError } from "../utils/httpError";
+import { redactSensitive } from "../utils/redactSensitive";
 
 /**
  * Single exit point for every error in the application.
@@ -35,12 +36,15 @@ export default function errorHandler(
       method: req.method,
       path: req.originalUrl,
       status,
+      requestId: req.id,
       userId: userId ? String(userId) : undefined,
-      message: err instanceof Error ? err.message : String(err),
+      message: redactSensitive(err instanceof Error ? err.message : err),
       ...(expected && err.code ? { code: err.code } : {}),
     }),
     // Stacks only for genuine faults, and never serialized into the response.
-    status >= 500 && err instanceof Error ? err.stack : ""
+    status >= 500 && err instanceof Error
+      ? redactSensitive(err.stack ?? err.message)
+      : ""
   );
 
   if (res.headersSent) return;
@@ -57,5 +61,6 @@ export default function errorHandler(
     // `error` is kept alongside `message` for clients that read the old key.
     error: publicMessage,
     ...(expected && err.code ? { code: err.code } : {}),
+    ...(status >= 500 && req.id ? { requestId: req.id } : {}),
   });
 }

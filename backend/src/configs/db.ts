@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { getConfig } from "./env";
+import { redactSensitive } from "../utils/redactSensitive";
 
 let isConnected = false;
 
@@ -13,7 +14,7 @@ const connectDB = async () => {
     console.log("✅ MongoDB connected")
   );
   mongoose.connection.on("error", (err) =>
-    console.error("❌ MongoDB error:", err)
+    console.error("❌ MongoDB error:", redactSensitive(err))
   );
   mongoose.connection.on("disconnected", () =>
     console.warn("⚠️ MongoDB disconnected")

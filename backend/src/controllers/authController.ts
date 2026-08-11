@@ -67,9 +67,10 @@ export const login = (req: Request, res: Response, next: NextFunction) => {
               isApproved: (user as any).isApproved,
               mustChangePassword: (user as any).mustChangePassword === true,
               canPerformProtectedWrites:
-                !isDemoMode() ||
-                ((user as any).role === "admin" &&
-                  (user as any).isSystemAdmin === true),
+                (user as any).mustChangePassword !== true &&
+                (!isDemoMode() ||
+                  ((user as any).role === "admin" &&
+                    (user as any).isSystemAdmin === true)),
             },
           });
         });

@@ -7,6 +7,7 @@ import Register from "./pages/auth/Register";
 import { useAuth, type Role } from "@/context/AuthContext";
 import {
   RequireAuth,
+  RequirePasswordChangeComplete,
   RequireRole,
   roleHomePath,
 } from "./components/RouteGuards";
@@ -39,6 +40,7 @@ import CheckEmailPage from "./pages/auth/CheckEmailPage";
 import VerifyEmailPage from "./pages/auth/VerifyEmailPage";
 import ForgotPasswordPage from "./pages/auth/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/auth/ResetPasswordPage";
+import ChangePasswordPage from "./pages/auth/ChangePasswordPage";
 import {
   DemoAccessDialog,
   DemoProtectedPage,
@@ -186,7 +188,9 @@ const App = () => {
           element={
             <RequireAuth>
               <RequireRole roles={["admin"]}>
-                <AdminLayout />
+                <RequirePasswordChangeComplete>
+                  <AdminLayout />
+                </RequirePasswordChangeComplete>
               </RequireRole>
             </RequireAuth>
           }
@@ -237,6 +241,14 @@ const App = () => {
         <Route path="/verify-email" element={<VerifyEmailPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route
+          path="/change-password"
+          element={
+            <RequireAuth>
+              <ChangePasswordPage />
+            </RequireAuth>
+          }
+        />
         {/* === Global Fallback === */}
         {/* An unknown path sends anonymous visitors to the public home page,
             not to a login form. */}

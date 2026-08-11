@@ -8,6 +8,11 @@ import { httpError } from "../src/utils/httpError";
 
 const appThrowing = (err: unknown): Express => {
   const app = express();
+  app.use((req, res, next) => {
+    req.id = req.get("x-request-id") ?? "generated-test-request-id";
+    res.setHeader("x-request-id", req.id);
+    next();
+  });
   app.get("/boom", (_req, _res, next) => next(err));
   app.use(errorHandler);
   return app;
@@ -76,6 +81,7 @@ describe("WP2.1 — error handler", () => {
       expect(res.body.message).toBe("Internal Server Error");
       expect(JSON.stringify(res.body)).not.toContain("E11000");
       expect(JSON.stringify(res.body)).not.toContain("ticketnest.users");
+      expect(res.body.requestId).toBe("generated-test-request-id");
     });
 
     it("shows the detail outside production", async () => {
@@ -133,7 +139,24 @@ describe("WP2.1 — error handler", () => {
         method: "GET",
         path: "/boom",
         status: 404,
+        requestId: "generated-test-request-id",
       });
+    });
+
+    it("redacts credentials and connection strings from messages and stacks", async () => {
+      const error = vi.spyOn(console, "error").mockImplementation(() => {});
+      vi.spyOn(console, "warn").mockImplementation(() => {});
+      const secret = new Error(
+        "mongodb+srv://app:private@cluster/test token=abc123 authorization: Bearer xyz"
+      );
+
+      await request(appThrowing(secret)).get("/boom");
+
+      const logged = error.mock.calls.flat().join(" ");
+      expect(logged).not.toContain("private");
+      expect(logged).not.toContain("abc123");
+      expect(logged).not.toContain("Bearer xyz");
+      expect(logged).toContain("[REDACTED");
     });
   });
 });
