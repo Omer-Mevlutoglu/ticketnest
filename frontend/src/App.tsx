@@ -40,7 +40,7 @@ import VerifyEmailPage from "./pages/auth/VerifyEmailPage";
 import ForgotPasswordPage from "./pages/auth/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/auth/ResetPasswordPage";
 import {
-  DemoModeBanner,
+  DemoAccessDialog,
   DemoProtectedPage,
 } from "./components/DemoModeNotice";
 // Common
@@ -79,7 +79,7 @@ const App = () => {
   return (
     <>
       <Toaster />
-      <DemoModeBanner />
+      <DemoAccessDialog />
 
       {/* Chrome renders for anonymous visitors too — otherwise the public
           pages have no navigation and no way to sign in. */}
