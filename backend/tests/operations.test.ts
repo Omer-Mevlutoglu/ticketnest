@@ -241,6 +241,24 @@ describe("WP5.4 — health and request context", () => {
       expect(res.status).toBe(503);
       expect(res.body.status).toBe("shutting_down");
     });
+
+    it("fails fast when the migration check does not return", async () => {
+      const never = new Promise<string[]>(() => {});
+      const bounded = buildTestApp({
+        pendingMigrations: () => never,
+        readinessTimeoutMs: 20,
+      });
+      const startedAt = Date.now();
+
+      const res = await request(bounded).get("/readyz");
+
+      expect(res.status).toBe(503);
+      expect(res.body).toEqual({
+        status: "not_ready",
+        database: "timeout",
+      });
+      expect(Date.now() - startedAt).toBeLessThan(500);
+    });
   });
 
   describe("request ids", () => {

@@ -78,31 +78,37 @@ jobs:
       - name: Build
         run: npm run build
 
-  audit:
-    name: Dependency and secret scan
+  dependency-audit:
+    name: Dependency audit
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          # gitleaks needs history to scan past commits, not just the tip.
-          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
           node-version: 22
 
-      # Advisory: a transitive CVE with no fix available should not block a
-      # portfolio build, but it should be visible in the log.
+      # High or critical findings block the build. Keep the two dependency
+      # trees independently visible so the failing surface is obvious.
       - name: Audit backend dependencies
         working-directory: backend
-        run: npm audit --audit-level=high || true
+        run: npm audit --audit-level=high
 
       - name: Audit frontend dependencies
         working-directory: frontend
-        run: npm audit --audit-level=high || true
+        run: npm audit --audit-level=high
 
-      # This one does fail the build. A committed credential is not advisory.
+  secret-scan:
+    name: Secret scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Gitleaks needs history to scan past commits, not just the tip.
+          fetch-depth: 0
+
       - name: Scan for committed secrets
         uses: gitleaks/gitleaks-action@v2
         env:

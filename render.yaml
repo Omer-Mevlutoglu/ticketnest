@@ -15,14 +15,18 @@ services:
     plan: free
     rootDir: backend
 
-    buildCommand: npm ci && npm run build
+    # NODE_ENV=production must not make npm omit TypeScript and other build
+    # tooling. The lockfile remains the dependency source of truth.
+    buildCommand: npm ci --include=dev && npm run build
     startCommand: npm start
 
-    # Render polls this to decide whether an instance should receive traffic.
-    # /healthz answers without touching MongoDB, so a database blip does not
-    # trigger a restart loop. /readyz is the stricter check — use it manually
-    # after a deploy to confirm migrations have been applied.
-    healthCheckPath: /healthz
+    # The free service has no pre-deploy command. Keep deploys manual so the
+    # reviewed commit can be migrated and seeded before it is started.
+    autoDeployTrigger: off
+
+    # Render must not route traffic until MongoDB is reachable and migrations
+    # are current. /healthz remains the process-only diagnostic endpoint.
+    healthCheckPath: /readyz
 
     envVars:
       - key: NODE_ENV
@@ -52,13 +56,23 @@ services:
         sync: false
 
       # The portfolio demo marks bookings paid without a payment provider.
-      # Remove this once Phase 6 Option A (Stripe) lands.
+      # Disable this if a real payment provider is added later.
       - key: ENABLE_MOCK_PAYMENTS
         value: "true"
 
       # Off unless a provider key is supplied — see backend/.env.example.
       - key: ENABLE_EMAIL
         value: "false"
+      - key: SENDGRID_API_KEY
+        sync: false
+      - key: FROM_EMAIL
+        sync: false
+
+      # Private operational ownership. Never publish these values in the repo.
+      - key: ADMIN_EMAILS
+        sync: false
+      - key: ADMIN_INITIAL_PASSWORD
+        sync: false
 
       # Image uploads.
       - key: CLOUD_NAME

@@ -27,7 +27,10 @@ import venuePublicRoutes from "./routes/venuePublicRoutes";
 import organizerRoutes from "./routes/organizerRoutes";
 import favoritesRoutes from "./routes/favoritesRoutes";
 import configRoutes from "./routes/configRoutes";
-import { createHealthRoutes } from "./routes/healthRoutes";
+import {
+  createHealthRoutes,
+  HealthRoutesOptions,
+} from "./routes/healthRoutes";
 import { requestContext } from "./middleware/requestContext";
 import { getConfig } from "./configs/env";
 
@@ -43,10 +46,7 @@ import { getConfig } from "./configs/env";
  * Requires an already-established Mongoose connection, because the session
  * store reuses its MongoDB client.
  */
-export interface CreateAppOptions {
-  /** Lets the readiness probe fail as soon as shutdown begins. */
-  isShuttingDown?: () => boolean;
-}
+export interface CreateAppOptions extends HealthRoutesOptions {}
 
 export const createApp = (options: CreateAppOptions = {}): Express => {
   if (mongoose.connection.readyState !== 1) {
@@ -87,7 +87,7 @@ export const createApp = (options: CreateAppOptions = {}): Express => {
 
   // Before sessions, CSRF and the rate limiter. A probe must not be throttled,
   // must not need a token, and must not mint a session document per poll.
-  app.use(createHealthRoutes({ isShuttingDown: options.isShuttingDown }));
+  app.use(createHealthRoutes(options));
 
   app.use(
     session({

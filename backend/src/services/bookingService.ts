@@ -380,7 +380,9 @@ const loadPayableBooking = async (
   now: Date,
   session: mongoose.ClientSession
 ): Promise<IBooking> => {
-  const booking = await BookingModel.findById(bookingId).session(session).lean();
+  const booking = await BookingModel.findById(bookingId)
+    .session(session)
+    .lean<IBooking>();
 
   if (!booking) throw httpError(404, "Booking not found");
 
@@ -398,7 +400,7 @@ const loadPayableBooking = async (
     throw httpError(410, "This seat hold has expired");
   }
 
-  return booking as IBooking;
+  return booking;
 };
 
 export const finalizePaidBooking = async (

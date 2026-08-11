@@ -155,7 +155,7 @@ const buildEventQuery = (filter: ListEventsFilter) => {
 export const listEvents = async (
   filter: ListEventsFilter
 ): Promise<IEvent[]> => {
-  return eventModel.find(buildEventQuery(filter)).lean().exec();
+  return eventModel.find(buildEventQuery(filter)).lean<IEvent[]>().exec();
 };
 
 /**
@@ -179,11 +179,11 @@ export const getEventById = async (id: string): Promise<IEvent> => {
   if (!Types.ObjectId.isValid(id)) {
     throw httpError(400, "Invalid Event ID");
   }
-  const event = await eventModel.findById(id).lean().exec();
+  const event = await eventModel.findById(id).lean<IEvent>().exec();
   if (!event) {
     throw httpError(404, "Event not found");
   }
-  return event as IEvent;
+  return event;
 };
 
 /**

@@ -1,4 +1,4 @@
-import dotenv from "dotenv";
+import "dotenv/config";
 import mongoose from "mongoose";
 import connectDB from "../configs/db";
 import userModel from "../models/userModel";
@@ -10,8 +10,6 @@ import {
   clearDemoFixtureActivity,
   clearFreshApplicationData,
 } from "../services/demoResetService";
-
-dotenv.config();
 
 const DEMO_PASSWORD = "DemoPassword123!";
 const DEMO_ACCOUNTS = [
@@ -94,9 +92,24 @@ const parseArgs = () => {
 const daysFromNow = (days: number) =>
   new Date(Date.now() + days * 24 * 60 * 60 * 1000);
 
-const seedDemo = async () => {
-  const { fresh, confirm } = parseArgs();
-  await connectDB();
+export interface SeedDemoOptions {
+  fresh?: boolean;
+  confirm?: string;
+  /** Rehearsals can reuse an existing disposable connection. */
+  manageConnection?: boolean;
+}
+
+export const seedDemo = async (
+  options: SeedDemoOptions = {}
+) => {
+  const fresh = options.fresh ?? false;
+  const confirm = options.confirm;
+  const manageConnection = options.manageConnection ?? true;
+
+  if (manageConnection) await connectDB();
+  if (mongoose.connection.readyState !== 1) {
+    throw new Error("seedDemo requires an active MongoDB connection");
+  }
   const dbName = mongoose.connection.name;
 
   if (fresh) await clearFreshApplicationData(dbName, confirm);
@@ -209,11 +222,13 @@ const seedDemo = async () => {
 
   console.log(`Cleared ${cleared.bookings} demo booking(s).`);
   console.log(`Done. All demo accounts use: ${DEMO_PASSWORD}`);
-  await mongoose.connection.close();
+  if (manageConnection) await mongoose.connection.close();
 };
 
-seedDemo().catch(async (error) => {
-  console.error(error instanceof Error ? error.message : String(error));
-  await mongoose.connection.close().catch(() => {});
-  process.exit(1);
-});
+if (require.main === module) {
+  seedDemo(parseArgs()).catch(async (error) => {
+    console.error(error instanceof Error ? error.message : String(error));
+    await mongoose.connection.close().catch(() => {});
+    process.exit(1);
+  });
+}

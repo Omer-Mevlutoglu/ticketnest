@@ -1,7 +1,6 @@
 import { Router, Request, Response, NextFunction } from "express"; 
 import multer from "multer";
-import { CloudinaryStorage } from "multer-storage-cloudinary";
-import cloudinary from "../configs/cloudinary";
+import { createCloudinaryStorage } from "../configs/cloudinaryStorage";
 import { ensureAuth } from "../middleware/ensureAuth";
 import { ensureRole } from "../middleware/ensureRole";
 import { requireDemoWriteAccess } from "../middleware/demoPolicy";
@@ -9,13 +8,10 @@ import { isHttpError } from "../utils/httpError";
 
 const router = Router();
 
-const posterStorage = new CloudinaryStorage({
-  cloudinary: cloudinary,
-  params: {
-    folder: "event-posters",
-    allowed_formats: ["jpg", "png", "webp", "jpeg"],
-    transformation: [{ width: 1200, height: 800, crop: "limit" }],
-  } as any, 
+const posterStorage = createCloudinaryStorage({
+  folder: "event-posters",
+  allowed_formats: ["jpg", "png", "webp", "jpeg"],
+  transformation: [{ width: 1200, height: 800, crop: "limit" }],
 });
 
 const upload = multer({

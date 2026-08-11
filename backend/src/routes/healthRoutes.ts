@@ -19,12 +19,40 @@ import { pendingMigrationIds } from "../migrations";
 export interface HealthRoutesOptions {
   /** True once shutdown has begun, so readiness fails before the socket closes. */
   isShuttingDown?: () => boolean;
+  /** Injectable for deterministic timeout tests. */
+  pendingMigrations?: () => Promise<string[]>;
+  /** Readiness must return before the platform health-check deadline. */
+  readinessTimeoutMs?: number;
 }
 
 const startedAt = Date.now();
 
+export const DEFAULT_READINESS_TIMEOUT_MS = 2_000;
+
+class ReadinessTimeoutError extends Error {}
+
+const withinDeadline = <T>(operation: Promise<T>, timeoutMs: number) =>
+  new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new ReadinessTimeoutError("Readiness check timed out")),
+      timeoutMs
+    );
+    operation.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      }
+    );
+  });
+
 export const createHealthRoutes = ({
   isShuttingDown = () => false,
+  pendingMigrations = pendingMigrationIds,
+  readinessTimeoutMs = DEFAULT_READINESS_TIMEOUT_MS,
 }: HealthRoutesOptions = {}) => {
   const router = Router();
 
@@ -52,7 +80,10 @@ export const createHealthRoutes = ({
     }
 
     try {
-      const pending = await pendingMigrationIds();
+      const pending = await withinDeadline(
+        pendingMigrations(),
+        readinessTimeoutMs
+      );
       if (pending.length > 0) {
         // Serving traffic against a schema the code does not expect is worse
         // than serving none.
@@ -62,10 +93,14 @@ export const createHealthRoutes = ({
           pendingMigrations: pending.length,
         });
       }
-    } catch {
+    } catch (error) {
       return res
         .status(503)
-        .json({ status: "not_ready", database: "unreadable" });
+        .json({
+          status: "not_ready",
+          database:
+            error instanceof ReadinessTimeoutError ? "timeout" : "unreadable",
+        });
     }
 
     res.json({ status: "ready", database: "connected" });

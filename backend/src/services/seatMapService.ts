@@ -13,14 +13,14 @@ export const getSeatMap = async (eventId: string): Promise<ISeatMap> => {
   const seatMap = await SeatMapModel.findOne({
     eventId: new Types.ObjectId(eventId),
   })
-    .lean()
+    .lean<ISeatMap>()
     .exec();
 
   if (!seatMap) {
     throw httpError(404, "Seat map not found for this event");
   }
 
-  return seatMap as ISeatMap;
+  return seatMap;
 };
 
 export interface SeatDTO {

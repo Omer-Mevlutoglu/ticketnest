@@ -1,7 +1,6 @@
 import { Router, Request, Response, NextFunction } from "express"; // --- FIX: Import types
 import multer from "multer";
-import { CloudinaryStorage } from "multer-storage-cloudinary";
-import cloudinary from "../configs/cloudinary";
+import { createCloudinaryStorage } from "../configs/cloudinaryStorage";
 import { ensureAuth } from "../middleware/ensureAuth";
 import { ensureRole } from "../middleware/ensureRole";
 import { requireDemoWriteAccess } from "../middleware/demoPolicy";
@@ -10,13 +9,10 @@ import { isHttpError } from "../utils/httpError";
 const router = Router();
 
 // Configure storage for venue images
-const venueStorage = new CloudinaryStorage({
-  cloudinary: cloudinary,
-  params: {
-    folder: "venue-images",
-    allowed_formats: ["jpg", "png", "webp", "jpeg"],
-    transformation: [{ width: 1920, height: 1080, crop: "limit" }],
-  } as any, 
+const venueStorage = createCloudinaryStorage({
+  folder: "venue-images",
+  allowed_formats: ["jpg", "png", "webp", "jpeg"],
+  transformation: [{ width: 1920, height: 1080, crop: "limit" }],
 });
 
 const upload = multer({

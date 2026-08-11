@@ -26,18 +26,18 @@ export const createVenue = async (venueData: CreateVenueDTO) => {
 };
 
 export const getVenues = async () => {
-  return (await venueModel.find({ isActive: true }).lean().exec()) as IVenue[];
+  return venueModel.find({ isActive: true }).lean<IVenue[]>().exec();
 };
 
 export const getVenueById = async (id: string): Promise<IVenue> => {
   if (!Types.ObjectId.isValid(id)) {
     throw httpError(400, "Invalid venue ID");
   }
-  const venue = await venueModel.findById(id).lean().exec();
+  const venue = await venueModel.findById(id).lean<IVenue>().exec();
   if (!venue) {
     throw httpError(404, "Venue not found");
   }
-  return venue as IVenue;
+  return venue;
 };
 
 export const updateVenue = async (id: string, venueData: CreateVenueDTO) => {
@@ -50,12 +50,12 @@ export const updateVenue = async (id: string, venueData: CreateVenueDTO) => {
         new: true,
         runValidators: true,
       })
-      .lean()
+      .lean<IVenue>()
       .exec();
     if (!updated) {
       throw httpError(404, "Venue not found");
     }
-    return updated as IVenue;
+    return updated;
   } catch (err: any) {
     if (err.code === 11000) {
       throw httpError(409, "A venue with that name and address already exists");
