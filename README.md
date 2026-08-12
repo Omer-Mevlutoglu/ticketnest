@@ -12,6 +12,11 @@ simulated checkout and into My Bookings.
 **[Open the live demo](https://ticketnest-iota.vercel.app)** · browsing does not
 require an account
 
+> The portfolio API is hosted on Render and may need about 10–20 seconds to
+> wake after a period without traffic. If the first connection takes longer
+> than five seconds, TicketNest shows a one-time warm-up screen and continues
+> automatically when the server is ready.
+
 > Payments are simulated. TicketNest has no payment provider, sends no card
 > details to the backend, and never moves money.
 
@@ -354,7 +359,7 @@ npm run e2e
 Current local release gate:
 
 - 284 backend tests across 27 files
-- 9 focused frontend tests across 5 files
+- 11 focused frontend tests across 6 files
 - 4 Playwright portfolio journeys
 - Zero frontend lint warnings
 - Backend and frontend production builds passing
