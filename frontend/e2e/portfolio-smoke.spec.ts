@@ -35,6 +35,13 @@ test("anonymous discovery and email-disabled registration lead to a working logi
   await page.goto("/events");
   await expect(page.getByRole("heading", { name: "Now Showing" })).toBeVisible();
   await expect(page.getByText(DEMO_EVENT).first()).toBeVisible();
+  const eventCards = page.getByTestId("event-card");
+  await expect(eventCards).toHaveCount(3);
+  expect(
+    await eventCards.evaluateAll((cards) =>
+      cards.every((card) => card.scrollWidth <= card.clientWidth)
+    )
+  ).toBe(true);
   const demoPosters = page.locator('img[alt$=" poster"]');
   await expect(demoPosters).toHaveCount(3);
   expect(
@@ -42,6 +49,16 @@ test("anonymous discovery and email-disabled registration lead to a working logi
       images.every((image) => (image as HTMLImageElement).naturalWidth > 0)
     )
   ).toBe(true);
+
+  const demoCard = page
+    .getByRole("heading", { name: DEMO_EVENT, exact: true })
+    .locator("..");
+  await demoCard.getByRole("button", { name: "Buy Ticket" }).click();
+  await page.getByRole("button", { name: "Add to favorites" }).click();
+  await expect(
+    page.getByText("Sign in to add events to your favorites.")
+  ).toBeVisible();
+  await expect(page).toHaveURL(/\/login$/);
 
   const email = `browser-${Date.now()}@example.test`;
   const password = "BrowserPassword123!";
