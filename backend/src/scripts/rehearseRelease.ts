@@ -64,11 +64,18 @@ const main = async () => {
       manageConnection: false,
     });
 
-    const [privateAdmin, demoAccounts, demoEvents, pendingAfterSeed] =
+    const [
+      privateAdmin,
+      demoAccounts,
+      demoEvents,
+      demoEventsWithPosters,
+      pendingAfterSeed,
+    ] =
       await Promise.all([
         userModel.findOne({ email: PRIVATE_ADMIN_EMAIL }).lean(),
         userModel.countDocuments({ isDemoAccount: true }),
         eventModel.countDocuments({}),
+        eventModel.countDocuments({ poster: { $type: "string", $ne: "" } }),
         pendingMigrationIds(),
       ]);
 
@@ -78,6 +85,11 @@ const main = async () => {
     if (demoAccounts !== 3 || demoEvents !== 3) {
       throw new Error(
         `Unexpected fixtures: ${demoAccounts} demo accounts, ${demoEvents} demo events`
+      );
+    }
+    if (demoEventsWithPosters !== demoEvents) {
+      throw new Error(
+        `Expected every demo event to have a poster, got ${demoEventsWithPosters}/${demoEvents}`
       );
     }
     if (pendingAfterSeed.length > 0) {
@@ -96,6 +108,7 @@ const main = async () => {
           privateAdminPreserved: true,
           demoAccounts,
           demoEvents,
+          demoEventsWithPosters,
         },
         null,
         2

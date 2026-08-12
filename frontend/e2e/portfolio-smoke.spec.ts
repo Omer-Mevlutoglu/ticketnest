@@ -35,6 +35,13 @@ test("anonymous discovery and email-disabled registration lead to a working logi
   await page.goto("/events");
   await expect(page.getByRole("heading", { name: "Now Showing" })).toBeVisible();
   await expect(page.getByText(DEMO_EVENT).first()).toBeVisible();
+  const demoPosters = page.locator('img[alt$=" poster"]');
+  await expect(demoPosters).toHaveCount(3);
+  expect(
+    await demoPosters.evaluateAll((images) =>
+      images.every((image) => (image as HTMLImageElement).naturalWidth > 0)
+    )
+  ).toBe(true);
 
   const email = `browser-${Date.now()}@example.test`;
   const password = "BrowserPassword123!";
