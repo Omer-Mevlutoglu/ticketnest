@@ -1,277 +1,502 @@
 # TicketNest
 
-A ticketing platform where the hard part is the part you can see: **picking a seat**.
+TicketNest is a full-stack event-booking portfolio project focused on the part
+that is genuinely difficult: keeping seat inventory correct when multiple
+people try to book at the same time.
 
-Browse events without an account, open an interactive seat map, and hold seats for ten minutes while you check out. Two people clicking the same seat at the same moment is the interesting case, and it is handled with MongoDB transactions and conditional updates rather than hope — [see below](#how-the-seat-hold-works).
+Visitors can browse events without an account. Authentication begins when a
+visitor opens the seat map, because selecting seats creates a real ten-minute
+inventory hold. The attendee journey then continues through a clearly labelled
+simulated checkout and into My Bookings.
 
-**[Live demo](https://ticketnest-iota.vercel.app)** · no sign-up needed to browse
+**[Open the live demo](https://ticketnest-iota.vercel.app)** · browsing does not
+require an account
+
+> Payments are simulated. TicketNest has no payment provider, sends no card
+> details to the backend, and never moves money.
 
 ---
 
 ## Try it in 60 seconds
 
-1. Open the [live demo](https://ticketnest-iota.vercel.app) and click into any event — no account required.
-2. Open the seat map and select a seat. It is held for you for ten minutes, and the countdown starts.
-3. Sign in with a demo account below and complete the simulated checkout.
+1. Open the live demo and choose a published event.
+2. Click **Book Now**. TicketNest asks you to sign in before opening the seat
+   map because that is where inventory-changing actions begin.
+3. Sign in with the attendee account below.
+4. Select seats and watch the running total update from each seat's configured
+   tier and price.
+5. Continue to checkout, observe the hold countdown, and complete the simulated
+   payment.
+6. Confirm that the paid booking appears in **My Bookings**.
 
-To see the concurrency handling, open the same seat map in two browsers and try to take the same seat in both. One wins; the other is told the seat has gone.
+To demonstrate contention, use two different attendee accounts in separate
+browsers. You can use the seeded attendee in one and register a temporary
+attendee in the other. Select the same seat in both and continue at nearly the
+same time: one booking succeeds and the other receives a conflict.
 
 ### Demo accounts
 
-All three use the password **`DemoPassword123!`**
+All seeded demo accounts use **`DemoPassword123!`**.
 
-| Role | Email | What you can do |
+| Role | Email | Hosted demo access |
 | --- | --- | --- |
-| Attendee | `attendee@demo.ticketnest` | Browse, hold seats, check out, view bookings |
-| Organizer | `organizer@demo.ticketnest` | Inspect the dashboard, events, pricing, and seat-map preview (management writes are read-only) |
-| Admin | `admin@demo.ticketnest` | Inspect metrics, masked users, bookings, requests, and venues (management writes are read-only) |
+| Attendee | `attendee@demo.ticketnest` | Browse, hold seats, run simulated checkout, and view bookings |
+| Organizer | `organizer@demo.ticketnest` | Inspect the dashboard, events, prices, and seat maps; sensitive writes are blocked |
+| Admin | `admin@demo.ticketnest` | Inspect masked users, metrics, bookings, requests, and venues; sensitive writes are blocked |
 
-These are created by `npm run seed:demo` and are safe to share. The hosted site
-runs with `DEMO_MODE=true`: attendee flows remain interactive, while every
-organizer and the public demo admin receive `DEMO_RESTRICTED` for sensitive
-writes. Private admins seeded from `ADMIN_EMAILS` remain trusted. A local clone
-defaults to `DEMO_MODE=false`, exposing the complete feature set.
+The hosted site uses `DEMO_MODE=true`. All organizer accounts and the public
+demo admin are blocked from sensitive management writes by both the UI and the
+API. A private system admin created from deployment environment variables is
+not published here and remains trusted. Local clones default to
+`DEMO_MODE=false`, which exposes the complete organizer and admin workflows.
 
-> **Public demo privacy:** the database is disposable and may be reset. Do not
-> enter real personal information. Visitor identifiers shown to the demo admin
-> are masked; private trusted admins retain the operational view.
+The public database is disposable and may be reset. Do not enter personal
+information. Identifiers shown to the public demo admin are masked.
 
-> **Payments are simulated.** No payment provider is involved and no money moves. Card details are validated in the browser and never sent to the server. Replacing this with Stripe is the next planned step.
+### Demo walkthrough
 
-<!-- TODO: record a 30-second capture of select seats -> countdown -> checkout
-     and embed it here. It is the single most persuasive thing on this page. -->
+[![Watch the TicketNest attendee booking walkthrough](frontend/public/demo-events/live-seat-selection.jpg)](media/ticketnest-demo.mp4)
 
----
-
-## What it does
-
-**Attendees** browse published events, pick seats on a live map, hold them for ten minutes, check out, and see their bookings.
-
-**Organizers** register, wait for admin approval, then create events, generate seat maps from a grid spec or a venue template, and publish.
-
-**Admins** approve organizers, manage reusable venue templates, and suspend accounts.
+**[Watch the 49-second demo video](media/ticketnest-demo.mp4)** — browse an
+event, select premium seats, complete the simulated checkout, and confirm the
+paid booking in My Bookings.
 
 ---
 
-## Tech stack
+## What it demonstrates
 
-| | |
+### Attendee workflow
+
+- Public event discovery and event details
+- Email-optional registration and session-based authentication
+- Keyboard-accessible seat selection with tiers, prices, and a running total
+- Atomic ten-minute seat holds and explicit conflict handling
+- Simulated payment success/failure and booking history
+- Favorites plus unpaid, paid, expired, failed, and refunded booking states
+
+### Organizer workflow
+
+- Registration and admin approval
+- Dashboard statistics that distinguish active, archived, and cancelled events
+- Draft event creation with template or custom venues
+- Grid generation, blocked seats, and per-seat tier/price overrides
+- Seat-map preview and immutable published inventory structure
+- Atomic event cancellation with booking and hold cleanup
+
+### Admin workflow
+
+- Organizer approval decisions
+- Venue-template and seat-map management
+- User suspension and immediate session invalidation
+- Booking, user, venue, request, and operational dashboard views
+- Forced initial-password rotation for privately seeded admins
+
+---
+
+## Architecture
+
+```mermaid
+flowchart LR
+    B["Browser"]
+    F["React + Vite<br/>Vercel"]
+    A["Express + TypeScript<br/>Render"]
+    M[("MongoDB Atlas<br/>replica set")]
+    C["Cloudinary<br/>optional uploads"]
+    S["SendGrid<br/>optional email"]
+
+    B --> F
+    F -->|HTTPS, session cookie, CSRF token| A
+    A --> M
+    A -. when configured .-> C
+    A -. ENABLE_EMAIL=true .-> S
+```
+
+| Area | Technology |
 | --- | --- |
-| **Backend** | Node.js, TypeScript, Express 5, Mongoose 8, MongoDB |
-| **Auth** | Passport (local strategy), server-side sessions in MongoDB, bcrypt |
-| **Frontend** | React 19, Vite, React Router 7, Tailwind CSS 4 |
-| **Testing** | Vitest, Supertest, `mongodb-memory-server` (replica set) |
-| **Services** | Cloudinary (images), SendGrid (email) |
-| **Hosting** | Vercel (frontend), MongoDB Atlas |
+| Backend | Node.js 22, TypeScript, Express 5, Mongoose 8 |
+| Data | MongoDB replica set, transactions, explicit migrations |
+| Authentication | Passport local strategy, bcrypt, server-side MongoDB sessions |
+| Frontend | React 19, React Router 7, Vite 7, Tailwind CSS 4 |
+| Tests | Vitest, Supertest, Testing Library, Playwright, `mongodb-memory-server` |
+| Optional services | SendGrid for email, Cloudinary for uploads |
+| Hosting | Vercel frontend, Render API, MongoDB Atlas |
+
+Requests follow `routes → middleware → controllers → services → models`.
+Authorization, ownership, event lifecycle, and inventory rules live in the
+service layer so they cannot be bypassed by calling a different route.
 
 ---
 
-## How the seat hold works
+## How the seat hold stays correct
 
-This is the part worth reading the code for.
+A seat map is one document per event with an embedded `seats` array. Each seat
+is `available`, `reserved` with an owner and expiry, or `sold`.
 
-A seat map is one document per event with an embedded `seats` array. Every seat is `available`, `reserved` (with a holder and an expiry), or `sold`.
-
-**Claiming a seat** is a single conditional update — no read-then-write, so there is no window between checking and taking:
+Claiming a seat is a conditional update rather than a read followed by a write:
 
 ```js
 findOneAndUpdate(
   {
     eventId,
-    seats: { $elemMatch: {
-      x, y,
-      $or: [
-        { status: "available" },
-        { status: "reserved", reservedUntil: { $lt: now } },  // lapsed hold
-      ],
-    }},
+    seats: {
+      $elemMatch: {
+        x,
+        y,
+        $or: [
+          { status: "available" },
+          { status: "reserved", reservedUntil: { $lt: now } },
+        ],
+      },
+    },
   },
-  { $set: { "seats.$.status": "reserved", "seats.$.reservedBy": userId, ... } }
+  {
+    $set: {
+      "seats.$.status": "reserved",
+      "seats.$.reservedBy": userId,
+      "seats.$.reservedUntil": expiresAt,
+    },
+  }
 )
 ```
 
-Three things make this correct:
+Three details matter:
 
-- **`$elemMatch`, not dotted paths.** Writing `"seats.x": x, "seats.status": "available"` lets MongoDB satisfy each condition from a *different* array element — so the document matches while no single seat qualifies, and the positional `$` updates the wrong seat. Every seat query here constrains one element.
-- **A transaction across the whole selection.** Booking three seats where the third is gone must leave the first two free, not held by a booking that failed. That is why MongoDB must run as a replica set.
-- **`matchedCount`, not `modifiedCount`.** Mongoose's `timestamps: true` bumps `updatedAt` on every update, so `modifiedCount` is `1` even when the intended change matched nothing. Guards that check it silently never fire.
+- `$elemMatch` makes all conditions apply to the same embedded seat. Separate
+  dotted-path conditions can accidentally match different array elements.
+- One transaction covers the complete seat selection and booking. If the third
+  of three seats is unavailable, the first two claims roll back as well.
+- Lifecycle-changing operations update the event document inside their
+  transactions. MongoDB write conflicts force a racing booking or cancellation
+  to re-evaluate the current state.
 
-Expired holds are released by a background sweep that refuses overlapping runs, and every release is conditional — running it twice changes nothing the second time.
+Expired-hold release, unpaid-booking cancellation, mock payment, and event
+cancellation all use conditional writes. Repeating a cleanup cannot release a
+seat that has since been sold or claimed by somebody else.
 
-All of this is covered by tests: two concurrent claims on one seat, partial-failure rollback, reclaiming a lapsed hold, and cancellation releasing exactly the right seats. See `backend/tests/booking.concurrency.test.ts` and `seatRelease.test.ts`.
+Published seat-map structure is locked. Organizers can inspect it, but cannot
+regenerate the grid and overwrite held or sold inventory after publication.
 
 ---
 
-## API response shapes
+## API conventions
 
-Two conventions worth knowing before writing a client.
-
-**List endpoints return a page, not an array.** `GET /api/events`,
-`/api/events/mine`, `/api/admin/users`, `/api/admin/events`, and
-`/api/admin/bookings` all answer:
+List endpoints return page envelopes:
 
 ```json
-{ "data": [...], "total": 42, "page": 1, "limit": 20, "pageCount": 3 }
+{
+  "data": [],
+  "total": 42,
+  "page": 1,
+  "limit": 20,
+  "pageCount": 3
+}
 ```
 
-`?page=` and `?limit=` control it; `limit` is capped at 100 and defaults to 20,
-so no single request can pull a whole collection. Sorting always includes `_id`
-as a tiebreaker, so paging never repeats or skips a record.
+`page` and `limit` are validated, `limit` is capped at 100, and stable sorting
+uses `_id` as a tiebreaker. The public Events page exposes Previous/Next
+controls rather than silently rendering only the first response page.
 
-**Related data is joined server-side.** `GET /api/bookings` returns each booking
-with its `event` attached, and `GET /api/favorites` returns
-`{ ids, events }`. Neither requires a follow-up request per row.
+Errors use a stable shape:
 
-Errors are `{ message, error, code? }` — `message` and `error` carry the same
-text, the second kept for older clients. `code` is a stable identifier
-(`HOLD_EXPIRED`, `VALIDATION_FAILED`, `RATE_LIMITED`) for branching without
-matching on prose.
+```json
+{
+  "message": "These seats are no longer available: (1,3)",
+  "error": "These seats are no longer available: (1,3)",
+  "code": "OPTIONAL_STABLE_CODE"
+}
+```
+
+Clients can branch on codes such as `CSRF_INVALID`, `HOLD_EXPIRED`,
+`SEAT_MAP_LOCKED`, `DEMO_RESTRICTED`, and `RATE_LIMITED` without matching prose.
 
 ---
 
-## Running it locally
+## Run locally
 
 ### Requirements
 
-- Node.js >= 22, npm >= 10
-- **MongoDB running as a replica set.** A standalone `mongod` will not work — the booking code uses transactions, and MongoDB rejects them outside a replica set. MongoDB Atlas is a replica set already. For a local single node:
+- Node.js 22 or newer
+- npm 10 or newer
+- MongoDB running as a replica set
 
-  ```bash
-  mongod --replSet rs0 --dbpath /your/data/path
-  ```
-
-  then once, in `mongosh`: `rs.initiate()`
-
-### Setup
+MongoDB transactions do not work on a standalone `mongod`. Atlas is already a
+replica set. For a local single-node development replica set:
 
 ```bash
-git clone <this repo> && cd ticketnest
-
-cd backend && npm ci && cp .env.example .env      # then fill it in
-cd ../frontend && npm ci && cp .env.example .env
+mongod --replSet rs0 --dbpath /your/data/path
 ```
 
-Every backend variable is documented in `backend/.env.example` and validated at startup — a missing or malformed value crashes the process and names the variable rather than failing quietly later.
+Then run `rs.initiate()` once in `mongosh`.
 
-`DEMO_MODE` defaults to `false`. Set it to `true` only on a public portfolio
-deployment where organizer and demo-admin management writes must be protected.
-
-**You do not need an email provider.** `ENABLE_EMAIL` defaults to `false`, and
-with it off the app runs end to end with no external service: new accounts are
-verified on creation, and password reset is hidden rather than broken. Set it to
-`true` with a `SENDGRID_API_KEY` and a verified `FROM_EMAIL` to exercise the
-real verification and reset flow — the logic is the same either way, the flag
-only controls whether a message is actually sent.
-
-Apply schema migrations, then optionally seed something to look at:
+### Install
 
 ```bash
-cd backend && npm run migrate && npm run seed:demo
+git clone https://github.com/Omer-Mevlutoglu/ticketnest.git
+cd ticketnest
+
+cd backend
+npm ci
+cp .env.example .env
+
+cd ../frontend
+npm ci
+cp .env.example .env
 ```
 
-Migrations are explicit rather than run at boot — startup only warns about
-pending ones, and `/readyz` reports unready until they are applied.
+PowerShell equivalents for the two copy commands are:
 
-### Run
+```powershell
+Copy-Item .env.example .env
+```
+
+Every backend variable is explained in `backend/.env.example`. Real `.env`
+files are ignored; never commit them.
+
+### Core configuration
+
+| Variable | Purpose |
+| --- | --- |
+| `MONGO_URI` | Replica-set database connection |
+| `SESSION_SECRET` | Session and CSRF secret; use a long random value |
+| `FRONTEND_URL` | Exact browser origin used for links and origin checks |
+| `CORS_ORIGINS` | Comma-separated credentialed browser origins |
+| `EMAIL_VERIFY_TOKEN_SECRET` | Email-verification token signing secret |
+| `PASSWORD_RESET_TOKEN_SECRET` | Password-reset token signing secret |
+| `ENABLE_MOCK_PAYMENTS` | Enables the simulated payment endpoints |
+| `DEMO_MODE` | Protects hosted public management workflows |
+
+Cloudinary variables are needed only for upload workflows. `ADMIN_EMAILS` and
+`ADMIN_INITIAL_PASSWORD` privately bootstrap real system admins; remove them
+from the deployment environment after those accounts exist and their passwords
+have been changed.
+
+### Email modes
+
+| `ENABLE_EMAIL` | Registration and reset behavior | Required provider values |
+| --- | --- | --- |
+| `false` | No message is sent. Accounts are made login-eligible immediately, so email ownership is **not verified**. Password reset is hidden. | None |
+| `true` | New accounts must follow a verification link before login. Password-reset email is enabled. | `SENDGRID_API_KEY` and a SendGrid-verified `FROM_EMAIL` |
+
+The public portfolio intentionally uses `ENABLE_EMAIL=false`. A clone can set it
+to `true` to exercise the complete SendGrid verification and reset workflow.
+
+### Migrate and seed
 
 ```bash
-cd backend && npm run dev
+cd backend
+npm run migrate
+npm run migrate:check
+npm run seed:demo
 ```
+
+The normal seed upserts the three demo accounts, two venues, and three events,
+then clears demo bookings. It does not wipe unrelated application data.
+
+The following form is destructive and intended only for a disposable portfolio
+database. The confirmation must exactly match the connected database name:
 
 ```bash
-cd frontend && npm run dev
+npm run build
+node dist/scripts/seedDemo.js --fresh --confirm ticketnest
 ```
 
-Backend on `http://localhost:5000`, frontend on `http://localhost:5173`.
+It preserves migration records and private system-admin accounts. Do not
+manually drop collections as a substitute. The direct Node command is
+intentional: some npm versions consume unknown `--fresh` and `--confirm`
+arguments before they reach the seed script.
+
+### Start
+
+In one terminal:
+
+```bash
+cd backend
+npm run dev
+```
+
+In another:
+
+```bash
+cd frontend
+npm run dev
+```
+
+Open the application at `http://localhost:5173`. During local development,
+Vite proxies same-origin `/api` requests to the backend on port 5000 so session
+and CSRF cookies behave consistently. A deployed frontend instead uses the
+`VITE_API_BASE` value supplied at build time.
 
 ---
 
-## Verifying
+## Verification
+
+Backend checks:
 
 ```bash
-cd backend && npm run build && npm run typecheck && npm test
+cd backend
+npm run typecheck
+npm run build
+npm test
+npm run rehearse:release
 ```
+
+Frontend checks:
 
 ```bash
-cd frontend && npm run lint && npm run build
+cd frontend
+npm run lint
+npm test
+npm run build
+npx playwright install chromium
+npm run e2e
 ```
 
-269 backend tests, plus a GitHub Actions workflow that runs all of it on push. They spin up an in-memory MongoDB **replica set**, so transactions work and no external database is touched. They cannot reach Atlas, SendGrid, or Cloudinary: the test setup injects placeholder secrets and refuses any database URI that is not local.
+Current local release gate:
 
-The frontend has no test harness yet — `npm test` there is a labelled placeholder.
+- 284 backend tests across 27 files
+- 9 focused frontend tests across 5 files
+- 4 Playwright portfolio journeys
+- Zero frontend lint warnings
+- Backend and frontend production builds passing
+- Release migration/reset/seed rehearsal passing
+
+Backend tests, release rehearsal, and browser tests create disposable
+`mongodb-memory-server` replica sets. The test setup deletes normal database
+environment variables and supplies placeholder provider values, so tests do not
+connect to Atlas, SendGrid, or Cloudinary. The browser runner starts isolated
+API/frontend services on ports 5100/4173 and shuts down their process trees.
+
+GitHub Actions runs five jobs before merge:
+
+1. **Backend** — typecheck, build, and integration tests
+2. **Frontend** — lint, build, and unit tests
+3. **Browser smoke** — isolated Chromium portfolio journeys
+4. **Dependency audit** — high-severity npm audit gate
+5. **Secret scan** — full-history Gitleaks scan
 
 ---
 
-## Layout
+## Repository layout
 
-```
+```text
+.github/workflows/
+  ci.yml                    five release checks
+
 backend/
   src/
-    configs/      validated env, database, feature flags
-    controllers/  HTTP in, HTTP out
-    services/     business logic - bookingService.ts is the core
-    models/       Mongoose schemas
-    middleware/   auth, roles, rate limits, CSRF, error handler
-    jobs/         hold-expiry worker
-    scripts/      demo seeding
-  tests/          integration tests against an in-memory replica set
+    configs/                validated environment and database setup
+    controllers/            HTTP request/response adapters
+    jobs/                   expired-hold worker
+    middleware/             auth, roles, CSRF, rate limits, errors
+    migrations/             explicit, recorded data migrations
+    models/                 Mongoose schemas and indexes
+    routes/                 API routes
+    scripts/                migrations, seeding, rehearsal, E2E server
+    services/               business and lifecycle rules
+  tests/                    integration tests on an in-memory replica set
 
 frontend/
+  e2e/                      Playwright portfolio journeys
+  scripts/                  cross-platform isolated E2E runner
   src/
-    pages/        route components, grouped by role
-    components/   shared UI
-    hooks/        data fetching
-    lib/          CSRF transport
-  context/        auth provider
+    components/             shared and role-specific UI
+    context/                authentication state
+    hooks/                  data loading and mutations
+    lib/                    API/CSRF transport and pure helpers
+    pages/                  public, auth, attendee, organizer, admin routes
+    test/                   frontend test setup
 ```
-
-Requests flow **routes -> middleware -> controllers -> services -> models**. Business rules and ownership checks live in the services, so they hold regardless of which route reaches them.
 
 ---
 
 ## Operations
 
-`GET /healthz` — liveness. Answers without touching MongoDB, so a database
-blip does not restart otherwise-healthy processes.
-
-`GET /readyz` — readiness. Fails when the database is unreachable, when
-migrations are pending, or while the process is shutting down. This is the one
-a load balancer should watch.
-
-Every response carries an `x-request-id`, echoed from the request when one is
-supplied. It appears in the structured log line for the request and in anything
-the error handler records, so one string traces a failure end to end.
-
-On SIGTERM the process reports unready first, then stops the expiry worker,
-drains in-flight requests, and closes MongoDB — with a deadline, so a stuck
-shutdown still terminates.
+- `GET /healthz` is liveness. It answers without querying MongoDB.
+- `GET /readyz` is readiness. It fails when MongoDB is unreachable, migrations
+  are pending, or shutdown has started. Render should use this endpoint.
+- Every response has an `x-request-id`, which is included in structured request
+  and error logs.
+- On `SIGTERM`, the API becomes unready, stops the expiry worker, drains
+  requests, closes MongoDB, and enforces a shutdown deadline.
+- Migrations never run implicitly during API boot. Run `npm run migrate`, then
+  require `npm run migrate:check` before deployment.
 
 ---
 
-## Security
+## Security controls
 
-- Session cookies, `httpOnly`, `SameSite=None` + `Secure` in production
-- CSRF: origin validation on every write, plus double-submit tokens
-- Rate limits sized per endpoint — login, registration, and password reset have different risk profiles
-- `helmet` security headers; CORS restricted to a configured allowlist
-- Password reset signs you out everywhere, and each link works once
-- Suspending an account ends its live sessions immediately, not at next login
-- Unexpected errors return a generic 500 in production — no driver messages or stack traces
+- `httpOnly` server-side sessions stored in MongoDB
+- `Secure` plus `SameSite=None` cookies in production
+- Origin validation and double-submit CSRF tokens on writes
+- Per-endpoint authentication, registration, and password-reset rate limits
+- Role, ownership, approval, demo-policy, and lifecycle authorization
+- Immediate session invalidation after suspension or password reset
+- One-time password-reset links and forced initial-admin password rotation
+- Helmet headers and explicit credentialed CORS allowlist
+- Generic production 500 responses without stack traces or driver details
+- Masked public-demo admin data and API-enforced sensitive-write restrictions
+
+---
+
+## Troubleshooting
+
+### Transactions require a replica set
+
+If MongoDB reports that transactions are supported only on replica-set members,
+start local MongoDB with `--replSet`, run `rs.initiate()`, or use Atlas.
+
+### `/readyz` reports pending migrations
+
+```bash
+cd backend
+npm run migrate
+npm run migrate:check
+```
+
+Do not change the Render health path to `/healthz` to hide this condition.
+
+### Login works locally but not across deployed origins
+
+Use exact HTTPS origins with no paths:
+
+- `FRONTEND_URL=https://your-frontend.example`
+- `CORS_ORIGINS=https://your-frontend.example`
+- `VITE_API_BASE=https://your-api.example`
+
+Then rebuild the frontend because Vite values are embedded at build time.
+
+### Email-enabled startup fails
+
+When `ENABLE_EMAIL=true`, both `SENDGRID_API_KEY` and a verified `FROM_EMAIL`
+are required. Set `ENABLE_EMAIL=false` if testing without SendGrid.
+
+### Playwright cannot find Chromium
+
+```bash
+cd frontend
+npx playwright install chromium
+```
+
+On Linux CI, use `npx playwright install --with-deps chromium`.
 
 ---
 
 ## Known limitations
 
-Deliberate scope choices, not oversights:
-
-- **Payments are simulated.** No provider, no money, no refunds.
-- **Email is off by default.** Verification and password-reset logic exists and is tested, but nothing is dispatched unless `ENABLE_EMAIL=true` and a provider key is supplied. This keeps a fresh clone runnable with zero configuration.
-- **The expiry worker is single-instance.** It runs on an interval in the API process. Running two instances duplicates the work — harmless, since every write is conditional, but wasteful. A real deployment wants an external scheduler or a job queue.
-- **Seat maps are one document per event.** Fine at this scale; the 16 MB BSON limit caps it around 40,000 seats, and heavy contention on one popular event serializes on that document. A separate `seats` collection with a unique index on `(eventId, x, y)` is the fix.
-- **Money is stored as a JavaScript number.** It should be integer minor units with an explicit currency.
-- **No pagination** on list endpoints, and the `Event` collection has no indexes yet.
-- **The seat grid is mouse-only** — it needs keyboard navigation and ARIA labels.
-- **No search.**
+- Payments are simulated: no provider, refunds, settlement, or real currency
+  processing.
+- Email ownership is not verified while `ENABLE_EMAIL=false`; this is an
+  intentional zero-provider portfolio mode.
+- The expiry worker runs inside one API process. Conditional writes make
+  duplicate runs safe, but a larger system should use a queue or scheduler.
+- One seat-map document contains every seat for an event. This is simple and
+  transaction-friendly at portfolio scale, but large venues and extreme
+  contention should use a separate seat collection.
+- Money is stored as JavaScript numbers. Production billing should use integer
+  minor units and an explicit currency.
+- Cloudinary is the only upload backend and is optional rather than abstracted
+  behind a storage interface.
+- There is no event search or recommendation engine.
 
 ---
 
