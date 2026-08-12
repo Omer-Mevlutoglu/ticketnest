@@ -6,6 +6,7 @@ import Loading from "../components/Loading";
 import BlurCircle from "../components/BlurCircle";
 import { apiGet, apiPost, errorMessage, isAbortError } from "../lib/api";
 import { tierStyle } from "../lib/seatTiers";
+import { calculateSeatTotal } from "../lib/seatSelection";
 
 type Seat = {
   x: number;
@@ -100,11 +101,10 @@ const SeatMapPage: React.FC<SeatMapPageProps> = ({ mode = "booking" }) => {
     return { rows: maxX, cols: maxY, seatByKey: m };
   }, [seatMap]);
 
-  const totalPrice = useMemo(() => {
-    let t = 0;
-    for (const s of selected.values()) t += s.price;
-    return t;
-  }, [selected]);
+  const totalPrice = useMemo(
+    () => calculateSeatTotal(selected.values()),
+    [selected]
+  );
 
   const tierLegend = useMemo(() => {
     const tiers = new Map<string, { name: string; prices: number[] }>();

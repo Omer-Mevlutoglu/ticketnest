@@ -8,7 +8,7 @@ import { useAppConfig } from "../hooks/useAppConfig";
 import BlurCircle from "../components/BlurCircle";
 import Loading from "../components/Loading";
 
-const PLACEHOLDER = "/placeholder.jpg";
+const PLACEHOLDER = "/concert-2527495.jpg";
 
 const CheckoutPage: React.FC = () => {
   const { id } = useParams(); // bookingId
@@ -196,8 +196,10 @@ const CheckoutPage: React.FC = () => {
             </div>
           )}
 
-          <label className="text-sm text-gray-300">Cardholder Name</label>
+          <label htmlFor="cardholder-name" className="text-sm text-gray-300">Cardholder Name</label>
           <input
+            id="cardholder-name"
+            autoComplete="cc-name"
             value={cardName}
             onChange={(e) => setCardName(e.target.value)}
             className="w-full mt-1 mb-3 rounded-md border border-white/10 bg-white/5 px-3 py-2 outline-none"
@@ -205,8 +207,10 @@ const CheckoutPage: React.FC = () => {
             disabled={disabled}
           />
 
-          <label className="text-sm text-gray-300">Card Number</label>
+          <label htmlFor="card-number" className="text-sm text-gray-300">Card Number</label>
           <input
+            id="card-number"
+            autoComplete="cc-number"
             value={formattedNumber}
             onChange={(e) => setCardNumber(e.target.value.replace(/\D/g, ""))}
             inputMode="numeric"
@@ -218,8 +222,10 @@ const CheckoutPage: React.FC = () => {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-sm text-gray-300">Expiry (MM/YY)</label>
+              <label htmlFor="card-expiry" className="text-sm text-gray-300">Expiry (MM/YY)</label>
               <input
+                id="card-expiry"
+                autoComplete="cc-exp"
                 value={expiry}
                 onChange={(e) => setExpiry(e.target.value)}
                 placeholder="09/27"
@@ -228,8 +234,10 @@ const CheckoutPage: React.FC = () => {
               />
             </div>
             <div>
-              <label className="text-sm text-gray-300">CVV</label>
+              <label htmlFor="card-cvv" className="text-sm text-gray-300">CVV</label>
               <input
+                id="card-cvv"
+                autoComplete="cc-csc"
                 value={cvv}
                 onChange={(e) => setCvv(e.target.value.replace(/\D/g, ""))}
                 inputMode="numeric"

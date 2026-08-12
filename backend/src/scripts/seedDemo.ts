@@ -25,12 +25,12 @@ const buildGrid = (
   premiumPrice: number,
   standardPrice: number
 ) =>
-  Array.from({ length: rows }, (_, y) =>
-    Array.from({ length: cols }, (_, x) => ({
-      x,
-      y,
-      tier: y < premiumRows ? "premium" : "standard",
-      price: y < premiumRows ? premiumPrice : standardPrice,
+  Array.from({ length: rows }, (_, rowIndex) =>
+    Array.from({ length: cols }, (_, columnIndex) => ({
+      x: rowIndex + 1,
+      y: columnIndex + 1,
+      tier: rowIndex < premiumRows ? "premium" : "standard",
+      price: rowIndex < premiumRows ? premiumPrice : standardPrice,
     }))
   ).flat();
 

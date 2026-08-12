@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { MenuIcon, XIcon } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import logoSrc from "@/assets/images/logo.png";
+import logoSrc from "@/assets/images/hLogo.svg";
 
 function deriveFirstName(user: { email?: string } & Record<string, any>) {
   const username = (user as any)?.username as string | undefined;
@@ -70,7 +70,7 @@ const Navbar: React.FC = () => {
         <div className="h-22 flex items-center justify-between">
           {/* Left: Logo */}
           <Link to="/" className="flex items-center gap-2">
-            <img src={logoSrc} alt="Logo" className="w-28 h-auto" />
+            <img src={logoSrc} alt="TicketNest" className="w-28 h-auto" />
           </Link>
 
           {/* Center: Desktop nav */}
@@ -119,6 +119,7 @@ const Navbar: React.FC = () => {
                   className="flex items-center gap-2"
                   aria-haspopup="menu"
                   aria-expanded={menuOpen}
+                  aria-label={`${firstName || "Account"} account menu`}
                   title={firstName || "Account"}
                 >
                   <span className="w-8 h-8 rounded-full bg-primary text-white grid place-items-center font-semibold text-sm">
@@ -157,10 +158,15 @@ const Navbar: React.FC = () => {
             )}
 
             {/* Mobile burger */}
-            <MenuIcon
-              className="md:hidden w-7 h-7 cursor-pointer"
+            <button
+              type="button"
+              className="md:hidden rounded-md p-1"
+              aria-label="Open navigation menu"
+              aria-expanded={isOpen}
               onClick={() => setIsOpen((v) => !v)}
-            />
+            >
+              <MenuIcon aria-hidden="true" className="w-7 h-7" />
+            </button>
           </div>
         </div>
       </div>
@@ -172,10 +178,14 @@ const Navbar: React.FC = () => {
       >
         <div className="flex items-center justify-between h-14 px-4 border-b border-white/10">
           <span className="text-sm font-medium opacity-80">Menu</span>
-          <XIcon
-            className="w-6 h-6 cursor-pointer"
+          <button
+            type="button"
+            className="rounded-md p-1"
+            aria-label="Close navigation menu"
             onClick={() => setIsOpen(false)}
-          />
+          >
+            <XIcon aria-hidden="true" className="w-6 h-6" />
+          </button>
         </div>
 
         <nav className="flex flex-col gap-1 p-3">

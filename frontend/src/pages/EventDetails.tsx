@@ -48,7 +48,7 @@ const EventDetails: React.FC = () => {
 
   // Pick a hero image: event poster → venue first image → placeholder
   const heroImage = useMemo(() => {
-    return event?.poster || venue?.images?.[0] || "/placeholder.jpg";
+    return event?.poster || venue?.images?.[0] || "/concert-2527495.jpg";
   }, [event?.poster, venue?.images]);
 
   // Gallery (venue images) for template venues; empty array if none
@@ -130,6 +130,8 @@ const EventDetails: React.FC = () => {
             <button
               className="bg-gray-700 p-2.5 rounded-full transition cursor-pointer active:scale-95"
               title={isFav ? "Remove from favorites" : "Add to favorites"}
+              aria-label={isFav ? "Remove from favorites" : "Add to favorites"}
+              aria-pressed={isFav}
               onClick={() => event && toggle(event._id)}
             >
               <HeartIcon

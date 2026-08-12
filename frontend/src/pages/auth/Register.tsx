@@ -57,17 +57,23 @@ const Register: React.FC = () => {
 
       <form onSubmit={onSubmit} className="max-w-md space-y-4">
         <div>
-          <label className="text-sm text-gray-300">Username</label>
+          <label htmlFor="register-username" className="text-sm text-gray-300">Username</label>
           <input
+            id="register-username"
+            autoComplete="username"
+            required
             className="w-full mt-1 rounded-md border border-white/10 bg-white/5 px-3 py-2 outline-none"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
           />
         </div>
         <div>
-          <label className="text-sm text-gray-300">Email</label>
+          <label htmlFor="register-email" className="text-sm text-gray-300">Email</label>
           <input
+            id="register-email"
             type="email"
+            autoComplete="email"
+            required
             className="w-full mt-1 rounded-md border border-white/10 bg-white/5 px-3 py-2 outline-none"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -80,9 +86,13 @@ const Register: React.FC = () => {
           )}
         </div>
         <div>
-          <label className="text-sm text-gray-300">Password</label>
+          <label htmlFor="register-password" className="text-sm text-gray-300">Password</label>
           <input
+            id="register-password"
             type="password"
+            autoComplete="new-password"
+            minLength={6}
+            required
             className="w-full mt-1 rounded-md border border-white/10 bg-white/5 px-3 py-2 outline-none"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -118,6 +128,7 @@ const Register: React.FC = () => {
         </div>
 
         <button
+          type="submit"
           disabled={busy}
           className="px-4 py-2 rounded-md bg-primary hover:bg-primary-dull transition disabled:opacity-60"
         >

@@ -40,7 +40,7 @@ type PublicEvent = {
   poster?: string;
 };
 
-const PLACEHOLDER = "/placeholder.jpg";
+const PLACEHOLDER = "/concert-2527495.jpg";
 const REFRESH_MS = 12000; // poll every 12s to let UI reflect expiry jobs
 
 function formatDateTimeRange(startISO?: string, endISO?: string) {

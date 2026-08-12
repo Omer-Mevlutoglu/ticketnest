@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { apiGetAll, errorMessage, isAbortError } from "../lib/api";
+import { apiGet, apiGetAll, errorMessage, isAbortError, type Page } from "../lib/api";
 
 // This is the full event type from your backend
 export type ApiEvent = {
@@ -51,3 +51,41 @@ const useEvents = () => {
 };
 
 export default useEvents;
+
+export const EVENTS_PER_PAGE = 12;
+
+/** The paged public listing used by /events. */
+export const useEventsPage = (page: number) => {
+  const [result, setResult] = useState<Page<ApiEvent>>({
+    data: [],
+    total: 0,
+    page,
+    limit: EVENTS_PER_PAGE,
+    pageCount: 0,
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const ac = new AbortController();
+    setLoading(true);
+    setError(null);
+
+    apiGet<Page<ApiEvent>>(
+      `/api/events?page=${page}&limit=${EVENTS_PER_PAGE}`,
+      ac.signal
+    )
+      .then(setResult)
+      .catch((caught) => {
+        if (isAbortError(caught)) return;
+        setError(errorMessage(caught, "Failed to load events"));
+      })
+      .finally(() => {
+        if (!ac.signal.aborted) setLoading(false);
+      });
+
+    return () => ac.abort();
+  }, [page]);
+
+  return { ...result, events: result.data, loading, error };
+};

@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit -p tests/tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
+    "e2e:server": "ts-node src/scripts/startE2EServer.ts",
     "seed:demo": "ts-node src/scripts/seedDemo.ts",
     "rehearse:release": "ts-node src/scripts/rehearseRelease.ts",
     "migrate": "ts-node src/scripts/migrate.ts",

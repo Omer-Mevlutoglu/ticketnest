@@ -12,7 +12,7 @@ import Loading from "@/components/Loading";
 import BlurCircle from "@/components/BlurCircle";
 import { useAuth } from "@/context/AuthContext";
 
-const PLACEHOLDER = "/placeholder.jpg";
+const PLACEHOLDER = "/concert-2527495.jpg";
 
 // --- Helper Functions ---
 function formatRange(startISO?: string, endISO?: string) {

@@ -253,10 +253,11 @@ const CreateEventPage: React.FC = () => {
             <p className="text-sm font-medium mb-3">Basics</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
               <div>
-                <label className="text-xs text-gray-400 block mb-1">
+                <label htmlFor="event-title" className="text-xs text-gray-400 block mb-1">
                   Title
                 </label>
                 <input
+                  id="event-title"
                   className="w-full rounded-md border border-white/10 bg-white/5 px-2.5 sm:px-3 py-1.5 sm:py-2 outline-none text-sm sm:text-base"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
@@ -264,10 +265,11 @@ const CreateEventPage: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="text-xs text-gray-400 block mb-1">
+                <label htmlFor="event-categories" className="text-xs text-gray-400 block mb-1">
                   Categories (comma separated)
                 </label>
                 <input
+                  id="event-categories"
                   className="w-full rounded-md border border-white/10 bg-white/5 px-2.5 sm:px-3 py-1.5 sm:py-2 outline-none text-sm sm:text-base"
                   value={categoriesInput}
                   onChange={(e) => setCategoriesInput(e.target.value)}
@@ -277,10 +279,11 @@ const CreateEventPage: React.FC = () => {
             </div>
 
             <div className="mt-3 sm:mt-4">
-              <label className="text-xs text-gray-400 block mb-1">
+              <label htmlFor="event-description" className="text-xs text-gray-400 block mb-1">
                 Description
               </label>
               <textarea
+                id="event-description"
                 className="w-full min-h-[90px] sm:min-h-[110px] rounded-md border border-white/10 bg-white/5 px-2.5 sm:px-3 py-1.5 sm:py-2 outline-none text-sm sm:text-base"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -290,12 +293,13 @@ const CreateEventPage: React.FC = () => {
 
             <div className="mt-3 sm:mt-4 grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
               <div>
-                <label className="text-xs text-gray-400 block mb-1">
+                <label htmlFor="event-start" className="text-xs text-gray-400 block mb-1">
                   Start
                 </label>
                 <div className="relative flex items-center">
                   <CalendarIcon className="w-4 h-4 opacity-75 absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
+                    id="event-start"
                     type="datetime-local"
                     className="w-full rounded-md border border-white/10 bg-white/5 pl-8 px-2.5 sm:px-3 py-1.5 sm:py-2 outline-none text-sm sm:text-base appearance-none"
                     value={startTime}
@@ -305,10 +309,11 @@ const CreateEventPage: React.FC = () => {
                 </div>
               </div>
               <div>
-                <label className="text-xs text-gray-400 block mb-1">End</label>
+                <label htmlFor="event-end" className="text-xs text-gray-400 block mb-1">End</label>
                 <div className="relative flex items-center">
                   <CalendarIcon className="w-4 h-4 opacity-75 absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
+                    id="event-end"
                     type="datetime-local"
                     className="w-full rounded-md border border-white/10 bg-white/5 pl-8 px-2.5 sm:px-3 py-1.5 sm:py-2 outline-none text-sm sm:text-base appearance-none"
                     value={endTime}
@@ -354,10 +359,11 @@ const CreateEventPage: React.FC = () => {
             {venueType === "template" ? (
               <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                 <div>
-                  <label className="text-xs text-gray-400 block mb-1">
+                  <label htmlFor="template-venue" className="text-xs text-gray-400 block mb-1">
                     Select Template Venue
                   </label>
                   <select
+                    id="template-venue"
                     className="w-full rounded-md border border-white/10 bg-white/5 px-2.5 sm:px-3 py-1.5 sm:py-2 outline-none text-sm sm:text-base"
                     value={templateVenueId}
                     onChange={(e) => setTemplateVenueId(e.target.value)}
@@ -398,10 +404,11 @@ const CreateEventPage: React.FC = () => {
             ) : (
               <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                 <div>
-                  <label className="text-xs text-gray-400 block mb-1">
+                  <label htmlFor="custom-venue-name" className="text-xs text-gray-400 block mb-1">
                     Venue Name
                   </label>
                   <input
+                    id="custom-venue-name"
                     className="w-full rounded-md border border-white/10 bg-white/5 px-2.5 sm:px-3 py-1.5 sm:py-2 outline-none text-sm sm:text-base"
                     value={venueName}
                     onChange={(e) => setVenueName(e.target.value)}
@@ -409,10 +416,11 @@ const CreateEventPage: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-gray-400 block mb-1">
+                  <label htmlFor="custom-venue-address" className="text-xs text-gray-400 block mb-1">
                     Venue Address
                   </label>
                   <input
+                    id="custom-venue-address"
                     className="w-full rounded-md border border-white/10 bg-white/5 px-2.5 sm:px-3 py-1.5 sm:py-2 outline-none text-sm sm:text-base"
                     value={venueAddress}
                     onChange={(e) => setVenueAddress(e.target.value)}
@@ -426,10 +434,11 @@ const CreateEventPage: React.FC = () => {
                   </p>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <div>
-                      <label className="text-xs text-gray-400 block mb-1">
+                      <label htmlFor="grid-rows" className="text-xs text-gray-400 block mb-1">
                         Rows
                       </label>
                       <input
+                        id="grid-rows"
                         type="number"
                         min={1}
                         className="w-full rounded-md border border-white/10 bg-white/5 px-2.5 sm:px-3 py-1.5 sm:py-2 outline-none text-sm sm:text-base"
@@ -440,10 +449,11 @@ const CreateEventPage: React.FC = () => {
                       />
                     </div>
                     <div>
-                      <label className="text-xs text-gray-400 block mb-1">
+                      <label htmlFor="grid-columns" className="text-xs text-gray-400 block mb-1">
                         Cols
                       </label>
                       <input
+                        id="grid-columns"
                         type="number"
                         min={1}
                         className="w-full rounded-md border border-white/10 bg-white/5 px-2.5 sm:px-3 py-1.5 sm:py-2 outline-none text-sm sm:text-base"
@@ -454,10 +464,11 @@ const CreateEventPage: React.FC = () => {
                       />
                     </div>
                     <div>
-                      <label className="text-xs text-gray-400 block mb-1">
+                      <label htmlFor="grid-default-tier" className="text-xs text-gray-400 block mb-1">
                         Default Tier
                       </label>
                       <input
+                        id="grid-default-tier"
                         className="w-full rounded-md border border-white/10 bg-white/5 px-2.5 sm:px-3 py-1.5 sm:py-2 outline-none text-sm sm:text-base"
                         value={grid.defaultTier}
                         onChange={(e) =>
@@ -466,10 +477,11 @@ const CreateEventPage: React.FC = () => {
                       />
                     </div>
                     <div>
-                      <label className="text-xs text-gray-400 block mb-1">
+                      <label htmlFor="grid-default-price" className="text-xs text-gray-400 block mb-1">
                         Default Price
                       </label>
                       <input
+                        id="grid-default-price"
                         type="number"
                         min={0}
                         className="w-full rounded-md border border-white/10 bg-white/5 px-2.5 sm:px-3 py-1.5 sm:py-2 outline-none text-sm sm:text-base"

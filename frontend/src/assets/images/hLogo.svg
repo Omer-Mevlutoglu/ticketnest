@@ -1,5 +1,5 @@
-<!-- logo-crowdjoy.svg -->
-<svg width="240" height="56" viewBox="0 0 240 56" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="CrowdJoy logo">
+<!-- TicketNest wordmark -->
+<svg width="240" height="56" viewBox="0 0 240 56" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="TicketNest logo">
   <defs>
     <!-- brand colors -->
     <linearGradient id="cjBlue" x1="0" y1="0" x2="1" y2="1">
@@ -25,10 +25,10 @@
   <!-- wordmark -->
   <g transform="translate(64,0)">
     <text x="0" y="38" font-family="Outfit, Cairo, ui-sans-serif" font-size="30" font-weight="700" letter-spacing="0" fill="url(#cjBlue)">
-      Crowd
+      Ticket
     </text>
-    <text x="100" y="38" font-family="Outfit, Cairo, ui-sans-serif" font-size="30" font-weight="800" fill="#f59e0b">
-      Joy
+    <text x="86" y="38" font-family="Outfit, Cairo, ui-sans-serif" font-size="30" font-weight="800" fill="#f59e0b">
+      Nest
     </text>
   </g>
 </svg>
