@@ -42,14 +42,20 @@ describe("hosted demo policy", () => {
     const { user } = await createOrganizer();
     const agent = await loginAgent(app, user.email);
     const id = new Types.ObjectId();
-    const responses = await Promise.all([
-      agent.put(`/api/events/${id}`).send({}),
-      agent.delete(`/api/events/${id}`),
-      agent.put(`/api/events/${id}/seatmap`).send({}),
-      agent.post(`/api/events/${id}/seatmap/generate`).send({}),
-    ]);
+    const requests = [
+      () => agent.put(`/api/events/${id}`).send({}),
+      () => agent.delete(`/api/events/${id}`),
+      () => agent.put(`/api/events/${id}/seatmap`).send({}),
+      () => agent.post(`/api/events/${id}/seatmap/generate`).send({}),
+    ];
 
-    for (const response of responses) {
+    // One authenticated Supertest agent owns one cookie jar. Running its
+    // temporary HTTP requests concurrently can race socket teardown on slower
+    // CI runners and surface ECONNRESET before an assertion runs. This test is
+    // endpoint coverage, not a concurrency test, so drive the shared session
+    // sequentially.
+    for (const send of requests) {
+      const response = await send();
       expect(response.status).toBe(403);
       expect(response.body.code).toBe("DEMO_RESTRICTED");
     }
@@ -104,18 +110,19 @@ describe("hosted demo policy", () => {
     const { user } = await createAdmin({ isDemoAccount: true });
     const agent = await loginAgent(app, user.email);
     const id = new Types.ObjectId();
-    const responses = await Promise.all([
-      agent.put(`/api/admin/users/${id}/set-approval`).send({}),
-      agent.put(`/api/admin/users/${id}/suspend`).send({}),
-      agent.put(`/api/admin/users/${id}/unsuspend`).send({}),
-      agent.put(`/api/admin/organizers/${id}/approve`).send({}),
-      agent.put(`/api/admin/organizers/${id}/reject`).send({}),
-      agent.put(`/api/admin/venues/${id}`).send({}),
-      agent.delete(`/api/admin/venues/${id}`),
-      agent.post("/api/admin/uploads/venue-images"),
-    ]);
+    const requests = [
+      () => agent.put(`/api/admin/users/${id}/set-approval`).send({}),
+      () => agent.put(`/api/admin/users/${id}/suspend`).send({}),
+      () => agent.put(`/api/admin/users/${id}/unsuspend`).send({}),
+      () => agent.put(`/api/admin/organizers/${id}/approve`).send({}),
+      () => agent.put(`/api/admin/organizers/${id}/reject`).send({}),
+      () => agent.put(`/api/admin/venues/${id}`).send({}),
+      () => agent.delete(`/api/admin/venues/${id}`),
+      () => agent.post("/api/admin/uploads/venue-images"),
+    ];
 
-    for (const response of responses) {
+    for (const send of requests) {
+      const response = await send();
       expect(response.status).toBe(403);
       expect(response.body.code).toBe("DEMO_RESTRICTED");
     }
