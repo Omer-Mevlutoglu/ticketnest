@@ -6,6 +6,17 @@ import tailwindcss from "@tailwindcss/vite";
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  server: {
+    proxy: {
+      // Keep local API calls same-origin so session and CSRF cookies behave
+      // exactly like production. This also avoids OS-specific localhost
+      // resolution differences between the browser and the Node server.
+      "/api": {
+        target: "http://localhost:5000",
+        changeOrigin: true,
+      },
+    },
+  },
   resolve: {
     alias: {
       // `@` is the src root. Added after moving context/ and assets/ inside
