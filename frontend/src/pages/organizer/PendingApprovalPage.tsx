@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import { useNavigate, Navigate } from "react-router-dom";
-import { useAuth } from "../../../context/AuthContext"; // Adjust path as needed
+import { useAuth } from "@/context/AuthContext"; // Adjust path as needed
 import toast from "react-hot-toast";
 // *** ADD LogOutIcon IMPORT ***
 import { LogOutIcon } from "lucide-react";

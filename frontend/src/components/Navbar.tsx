@@ -1,10 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { MenuIcon, Search, XIcon } from "lucide-react";
-import { useAuth } from "../../context/AuthContext";
-import logoSrc from "../../assets/images/logo.png";
-const favoriteEvents = ["1", "2"];
+import { MenuIcon, XIcon } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import logoSrc from "@/assets/images/hLogo.svg";
 
 function deriveFirstName(user: { email?: string } & Record<string, any>) {
   const username = (user as any)?.username as string | undefined;
@@ -24,6 +23,10 @@ const Navbar: React.FC = () => {
 
   const firstName = user ? deriveFirstName(user) : null;
   const avatarInitial = firstName ? firstName[0].toUpperCase() : "U";
+
+  // Home and Events are public; Favorites is not. Showing it to a logged-out
+  // visitor would just bounce them to the login form.
+  const showFavorites = user?.role === "attendee";
 
   // close dropdown on outside click — unchanged
   useEffect(() => {
@@ -46,7 +49,9 @@ const Navbar: React.FC = () => {
   const handleLogout = async () => {
     await logout();
     setMenuOpen(false);
-    navigate("/login");
+    // Browsing is public, so signing out lands on the home page rather than a
+    // login form.
+    navigate("/");
   };
 
   return (
@@ -65,7 +70,7 @@ const Navbar: React.FC = () => {
         <div className="h-22 flex items-center justify-between">
           {/* Left: Logo */}
           <Link to="/" className="flex items-center gap-2">
-            <img src={logoSrc} alt="Logo" className="w-28 h-auto" />
+            <img src={logoSrc} alt="TicketNest" className="w-28 h-auto" />
           </Link>
 
           {/* Center: Desktop nav */}
@@ -85,7 +90,7 @@ const Navbar: React.FC = () => {
               <span className="absolute left-0 -bottom-1 h-[2px] w-0 bg-white/70 transition-all duration-200 hover:w-full" />
             </Link>
 
-            {favoriteEvents.length > 0 && (
+            {showFavorites && (
               <Link
                 to="/favorite"
                 className="relative inline-block text-md font-medium hover:opacity-90 transition"
@@ -98,7 +103,7 @@ const Navbar: React.FC = () => {
 
           {/* Right: Search + Auth */}
           <div className="flex items-center gap-4">
-            <Search className="w-5 h-5 max-md:hidden cursor-pointer" />
+            {/* <Search className="w-5 h-5 max-md:hidden cursor-pointer" /> */}
 
             {!user ? (
               <button
@@ -114,6 +119,7 @@ const Navbar: React.FC = () => {
                   className="flex items-center gap-2"
                   aria-haspopup="menu"
                   aria-expanded={menuOpen}
+                  aria-label={`${firstName || "Account"} account menu`}
                   title={firstName || "Account"}
                 >
                   <span className="w-8 h-8 rounded-full bg-primary text-white grid place-items-center font-semibold text-sm">
@@ -152,10 +158,15 @@ const Navbar: React.FC = () => {
             )}
 
             {/* Mobile burger */}
-            <MenuIcon
-              className="md:hidden w-7 h-7 cursor-pointer"
+            <button
+              type="button"
+              className="md:hidden rounded-md p-1"
+              aria-label="Open navigation menu"
+              aria-expanded={isOpen}
               onClick={() => setIsOpen((v) => !v)}
-            />
+            >
+              <MenuIcon aria-hidden="true" className="w-7 h-7" />
+            </button>
           </div>
         </div>
       </div>
@@ -167,10 +178,14 @@ const Navbar: React.FC = () => {
       >
         <div className="flex items-center justify-between h-14 px-4 border-b border-white/10">
           <span className="text-sm font-medium opacity-80">Menu</span>
-          <XIcon
-            className="w-6 h-6 cursor-pointer"
+          <button
+            type="button"
+            className="rounded-md p-1"
+            aria-label="Close navigation menu"
             onClick={() => setIsOpen(false)}
-          />
+          >
+            <XIcon aria-hidden="true" className="w-6 h-6" />
+          </button>
         </div>
 
         <nav className="flex flex-col gap-1 p-3">
@@ -188,7 +203,7 @@ const Navbar: React.FC = () => {
           >
             Events
           </Link>
-          {favoriteEvents.length > 0 && (
+          {showFavorites && (
             <Link
               to="/favorite"
               onClick={() => (setIsOpen(false), scrollTo(0, 0))}

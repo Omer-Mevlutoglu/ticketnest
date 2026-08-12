@@ -1,30 +1,26 @@
-import { Types } from "mongoose";
-import SeatMapModel, { ISeatMap } from "../models/seatMapModel";
+import mongoose, { Types } from "mongoose";
+import BookingModel from "../models/bookingModel";
 import { eventModel } from "../models/eventModel";
-import { getEventById } from "./eventServices";
+import SeatMapModel, { ISeatMap } from "../models/seatMapModel";
+import type { GenerateSeatMapInput } from "../validation/schemas";
+import { httpError } from "../utils/httpError";
 
 export const getSeatMap = async (eventId: string): Promise<ISeatMap> => {
   if (!Types.ObjectId.isValid(eventId)) {
-    const err = new Error("Invalid event ID");
-    // @ts-ignore
-    err.status = 400;
-    throw err;
+    throw httpError(400, "Invalid event ID");
   }
 
   const seatMap = await SeatMapModel.findOne({
     eventId: new Types.ObjectId(eventId),
   })
-    .lean()
+    .lean<ISeatMap>()
     .exec();
 
   if (!seatMap) {
-    const err = new Error("Seat map not found for this event");
-    // @ts-ignore
-    err.status = 404;
-    throw err;
+    throw httpError(404, "Seat map not found for this event");
   }
 
-  return seatMap as ISeatMap;
+  return seatMap;
 };
 
 export interface SeatDTO {
@@ -35,172 +31,175 @@ export interface SeatDTO {
   status: "available" | "reserved" | "sold";
 }
 
+const seatMapLocked = (message: string) =>
+  httpError(409, message, { code: "SEAT_MAP_LOCKED" });
+
+/**
+ * Creates or structurally replaces a custom event's seat map.
+ *
+ * The event write is part of the same transaction as the map replacement. That
+ * makes publication contend on the event document: either this draft update
+ * commits first, or publication wins and the transaction retries against the
+ * now-locked lifecycle state.
+ */
 export const upsertSeatMap = async (
   eventId: string,
   userId: string,
   seats: SeatDTO[]
 ): Promise<ISeatMap> => {
-  // 1) Validate eventId & ownership (reuse getEventById as you did)
-  const event = await getEventById(eventId);
-  if (event.organizerId.toString() !== userId) {
-    const e = new Error("Forbidden: you don’t own this event");
-    // @ts-ignore
-    e.status = 403;
-    throw e;
+  if (!Types.ObjectId.isValid(eventId)) {
+    throw httpError(400, "Invalid event ID");
   }
 
-  // 2) Atomic upsert with validation
+  const eventOid = new Types.ObjectId(eventId);
+  const organizerOid = new Types.ObjectId(userId);
+  const session = await mongoose.startSession();
+  let result: ISeatMap | null = null;
+
   try {
-    const seatMap = (await SeatMapModel.findOneAndUpdate(
-      { eventId: new Types.ObjectId(eventId) },
-      { layoutType: "grid", seats, eventId: new Types.ObjectId(eventId) },
-      { upsert: true, new: true, runValidators: true }
-    ).exec()) as ISeatMap;
+    await session.withTransaction(async () => {
+      const event = await eventModel.findById(eventOid).session(session);
+      if (!event) throw httpError(404, "Event not found");
+      if (event.organizerId.toString() !== userId) {
+        throw httpError(403, "Forbidden: you don't own this event");
+      }
+      if (event.venueType !== "custom") {
+        throw seatMapLocked(
+          "Template venue seat maps are managed by their venue template."
+        );
+      }
+      if (event.status !== "draft" || event.isCancelled) {
+        throw seatMapLocked(
+          "Seat-map structure is locked after the event leaves draft."
+        );
+      }
 
-    // 3) Link back to the Event
-    await eventModel
-      .findByIdAndUpdate(eventId, { seatMapId: seatMap._id }, { new: false })
-      .exec();
+      const [bookingExists, currentSeatMap] = await Promise.all([
+        BookingModel.exists({ eventId: eventOid }).session(session),
+        SeatMapModel.findOne({ eventId: eventOid })
+          .select("seats.status")
+          .session(session),
+      ]);
 
-    return seatMap;
-  } catch (err: any) {
-    if (err.name === "ValidationError") {
-      const e = new Error("Invalid seat map data");
-      // @ts-ignore
-      e.status = 400;
-      throw e;
+      if (bookingExists) {
+        throw seatMapLocked(
+          "Seat-map structure is locked because booking history exists."
+        );
+      }
+      if (currentSeatMap?.seats.some((seat) => seat.status !== "available")) {
+        throw seatMapLocked(
+          "Seat-map structure is locked because inventory is active."
+        );
+      }
+
+      const seatMap = await SeatMapModel.findOneAndUpdate(
+        { eventId: eventOid },
+        { layoutType: "grid", seats, eventId: eventOid },
+        { upsert: true, new: true, runValidators: true, session }
+      ).exec();
+
+      const linked = await eventModel.updateOne(
+        {
+          _id: eventOid,
+          organizerId: organizerOid,
+          status: "draft",
+          isCancelled: { $ne: true },
+        },
+        { $set: { seatMapId: seatMap._id } },
+        { session }
+      );
+
+      if (linked.matchedCount !== 1) {
+        throw seatMapLocked(
+          "Seat-map structure was locked while it was being updated."
+        );
+      }
+
+      result = seatMap;
+    });
+  } catch (error: unknown) {
+    const shaped = error as { name?: string; code?: number };
+    if (shaped.name === "ValidationError") {
+      throw httpError(400, "Invalid seat map data");
     }
-    if (err.code === 11000) {
-      const e = new Error("Seat map already exists for this event");
-      // @ts-ignore
-      e.status = 409;
-      throw e;
+    if (shaped.code === 11000) {
+      throw httpError(409, "Seat map already exists for this event");
     }
-    throw err;
+    throw error;
+  } finally {
+    await session.endSession();
   }
+
+  if (!result) {
+    throw new Error("Seat-map transaction completed without a result");
+  }
+  return result;
 };
 
-// --- Seat-map generator spec (GRID ONLY) ---
-export interface GridSeatMapSpec {
-  rows: number; // e.g., 10
-  cols: number; // e.g., 12
-  default: { tier: string; price: number };
-  /**
-   * Optional per-row overrides. Each rule applies to all seats in those rows.
-   * Example: [{ rows: [1,2,3], tier: "VIP", price: 120 }]
-   */
-  rules?: Array<{ rows: number[]; tier: string; price: number }>;
-  /**
-   * Optional seats to exclude entirely (e.g., pillars)
-   * Example: [{ x: 5, y: 9 }]
-   */
-  blockedSeats?: Array<{ x: number; y: number }>;
-}
+export type GridSeatMapSpec = GenerateSeatMapInput;
 
 const MAX_DIM = 200;
 
-const assertIntInRange = (name: string, val: any, min: number, max: number) => {
-  if (!Number.isInteger(val) || val < min || val > max) {
-    const e = new Error(`${name} must be an integer between ${min} and ${max}`);
-    // @ts-ignore
-    e.status = 400;
-    throw e;
+const assertIntInRange = (
+  name: string,
+  value: unknown,
+  min: number,
+  max: number
+) => {
+  if (!Number.isInteger(value) || (value as number) < min || (value as number) > max) {
+    throw httpError(
+      400,
+      `${name} must be an integer between ${min} and ${max}`
+    );
   }
 };
 
-const assertPrice = (name: string, val: any) => {
-  if (typeof val !== "number" || !Number.isFinite(val) || val < 0) {
-    const e = new Error(`${name} must be a non-negative number`);
-    // @ts-ignore
-    e.status = 400;
-    throw e;
+const assertPrice = (name: string, value: unknown) => {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    throw httpError(400, `${name} must be a non-negative number`);
   }
 };
 
 export const buildGridSeats = (spec: GridSeatMapSpec): SeatDTO[] => {
-  // Validate base spec
   assertIntInRange("rows", spec.rows, 1, MAX_DIM);
   assertIntInRange("cols", spec.cols, 1, MAX_DIM);
 
   if (!spec.default || typeof spec.default.tier !== "string") {
-    const e = new Error("default.tier is required");
-    // @ts-ignore
-    e.status = 400;
-    throw e;
+    throw httpError(400, "default.tier is required");
   }
   assertPrice("default.price", spec.default.price);
 
-  // Normalize rules
   const tierByRow = new Map<number, { tier: string; price: number }>();
-  for (let r = 1; r <= spec.rows; r++) {
-    tierByRow.set(r, { tier: spec.default.tier, price: spec.default.price });
+  for (let row = 1; row <= spec.rows; row += 1) {
+    tierByRow.set(row, {
+      tier: spec.default.tier,
+      price: spec.default.price,
+    });
   }
 
-  if (spec.rules && Array.isArray(spec.rules)) {
-    for (const rule of spec.rules) {
-      if (
-        !rule ||
-        !Array.isArray(rule.rows) ||
-        rule.rows.some((n) => !Number.isInteger(n))
-      ) {
-        const e = new Error("Each rule.rows must be an array of integers");
-        // @ts-ignore
-        e.status = 400;
-        throw e;
-      }
-      if (typeof rule.tier !== "string") {
-        const e = new Error("Each rule.tier must be a string");
-        // @ts-ignore
-        e.status = 400;
-        throw e;
-      }
-      assertPrice("rule.price", rule.price);
-
-      for (const r of rule.rows) {
-        if (r >= 1 && r <= spec.rows) {
-          tierByRow.set(r, { tier: rule.tier, price: rule.price });
-        }
-      }
+  for (const rule of spec.rules ?? []) {
+    for (const row of rule.rows) {
+      tierByRow.set(row, { tier: rule.tier, price: rule.price });
     }
   }
 
-  // Blocked seats lookup
-  const blocked = new Set<string>();
-  if (spec.blockedSeats && Array.isArray(spec.blockedSeats)) {
-    for (const b of spec.blockedSeats) {
-      if (
-        !b ||
-        !Number.isInteger(b.x) ||
-        !Number.isInteger(b.y) ||
-        b.x < 1 ||
-        b.x > spec.rows ||
-        b.y < 1 ||
-        b.y > spec.cols
-      ) {
-        const e = new Error(
-          `blockedSeats contains out-of-bounds or invalid coordinate: (${b?.x},${b?.y})`
-        );
-        // @ts-ignore
-        e.status = 400;
-        throw e;
-      }
-      blocked.add(`${b.x},${b.y}`);
-    }
-  }
+  const blocked = new Set(
+    (spec.blockedSeats ?? []).map((seat) => `${seat.x},${seat.y}`)
+  );
+  const overrides = new Map(
+    (spec.seatOverrides ?? []).map((seat) => [
+      `${seat.x},${seat.y}`,
+      { tier: seat.tier, price: seat.price },
+    ])
+  );
 
-  // Build seats
   const seats: SeatDTO[] = [];
-  for (let x = 1; x <= spec.rows; x++) {
+  for (let x = 1; x <= spec.rows; x += 1) {
     const { tier, price } = tierByRow.get(x)!;
-    for (let y = 1; y <= spec.cols; y++) {
+    for (let y = 1; y <= spec.cols; y += 1) {
       if (blocked.has(`${x},${y}`)) continue;
-      seats.push({
-        x,
-        y,
-        tier,
-        price,
-        status: "available",
-      });
+      const seatPrice = overrides.get(`${x},${y}`) ?? { tier, price };
+      seats.push({ x, y, ...seatPrice, status: "available" });
     }
   }
 
@@ -211,12 +210,4 @@ export const generateSeatMapFromSpec = async (
   eventId: string,
   userId: string,
   spec: GridSeatMapSpec
-): Promise<ISeatMap> => {
-  // Build the seats array from spec
-  const seats = buildGridSeats(spec);
-
-  // Call your normal upsert function (grid enforced inside)
-  // If your upsert signature is still (eventId, layoutType, userId, seats)
-  // change the next line to: return upsertSeatMap(eventId, "grid", userId, seats);
-  return upsertSeatMap(eventId, userId, seats);
-};
+): Promise<ISeatMap> => upsertSeatMap(eventId, userId, buildGridSeats(spec));

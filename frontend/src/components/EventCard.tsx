@@ -70,7 +70,10 @@ const EventCard: React.FC<EventCardProps> = ({ event }) => {
   };
 
   return (
-    <div className="flex flex-col justify-between p-3 bg-primary/10 border border-primary/20 rounded-2xl hover:-translate-y-0.5 transition duration-300 w-66">
+    <article
+      data-testid="event-card"
+      className="flex w-66 max-w-full min-w-0 flex-col justify-between overflow-hidden rounded-2xl border border-primary/20 bg-primary/10 p-3 transition duration-300 hover:-translate-y-0.5"
+    >
       {/* Poster or placeholder */}
       {event.poster ? (
         <img
@@ -91,25 +94,35 @@ const EventCard: React.FC<EventCardProps> = ({ event }) => {
         </button>
       )}
 
-      <h3 className="mt-2 font-semibold line-clamp-2">{event.title}</h3>
+      <h3 className="mt-2 line-clamp-2 break-words font-semibold">
+        {event.title}
+      </h3>
 
-      <div className="mt-1 space-y-1 text-sm text-gray-300">
-        <p className="inline-flex items-center gap-2">
-          <Calendar1Icon className="w-4 h-4" />
+      <div className="mt-1 min-w-0 space-y-1 text-sm text-gray-300">
+        <p className="flex min-w-0 items-center gap-2">
+          <Calendar1Icon aria-hidden="true" className="h-4 w-4 shrink-0" />
           {when}
         </p>
-        <p className="inline-flex items-center gap-2">
-          <Clock3Icon className="w-4 h-4" />
+        <p className="flex min-w-0 items-center gap-2">
+          <Clock3Icon aria-hidden="true" className="h-4 w-4 shrink-0" />
           {timeRange} • {dur}
         </p>
         {location && (
-          <p className="inline-flex items-center gap-2">
-            <MapPinIcon className="w-4 h-4" />
-            <span className="truncate">{location}</span>
+          <p className="flex min-w-0 items-start gap-2">
+            <MapPinIcon
+              aria-hidden="true"
+              className="mt-0.5 h-4 w-4 shrink-0"
+            />
+            <span
+              className="min-w-0 line-clamp-2 break-words"
+              title={location}
+            >
+              {location}
+            </span>
           </p>
         )}
         {cats.length > 0 && (
-          <p className="text-xs text-gray-400">
+          <p className="line-clamp-2 break-words text-xs text-gray-400">
             {cats.slice(0, 2).join(" • ")}
             {cats.length > 2 ? ` • +${cats.length - 2}` : ""}
           </p>
@@ -118,6 +131,7 @@ const EventCard: React.FC<EventCardProps> = ({ event }) => {
 
       <div className="flex justify-between items-center mt-4 pb-2">
         <button
+          type="button"
           onClick={go}
           className="bg-primary text-white px-4 py-2 text-xs hover:bg-primary-dull transition font-medium rounded-full inline-flex items-center gap-2"
         >
@@ -125,7 +139,7 @@ const EventCard: React.FC<EventCardProps> = ({ event }) => {
           <ArrowRightIcon className="w-4 h-4" />
         </button>
       </div>
-    </div>
+    </article>
   );
 };
 

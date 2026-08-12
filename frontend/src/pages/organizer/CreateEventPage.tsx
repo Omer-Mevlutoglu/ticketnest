@@ -5,12 +5,17 @@ import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
 import { CalendarIcon, Loader2Icon } from "lucide-react"; // Added Loader2Icon
 import { useTemplateVenues } from "./hooks/useTemplateVenues"; // Import TemplateVenue
-import SingleImageUploader from "../../components/organizer/SingleImageUploader"; // Adjust path as needed
-import BlurCircle from "../../components/BlurCircle";
-import Loading from "../../components/Loading";
+import SingleImageUploader from "@/components/organizer/SingleImageUploader"; // Adjust path as needed
+import BlurCircle from "@/components/BlurCircle";
+import Loading from "@/components/Loading";
+import { apiPost, errorMessage } from "@/lib/api";
+import SeatPricingOverridesEditor from "@/components/organizer/SeatPricingOverridesEditor";
+import { validateSeatPricingOverrides } from "@/lib/seatMapSpec";
+import type {
+  GridSeatMapSpec,
+  SeatPricingOverride,
+} from "@/types/seatMap";
 
-const API_BASE =
-  (import.meta as any).env?.VITE_API_BASE || "http://localhost:5000";
 
 type VenueType = "template" | "custom";
 type Status = "draft" | "published" | "archived";
@@ -21,6 +26,7 @@ type GridSpec = {
   defaultTier: string;
   defaultPrice: number;
   blocked?: string; // comma separated "x,y; x,y"
+  seatOverrides: SeatPricingOverride[];
 };
 
 const CreateEventPage: React.FC = () => {
@@ -54,6 +60,7 @@ const CreateEventPage: React.FC = () => {
     defaultTier: "Standard",
     defaultPrice: 100,
     blocked: "",
+    seatOverrides: [],
   });
 
   const categories = useMemo(
@@ -106,6 +113,17 @@ const CreateEventPage: React.FC = () => {
       setSubmitting(false);
       return toast.error("Please fill custom venue name and address.");
     }
+    if (venueType === "custom") {
+      const overrideError = validateSeatPricingOverrides(
+        grid.seatOverrides,
+        grid.rows,
+        grid.cols
+      );
+      if (overrideError) {
+        setSubmitting(false);
+        return toast.error(overrideError);
+      }
+    }
     // Check backend rules on client-side
     if (venueType === "custom" && status === "published") {
       setSubmitting(false);
@@ -143,17 +161,7 @@ const CreateEventPage: React.FC = () => {
         payload.status = "draft"; // enforce on client too for clarity
       }
 
-      const res = await fetch(`${API_BASE}/api/events`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) {
-        const txt = (await res.json())?.message || (await res.text());
-        throw new Error(txt || "Failed to create event");
-      }
-      const ev = await res.json();
+      const ev = await apiPost<{ _id: string }>("/api/events", payload);
 
       // 2) If custom → immediately generate a seat map using grid spec
       if (!isTemplate) {
@@ -178,26 +186,20 @@ const CreateEventPage: React.FC = () => {
             });
         }
 
-        const spec = {
+        const spec: GridSeatMapSpec = {
           rows: grid.rows,
           cols: grid.cols,
           default: { tier: grid.defaultTier, price: Number(grid.defaultPrice) },
           blockedSeats: blockedSeats,
+          seatOverrides: grid.seatOverrides,
         };
 
-        const genRes = await fetch(
-          `${API_BASE}/api/events/${ev._id}/seatmap/generate`,
-          {
-            method: "POST",
-            credentials: "include",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(spec),
-          }
-        );
-        if (!genRes.ok) {
-          const txt = (await genRes.json())?.message || (await genRes.text());
+        try {
+          await apiPost(`/api/events/${ev._id}/seatmap/generate`, spec);
+        } catch (genErr) {
           toast.error(
-            "Event created, but seat map generation failed: " + (txt || "")
+            "Event created, but seat map generation failed: " +
+              errorMessage(genErr)
           );
           return nav(`/organizer/events/${ev._id}/manage`, { replace: true });
         }
@@ -212,8 +214,8 @@ const CreateEventPage: React.FC = () => {
       );
 
       nav(`/organizer/events/${ev._id}/manage`, { replace: true }); // Go to manage page
-    } catch (e: any) {
-      toast.error(e?.message || "Failed to create event");
+    } catch (e) {
+      toast.error(errorMessage(e, "Failed to create event"));
     } finally {
       setSubmitting(false);
     }
@@ -251,10 +253,11 @@ const CreateEventPage: React.FC = () => {
             <p className="text-sm font-medium mb-3">Basics</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
               <div>
-                <label className="text-xs text-gray-400 block mb-1">
+                <label htmlFor="event-title" className="text-xs text-gray-400 block mb-1">
                   Title
                 </label>
                 <input
+                  id="event-title"
                   className="w-full rounded-md border border-white/10 bg-white/5 px-2.5 sm:px-3 py-1.5 sm:py-2 outline-none text-sm sm:text-base"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
@@ -262,10 +265,11 @@ const CreateEventPage: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="text-xs text-gray-400 block mb-1">
+                <label htmlFor="event-categories" className="text-xs text-gray-400 block mb-1">
                   Categories (comma separated)
                 </label>
                 <input
+                  id="event-categories"
                   className="w-full rounded-md border border-white/10 bg-white/5 px-2.5 sm:px-3 py-1.5 sm:py-2 outline-none text-sm sm:text-base"
                   value={categoriesInput}
                   onChange={(e) => setCategoriesInput(e.target.value)}
@@ -275,10 +279,11 @@ const CreateEventPage: React.FC = () => {
             </div>
 
             <div className="mt-3 sm:mt-4">
-              <label className="text-xs text-gray-400 block mb-1">
+              <label htmlFor="event-description" className="text-xs text-gray-400 block mb-1">
                 Description
               </label>
               <textarea
+                id="event-description"
                 className="w-full min-h-[90px] sm:min-h-[110px] rounded-md border border-white/10 bg-white/5 px-2.5 sm:px-3 py-1.5 sm:py-2 outline-none text-sm sm:text-base"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -288,12 +293,13 @@ const CreateEventPage: React.FC = () => {
 
             <div className="mt-3 sm:mt-4 grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
               <div>
-                <label className="text-xs text-gray-400 block mb-1">
+                <label htmlFor="event-start" className="text-xs text-gray-400 block mb-1">
                   Start
                 </label>
                 <div className="relative flex items-center">
                   <CalendarIcon className="w-4 h-4 opacity-75 absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
+                    id="event-start"
                     type="datetime-local"
                     className="w-full rounded-md border border-white/10 bg-white/5 pl-8 px-2.5 sm:px-3 py-1.5 sm:py-2 outline-none text-sm sm:text-base appearance-none"
                     value={startTime}
@@ -303,10 +309,11 @@ const CreateEventPage: React.FC = () => {
                 </div>
               </div>
               <div>
-                <label className="text-xs text-gray-400 block mb-1">End</label>
+                <label htmlFor="event-end" className="text-xs text-gray-400 block mb-1">End</label>
                 <div className="relative flex items-center">
                   <CalendarIcon className="w-4 h-4 opacity-75 absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
+                    id="event-end"
                     type="datetime-local"
                     className="w-full rounded-md border border-white/10 bg-white/5 pl-8 px-2.5 sm:px-3 py-1.5 sm:py-2 outline-none text-sm sm:text-base appearance-none"
                     value={endTime}
@@ -352,10 +359,11 @@ const CreateEventPage: React.FC = () => {
             {venueType === "template" ? (
               <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                 <div>
-                  <label className="text-xs text-gray-400 block mb-1">
+                  <label htmlFor="template-venue" className="text-xs text-gray-400 block mb-1">
                     Select Template Venue
                   </label>
                   <select
+                    id="template-venue"
                     className="w-full rounded-md border border-white/10 bg-white/5 px-2.5 sm:px-3 py-1.5 sm:py-2 outline-none text-sm sm:text-base"
                     value={templateVenueId}
                     onChange={(e) => setTemplateVenueId(e.target.value)}
@@ -396,10 +404,11 @@ const CreateEventPage: React.FC = () => {
             ) : (
               <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                 <div>
-                  <label className="text-xs text-gray-400 block mb-1">
+                  <label htmlFor="custom-venue-name" className="text-xs text-gray-400 block mb-1">
                     Venue Name
                   </label>
                   <input
+                    id="custom-venue-name"
                     className="w-full rounded-md border border-white/10 bg-white/5 px-2.5 sm:px-3 py-1.5 sm:py-2 outline-none text-sm sm:text-base"
                     value={venueName}
                     onChange={(e) => setVenueName(e.target.value)}
@@ -407,10 +416,11 @@ const CreateEventPage: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-gray-400 block mb-1">
+                  <label htmlFor="custom-venue-address" className="text-xs text-gray-400 block mb-1">
                     Venue Address
                   </label>
                   <input
+                    id="custom-venue-address"
                     className="w-full rounded-md border border-white/10 bg-white/5 px-2.5 sm:px-3 py-1.5 sm:py-2 outline-none text-sm sm:text-base"
                     value={venueAddress}
                     onChange={(e) => setVenueAddress(e.target.value)}
@@ -424,10 +434,11 @@ const CreateEventPage: React.FC = () => {
                   </p>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <div>
-                      <label className="text-xs text-gray-400 block mb-1">
+                      <label htmlFor="grid-rows" className="text-xs text-gray-400 block mb-1">
                         Rows
                       </label>
                       <input
+                        id="grid-rows"
                         type="number"
                         min={1}
                         className="w-full rounded-md border border-white/10 bg-white/5 px-2.5 sm:px-3 py-1.5 sm:py-2 outline-none text-sm sm:text-base"
@@ -438,10 +449,11 @@ const CreateEventPage: React.FC = () => {
                       />
                     </div>
                     <div>
-                      <label className="text-xs text-gray-400 block mb-1">
+                      <label htmlFor="grid-columns" className="text-xs text-gray-400 block mb-1">
                         Cols
                       </label>
                       <input
+                        id="grid-columns"
                         type="number"
                         min={1}
                         className="w-full rounded-md border border-white/10 bg-white/5 px-2.5 sm:px-3 py-1.5 sm:py-2 outline-none text-sm sm:text-base"
@@ -452,10 +464,11 @@ const CreateEventPage: React.FC = () => {
                       />
                     </div>
                     <div>
-                      <label className="text-xs text-gray-400 block mb-1">
+                      <label htmlFor="grid-default-tier" className="text-xs text-gray-400 block mb-1">
                         Default Tier
                       </label>
                       <input
+                        id="grid-default-tier"
                         className="w-full rounded-md border border-white/10 bg-white/5 px-2.5 sm:px-3 py-1.5 sm:py-2 outline-none text-sm sm:text-base"
                         value={grid.defaultTier}
                         onChange={(e) =>
@@ -464,10 +477,11 @@ const CreateEventPage: React.FC = () => {
                       />
                     </div>
                     <div>
-                      <label className="text-xs text-gray-400 block mb-1">
+                      <label htmlFor="grid-default-price" className="text-xs text-gray-400 block mb-1">
                         Default Price
                       </label>
                       <input
+                        id="grid-default-price"
                         type="number"
                         min={0}
                         className="w-full rounded-md border border-white/10 bg-white/5 px-2.5 sm:px-3 py-1.5 sm:py-2 outline-none text-sm sm:text-base"
@@ -495,6 +509,17 @@ const CreateEventPage: React.FC = () => {
                       }
                     />
                   </div>
+
+                  <SeatPricingOverridesEditor
+                    rows={grid.rows}
+                    cols={grid.cols}
+                    defaultPrice={grid.defaultPrice}
+                    value={grid.seatOverrides}
+                    onChange={(seatOverrides) =>
+                      setGrid({ ...grid, seatOverrides })
+                    }
+                    disabled={submitting}
+                  />
 
                   <div className="mt-3 rounded-md border border-yellow-400/30 bg-yellow-500/10 p-2 sm:p-3 text-xs text-yellow-200">
                     Custom venue events are created as <b>draft</b>.

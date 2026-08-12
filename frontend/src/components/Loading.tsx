@@ -7,8 +7,16 @@ import React from "react";
  */
 const Loading: React.FC = () => {
   return (
-    <div className="flex justify-center items-center h-[80vh]">
-      <div className="animate-spin rounded-full h-14 w-14 border-2 border-t-primary" />
+    <div
+      className="flex justify-center items-center h-[80vh]"
+      role="status"
+      aria-live="polite"
+    >
+      <span className="sr-only">Loading…</span>
+      <div
+        aria-hidden="true"
+        className="animate-spin rounded-full h-14 w-14 border-2 border-t-primary"
+      />
     </div>
   );
 };

@@ -31,6 +31,15 @@ body {
     );
 }
 
+:where(a, button, input, select, textarea):focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 3px;
+}
+
+:where(button, input, select, textarea):disabled {
+  cursor: not-allowed;
+}
+
 /* Headings use display font for a premium hero/event look */
 h1,
 h2,

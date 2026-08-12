@@ -1,11 +1,10 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+ 
 import React, { useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { AlertCircleIcon } from "lucide-react";
+import { apiPost, errorMessage } from "@/lib/api";
 
-const API_BASE =
-  (import.meta as any).env.VITE_API_BASE || "http://localhost:5000";
 
 const ResetPasswordPage: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -33,19 +32,15 @@ const ResetPasswordPage: React.FC = () => {
     setError(null);
 
     try {
-      const res = await fetch(`${API_BASE}/api/auth/reset-password`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, password }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
+      const data = await apiPost<{ message: string }>(
+        "/api/auth/reset-password",
+        { token, password }
+      );
 
       toast.success(data.message);
       setTimeout(() => navigate("/login"), 2000); // Redirect after 2s
-    } catch (err: any) {
-      setError(err.message || "Failed to reset password.");
+    } catch (err) {
+      setError(errorMessage(err, "Failed to reset password."));
     } finally {
       setBusy(false);
     }

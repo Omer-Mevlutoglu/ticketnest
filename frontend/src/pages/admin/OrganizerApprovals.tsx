@@ -1,9 +1,12 @@
 import React from "react";
-import BlurCircle from "../../components/BlurCircle";
-import Loading from "../../components/Loading";
+import BlurCircle from "@/components/BlurCircle";
+import Loading from "@/components/Loading";
 import { useApprovalRequests } from "./hooks/useApprovalRequests";
+import { useAuth } from "@/context/AuthContext";
 
 const OrganizerApprovals: React.FC = () => {
+  const { user } = useAuth();
+  const demoRestricted = user?.canPerformProtectedWrites === false;
   const { data, loading, error, pendingCount, approve, reject, busyId } =
     useApprovalRequests();
 
@@ -59,14 +62,16 @@ const OrganizerApprovals: React.FC = () => {
 
                 <div className="mt-3 md:mt-0 flex items-center gap-2">
                   <button
-                    disabled={isBusy}
+                    disabled={isBusy || demoRestricted}
+                    title={demoRestricted ? "Disabled in the hosted demo" : undefined}
                     onClick={() => approve(org._id)}
                     className="px-3 py-1.5 text-sm rounded-md bg-emerald-600/90 hover:bg-emerald-600 transition disabled:opacity-60"
                   >
                     {isBusy ? "Approving..." : "Approve"}
                   </button>
                   <button
-                    disabled={isBusy}
+                    disabled={isBusy || demoRestricted}
+                    title={demoRestricted ? "Disabled in the hosted demo" : undefined}
                     onClick={() => reject(org._id)}
                     className="px-3 py-1.5 text-sm rounded-md bg-rose-600/90 hover:bg-rose-600 transition disabled:opacity-60"
                   >

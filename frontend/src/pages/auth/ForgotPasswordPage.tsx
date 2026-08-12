@@ -1,11 +1,10 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+ 
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
 import { MailIcon } from "lucide-react";
+import { apiPost, errorMessage } from "@/lib/api";
 
-const API_BASE =
-  (import.meta as any).env.VITE_API_BASE || "http://localhost:5000";
 
 const ForgotPasswordPage: React.FC = () => {
   const [email, setEmail] = useState("");
@@ -17,19 +16,15 @@ const ForgotPasswordPage: React.FC = () => {
     setBusy(true);
     setMessage(null);
     try {
-      const res = await fetch(`${API_BASE}/api/auth/forgot-password`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
+      const data = await apiPost<{ message: string }>(
+        "/api/auth/forgot-password",
+        { email }
+      );
 
       setMessage(data.message); // "If an account exists..."
       toast.success("Reset link sent!");
-    } catch (err: any) {
-      toast.error(err.message || "Failed to send reset link.");
+    } catch (err) {
+      toast.error(errorMessage(err, "Failed to send reset link."));
     } finally {
       setBusy(false);
     }

@@ -1,7 +1,5 @@
 import { useEffect, useState } from "react";
-import { useAuth } from "../../context/AuthContext";
-
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
+import { apiGet, apiGetAll, errorMessage, isAbortError, type Page } from "../lib/api";
 
 // This is the full event type from your backend
 export type ApiEvent = {
@@ -26,12 +24,8 @@ const useEvents = () => {
   const [events, setEvents] = useState<ApiEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { user } = useAuth(); // Get the user
 
   useEffect(() => {
-    // Do not fetch if the user is not logged in (per your app's design)
-    if (!user) return;
-
     const ac = new AbortController();
 
     (async () => {
@@ -39,33 +33,59 @@ const useEvents = () => {
         setLoading(true);
         setError(null);
 
-        const res = await fetch(`${API_BASE}/api/events`, {
-          // Add credentials to the fetch, as this is an authenticated route
-          credentials: "include",
-          signal: ac.signal,
-        });
-
-        if (!res.ok) {
-          const msg = await res.text();
-          throw new Error(msg || "Failed to load events");
-        }
-        const data: ApiEvent[] = await res.json();
-        setEvents(data);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } catch (e: any) {
-        if (e?.name !== "AbortError") {
-          setError(e?.message || "Failed to load events");
-          setEvents([]);
-        }
+        // Public endpoint — no sign-in required.
+        setEvents(await apiGetAll<ApiEvent>("/api/events", ac.signal));
+      } catch (e) {
+        if (isAbortError(e)) return;
+        setError(errorMessage(e, "Failed to load events"));
+        setEvents([]);
       } finally {
         setLoading(false);
       }
     })();
 
     return () => ac.abort();
-  }, [user]); // Re-run if the user logs in
+  }, []);
 
   return { events, loading, error };
 };
 
 export default useEvents;
+
+export const EVENTS_PER_PAGE = 12;
+
+/** The paged public listing used by /events. */
+export const useEventsPage = (page: number) => {
+  const [result, setResult] = useState<Page<ApiEvent>>({
+    data: [],
+    total: 0,
+    page,
+    limit: EVENTS_PER_PAGE,
+    pageCount: 0,
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const ac = new AbortController();
+    setLoading(true);
+    setError(null);
+
+    apiGet<Page<ApiEvent>>(
+      `/api/events?page=${page}&limit=${EVENTS_PER_PAGE}`,
+      ac.signal
+    )
+      .then(setResult)
+      .catch((caught) => {
+        if (isAbortError(caught)) return;
+        setError(errorMessage(caught, "Failed to load events"));
+      })
+      .finally(() => {
+        if (!ac.signal.aborted) setLoading(false);
+      });
+
+    return () => ac.abort();
+  }, [page]);
+
+  return { ...result, events: result.data, loading, error };
+};

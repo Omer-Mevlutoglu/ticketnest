@@ -3,10 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { PencilIcon, Trash2Icon, PlusIcon, ImageIcon } from "lucide-react";
 
 import { useVenues } from "./hooks/useVenues";
-import BlurCircle from "../../components/BlurCircle";
-import Loading from "../../components/Loading";
+import BlurCircle from "@/components/BlurCircle";
+import { API_BASE } from "@/lib/api";
+import Loading from "@/components/Loading";
+import { useAuth } from "@/context/AuthContext";
 
 const VenuesList: React.FC = () => {
+  const { user } = useAuth();
+  const demoRestricted = user?.canPerformProtectedWrites === false;
   const nav = useNavigate();
   const { venues, loading, error, deleteVenue } = useVenues();
 
@@ -29,8 +33,10 @@ const VenuesList: React.FC = () => {
         </h1>
         <button
           onClick={() => nav("/admin/venue-create")}
+          disabled={demoRestricted}
+          title={demoRestricted ? "Disabled in the hosted demo" : undefined}
           // Base text-xs, padding py-1
-          className="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-md bg-primary hover:bg-primary-dull transition text-[10px] sm:text-xs w-full sm:w-auto"
+          className="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-md bg-primary hover:bg-primary-dull transition text-[10px] sm:text-xs w-full sm:w-auto disabled:cursor-not-allowed disabled:opacity-50"
         >
           <PlusIcon className="w-3 h-3 sm:w-4 sm:h-4" /> Add Venue
         </button>
@@ -51,14 +57,11 @@ const VenuesList: React.FC = () => {
                 <div className="h-14 w-20 sm:h-16 sm:w-24 rounded-md overflow-hidden bg-black/20 grid place-items-center flex-shrink-0">
                   {v.images?.length ? (
                     <img
-                      // Use API_BASE if paths are relative
-                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      // Legacy venues stored a server-relative path; Cloudinary
+                      // uploads store an absolute URL.
                       src={
                         v.images[0].startsWith("/")
-                          ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            `${(import.meta as any).env.VITE_API_BASE || ""}${
-                              v.images[0]
-                            }`
+                          ? `${API_BASE}${v.images[0]}`
                           : v.images[0]
                       }
                       alt={v.name}
@@ -84,6 +87,8 @@ const VenuesList: React.FC = () => {
                 <button
                   // *** UPDATED NAVIGATION ***
                   onClick={() => nav(`/admin/venue-edit/${v._id}`)}
+                  disabled={demoRestricted}
+                  title={demoRestricted ? "Disabled in the hosted demo" : undefined}
                   className="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs rounded-md border border-white/15 hover:bg-white/10 transition"
                 >
                   <PencilIcon className="w-3 h-3 sm:w-4 sm:h-4" />
@@ -91,6 +96,8 @@ const VenuesList: React.FC = () => {
                 </button>
                 <button
                   onClick={() => deleteVenue(v._id!)}
+                  disabled={demoRestricted}
+                  title={demoRestricted ? "Disabled in the hosted demo" : undefined}
                   className="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs rounded-md border border-rose-400/30 text-rose-300 hover:bg-rose-500/10 transition"
                 >
                   <Trash2Icon className="w-3 h-3 sm:w-4 sm:h-4" />

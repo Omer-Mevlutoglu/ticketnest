@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { apiGet, apiGetAll } from "@/lib/api";
 
-const API_BASE =
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (import.meta as any).env?.VITE_API_BASE || "http://localhost:5000";
 
 export type OrganizerEvent = {
   _id: string;
@@ -41,19 +39,12 @@ export function useOrganizerDashboard() {
 
   async function fetchAll(signal?: AbortSignal) {
     setError(null);
-    const [evRes, stRes] = await Promise.all([
-      fetch(`${API_BASE}/api/events/mine`, { credentials: "include", signal }),
-      fetch(`${API_BASE}/api/organizer/stats`, {
-        credentials: "include",
-        signal,
-      }),
+    const [evData, stData] = await Promise.all([
+      // A paginated list…
+      apiGetAll<OrganizerEvent>("/api/events/mine", signal),
+      // …and a plain stats object, which is not paginated.
+      apiGet<OrganizerStats>("/api/organizer/stats", signal),
     ]);
-
-    if (!evRes.ok) throw new Error(await evRes.text());
-    if (!stRes.ok) throw new Error(await stRes.text());
-
-    const evData: OrganizerEvent[] = await evRes.json();
-    const stData: OrganizerStats = await stRes.json();
 
     setEvents(Array.isArray(evData) ? evData : []);
     setStats(stData);

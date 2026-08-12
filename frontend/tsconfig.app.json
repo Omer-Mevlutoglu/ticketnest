@@ -7,6 +7,14 @@
     "module": "ESNext",
     "skipLibCheck": true,
 
+    /* Path alias — must stay in step with resolve.alias in vite.config.ts.
+       No `baseUrl`: it is deprecated in TypeScript 6 and removed in 7. Since
+       4.4, `paths` entries resolve relative to this file, which is what we
+       want anyway. */
+    "paths": {
+      "@/*": ["./src/*"]
+    },
+
     /* Bundler mode */
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,

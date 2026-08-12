@@ -1,11 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import Loading from "../components/Loading";
+import {
+  EmptyState,
+  ErrorState,
+  ListSkeleton,
+} from "../components/states/StateViews";
 import BlurCircle from "../components/BlurCircle";
+import { apiGet, errorMessage, isAbortError } from "../lib/api";
 
-const API_BASE =
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (import.meta as any).env.VITE_API_BASE || "http://localhost:5000";
 
 type BookingItem = {
   seatCoords: { x: number; y: number };
@@ -16,9 +18,11 @@ type Booking = {
   _id: string;
   userId: string;
   eventId: string;
+  /** Joined server-side — see getMyBookings. */
+  event: PublicEvent | null;
   items: BookingItem[];
   total: number;
-  status: "unpaid" | "paid" | "failed" | "expired";
+  status: "unpaid" | "paid" | "failed" | "expired" | "refunded";
   expiresAt?: string; // ISO
   createdAt?: string; // ISO
   updatedAt?: string; // ISO
@@ -36,7 +40,7 @@ type PublicEvent = {
   poster?: string;
 };
 
-const PLACEHOLDER = "/placeholder.jpg";
+const PLACEHOLDER = "/concert-2527495.jpg";
 const REFRESH_MS = 12000; // poll every 12s to let UI reflect expiry jobs
 
 function formatDateTimeRange(startISO?: string, endISO?: string) {
@@ -65,12 +69,7 @@ function useMyBookings() {
 
   async function fetchMine(signal?: AbortSignal) {
     setError(null);
-    const res = await fetch(`${API_BASE}/api/bookings`, {
-      credentials: "include",
-      signal,
-    });
-    if (!res.ok) throw new Error(await res.text());
-    const data: Booking[] = await res.json();
+    const data = await apiGet<Booking[]>(`/api/bookings`, signal);
     setBookings(data);
   }
 
@@ -80,10 +79,9 @@ function useMyBookings() {
       try {
         setLoading(true);
         await fetchMine(ac.signal);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } catch (e: any) {
-        if (e?.name !== "AbortError")
-          setError(e?.message || "Failed to load bookings");
+              } catch (e) {
+        if (!isAbortError(e))
+          setError(errorMessage(e, "Failed to load bookings"));
       } finally {
         setLoading(false);
       }
@@ -106,57 +104,24 @@ function useMyBookings() {
   };
 }
 
-function useEventCache(eventIds: string[]) {
-  const [eventsById, setEventsById] = useState<Record<string, PublicEvent>>({});
-
-  useEffect(() => {
-    const unique = Array.from(new Set(eventIds.filter(Boolean)));
-    const missing = unique.filter((id) => !eventsById[id]);
-    if (missing.length === 0) return;
-
-    const ac = new AbortController();
-    (async () => {
-      try {
-        const results = await Promise.all(
-          missing.map(async (id) => {
-            const res = await fetch(`${API_BASE}/api/events/${id}`, {
-              signal: ac.signal,
-              credentials: "include",
-            });
-            if (!res.ok) throw new Error(await res.text());
-            const ev: PublicEvent = await res.json();
-            return [id, ev] as const;
-          })
-        );
-        setEventsById((prev) => {
-          const next = { ...prev };
-          for (const [id, ev] of results) next[id] = ev;
-          return next;
-        });
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      } catch (e) {
-        // ignore; per-card will degrade gracefully
-      }
-    })();
-
-    return () => ac.abort();
-  }, [eventIds.join(","), eventsById]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  return eventsById;
-}
-
 const MyBookings: React.FC = () => {
-  const { bookings, loading, error } = useMyBookings();
+  const { bookings, loading, error, refetch } = useMyBookings();
   const navigate = useNavigate();
 
-  const eventIds = useMemo(() => bookings.map((b) => b.eventId), [bookings]);
-  const eventsById = useEventCache(eventIds);
+  if (loading) {
+    return (
+      <div className="relative px-6 md:px-16 lg:px-40 pt-30 md:pt-40 min-h-[80vh]">
+        <h1 className="text-lg font-semibold mb-4">My Bookings</h1>
+        <ListSkeleton rows={3} label="Loading bookings" />
+      </div>
+    );
+  }
 
-  if (loading) return <Loading />;
   if (error) {
     return (
-      <div className="min-h-[70vh] grid place-items-center text-center">
-        <p className="text-red-400">{error}</p>
+      <div className="relative px-6 md:px-16 lg:px-40 pt-30 md:pt-40 min-h-[80vh]">
+        <h1 className="text-lg font-semibold mb-4">My Bookings</h1>
+        <ErrorState message={error} onRetry={refetch} />
       </div>
     );
   }
@@ -171,11 +136,15 @@ const MyBookings: React.FC = () => {
       <h1 className="text-lg font-semibold mb-4">My Bookings</h1>
 
       {bookings.length === 0 && (
-        <div className="text-gray-400">No bookings yet.</div>
+        <EmptyState
+          title="No bookings yet"
+          description="Pick an event and choose your seats to get started."
+          action={{ label: "Browse events", to: "/events" }}
+        />
       )}
 
       {bookings.map((b) => {
-        const ev = eventsById[b.eventId];
+        const ev = b.event;
         const poster = ev?.poster || PLACEHOLDER;
         const when = formatDateTimeRange(ev?.startTime, ev?.endTime);
         const seats =
@@ -220,6 +189,8 @@ const MyBookings: React.FC = () => {
                     ${
                       b.status === "paid"
                         ? "border-emerald-400 text-emerald-300"
+                        : b.status === "refunded"
+                        ? "border-sky-400 text-sky-300"
                         : b.status === "unpaid"
                         ? "border-yellow-400 text-yellow-300"
                         : b.status === "expired"
@@ -229,7 +200,9 @@ const MyBookings: React.FC = () => {
                   >
                     {isExpiredByTime && b.status === "unpaid"
                       ? "expired"
-                      : b.status}
+                      : b.status === "refunded"
+                        ? "closed (demo payment)"
+                        : b.status}
                   </span>
                   {canPay && expiresAt && (
                     <span className="text-xs text-gray-400">

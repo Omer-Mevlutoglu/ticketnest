@@ -1,20 +1,22 @@
 import mongoose from "mongoose";
-
-let isConnected = false;
+import { getConfig } from "./env";
+import { redactSensitive } from "../utils/redactSensitive";
 
 const connectDB = async () => {
-  const uri = process.env.MONGO_URI || process.env.MONGODB_URI;
-  if (!uri) {
-    throw new Error("MONGO_URI (or MONGODB_URI) is not set in .env");
-  }
+  // Validated at startup — see configs/env.ts.
+  const uri = getConfig().mongoUri;
 
-  if (isConnected) return mongoose.connection;
+  if (mongoose.connection.readyState === 1) return mongoose.connection;
+  if (mongoose.connection.readyState === 2) {
+    await mongoose.connection.asPromise();
+    return mongoose.connection;
+  }
 
   mongoose.connection.on("connected", () =>
     console.log("✅ MongoDB connected")
   );
   mongoose.connection.on("error", (err) =>
-    console.error("❌ MongoDB error:", err)
+    console.error("❌ MongoDB error:", redactSensitive(err))
   );
   mongoose.connection.on("disconnected", () =>
     console.warn("⚠️ MongoDB disconnected")
@@ -24,12 +26,8 @@ const connectDB = async () => {
     serverSelectionTimeoutMS: 15000,
   } as any);
 
-  isConnected = true;
-
-  process.once("SIGINT", async () => {
-    await mongoose.connection.close();
-    process.exit(0);
-  });
+  // Shutdown is owned by the process bootstrap (index.ts). A `process.exit()`
+  // here would race the graceful path and cut off in-flight work.
 
   return mongoose.connection;
 };

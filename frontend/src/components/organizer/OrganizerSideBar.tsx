@@ -1,6 +1,7 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
 import { LayoutDashboardIcon, PlusSquareIcon, HomeIcon } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 
 const links = [
   {
@@ -21,6 +22,7 @@ const links = [
 ];
 
 const OrganizerSideBar: React.FC = () => {
+  const { user } = useAuth();
   return (
     <div className="h-[calc(100vh-64px)] md:flex flex-col items-center pt-8 w-[3.25rem] md:w-60 border-r border-gray-300/20 text-sm">
       <div className="rounded-full h-9 md:h-14 w-9 md:w-14 mx-auto grid place-items-center bg-white/10 text-sm font-semibold">
@@ -29,7 +31,18 @@ const OrganizerSideBar: React.FC = () => {
       <p className="mt-2 text-base hidden md:block">Organizer</p>
 
       <div className="w-full">
-        {links.map((link, idx) => (
+        {links.map((link, idx) =>
+          link.path === "/organizer/events/new" &&
+          user?.canPerformProtectedWrites === false ? (
+            <div
+              key={idx}
+              title="Disabled in the hosted demo"
+              className="relative flex w-full cursor-not-allowed items-center justify-center gap-2 py-2.5 text-gray-600 md:justify-start md:pl-10"
+            >
+              {link.icon}
+              <p className="hidden md:block">{link.name} (demo locked)</p>
+            </div>
+          ) : (
           <NavLink
             key={idx}
             to={link.path}
@@ -52,7 +65,8 @@ const OrganizerSideBar: React.FC = () => {
               </>
             )}
           </NavLink>
-        ))}
+          )
+        )}
       </div>
     </div>
   );

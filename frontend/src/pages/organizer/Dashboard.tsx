@@ -2,10 +2,11 @@ import React from "react";
 import { CalendarIcon, EyeIcon, PlusIcon, TicketIcon } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useOrganizerDashboard } from "./hooks/useOrganizerDashboard"; // Assuming hooks are in ./hooks/
-import Loading from "../../components/Loading";
-import BlurCircle from "../../components/BlurCircle";
+import Loading from "@/components/Loading";
+import BlurCircle from "@/components/BlurCircle";
+import { useAuth } from "@/context/AuthContext";
 
-const PLACEHOLDER = "/placeholder.jpg";
+const PLACEHOLDER = "/concert-2527495.jpg";
 
 // --- Helper Functions ---
 const formatDateTime = (iso?: string) => {
@@ -99,6 +100,7 @@ const EventRow: React.FC<{
 // --- End Helper Functions ---
 
 const Dashboard: React.FC = () => {
+  const { user } = useAuth();
   const nav = useNavigate();
   const { events, stats, nextEvent, loading, error, refetch } =
     useOrganizerDashboard();
@@ -129,7 +131,9 @@ const Dashboard: React.FC = () => {
           {/* Button */}
           <button
             onClick={() => nav("/organizer/events/new")}
-            className="inline-flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 sm:py-2 rounded-md bg-primary hover:bg-primary-dull transition text-xs sm:text-sm flex-shrink-0 w-full sm:w-auto" // Full width below sm
+            disabled={user?.canPerformProtectedWrites === false}
+            title={user?.canPerformProtectedWrites === false ? "Disabled in the hosted demo" : undefined}
+            className="inline-flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 sm:py-2 rounded-md bg-primary hover:bg-primary-dull transition text-xs sm:text-sm flex-shrink-0 w-full sm:w-auto disabled:cursor-not-allowed disabled:opacity-50" // Full width below sm
           >
             <PlusIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             Create Event

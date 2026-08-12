@@ -1,8 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-
-const API_BASE =
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (import.meta as any).env?.VITE_API_BASE || "http://localhost:5000";
+import { apiGet, apiPost, errorMessage, isApiError } from "../lib/api";
 
 export type BookingItem = {
   seatCoords: { x: number; y: number };
@@ -13,9 +10,11 @@ export type Booking = {
   _id: string;
   userId: string;
   eventId: string;
+  /** Joined server-side — see getMyBookings. */
+  event: PublicEvent | null;
   items: BookingItem[];
   total: number;
-  status: "unpaid" | "paid" | "failed" | "expired";
+  status: "unpaid" | "paid" | "failed" | "expired" | "refunded";
   expiresAt?: string; // ISO
   createdAt?: string; // ISO
   updatedAt?: string; // ISO
@@ -63,35 +62,13 @@ export function useCheckout(bookingId?: string) {
     setError(null);
     setLoading(true);
     try {
-      // 1) pull all my bookings & find the one
-      const res = await fetch(`${API_BASE}/api/bookings`, {
-        credentials: "include",
-        signal,
-      });
-      if (!res.ok) throw new Error(await res.text());
-      const all: Booking[] = await res.json();
+      // One request: the booking arrives with its event already attached.
+      const all = await apiGet<Booking[]>("/api/bookings", signal);
       const found = all.find((b) => b._id === bookingId) || null;
       setBooking(found);
-      if (!found) return;
-
-      // 2) fetch event data
-      try {
-        const evRes = await fetch(`${API_BASE}/api/events/${found.eventId}`, {
-          credentials: "include",
-          signal,
-        });
-        if (evRes.ok) {
-          const ev: PublicEvent = await evRes.json();
-          setEvent(ev);
-        } else {
-          setEvent(null);
-        }
-      } catch {
-        setEvent(null);
-      }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (e: any) {
-      setError(e?.message || "Failed to load checkout");
+      setEvent(found?.event ?? null);
+    } catch (e) {
+      setError(errorMessage(e, "Failed to load checkout"));
     } finally {
       setLoading(false);
     }
@@ -140,19 +117,28 @@ export function useCheckout(bookingId?: string) {
   const ss = String(remaining % 60).padStart(2, "0");
   const countdown = canPay ? `${mm}:${ss}` : null;
 
+  /** Turns a payment failure into something a person can act on. */
+  function paymentError(err: unknown, fallback: string): Error {
+    if (isApiError(err)) {
+      if (err.status === 410)
+        return new Error("This seat hold has expired. Please book again.");
+      if (err.status === 409)
+        return new Error(err.message || "These seats are no longer available.");
+      if (err.status === 404)
+        return new Error("Simulated payments are disabled on this server.");
+    }
+    return new Error(errorMessage(err, fallback));
+  }
+
+  // No amount is sent: the server charges the booking's stored total. A body
+  // here could not change what is paid.
   async function mockPay(): Promise<void> {
     if (!booking) return;
     setPosting("pay");
     try {
-      const res = await fetch(
-        `${API_BASE}/api/bookings/${booking._id}/pay-test`,
-        {
-          method: "POST",
-          credentials: "include",
-        }
-      );
-      const text = await res.text();
-      if (!res.ok) throw new Error(text || "Payment failed");
+      await apiPost(`/api/bookings/${booking._id}/mock-pay`);
+    } catch (err) {
+      throw paymentError(err, "Payment failed");
     } finally {
       setPosting(null);
     }
@@ -162,15 +148,9 @@ export function useCheckout(bookingId?: string) {
     if (!booking) return;
     setPosting("fail");
     try {
-      const res = await fetch(
-        `${API_BASE}/api/bookings/${booking._id}/fail-test`,
-        {
-          method: "POST",
-          credentials: "include",
-        }
-      );
-      const text = await res.text();
-      if (!res.ok) throw new Error(text || "Failure call failed");
+      await apiPost(`/api/bookings/${booking._id}/mock-fail`);
+    } catch (err) {
+      throw paymentError(err, "Failure call failed");
     } finally {
       setPosting(null);
     }

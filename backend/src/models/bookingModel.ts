@@ -53,6 +53,10 @@ const bookingSchema = new Schema<IBooking>(
 );
 
 bookingSchema.index({ userId: 1, createdAt: -1 });
+// Serves the expiry sweep: overdue unpaid bookings.
 bookingSchema.index({ status: 1, expiresAt: 1 });
+// Serves the admin listing. The sweep's index answers the `status` filter but
+// leaves an in-memory sort on createdAt, which explain() confirmed.
+bookingSchema.index({ status: 1, createdAt: -1 });
 
 export default model<IBooking>("Booking", bookingSchema);

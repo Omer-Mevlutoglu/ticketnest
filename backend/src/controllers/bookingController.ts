@@ -6,6 +6,7 @@ import {
   finalizePaidBooking,
   getMyBookings,
 } from "../services/bookingService";
+import { requireUserIdString } from "../utils/requestUser";
 
 export const createBookingController = async (
   req: Request,
@@ -13,12 +14,11 @@ export const createBookingController = async (
   next: NextFunction
 ) => {
   try {
-    const userId = (req.user as any)._id.toString();
+    const userId = requireUserIdString(req);
     const booking = await createBookingFromSelection(userId, req.body);
     return res.status(201).json(booking);
-  } catch (err: any) {
-    const status = err.status ?? 500;
-    return res.status(status).json({ message: err.message });
+  } catch (err) {
+    return next(err);
   }
 };
 
@@ -28,7 +28,7 @@ export const listMyBookingsController = async (
   next: NextFunction
 ) => {
   try {
-    const userId = (req.user as any)._id.toString();
+    const userId = requireUserIdString(req);
     const bookings = await getMyBookings(userId);
     return res.status(200).json(bookings);
   } catch (err) {
@@ -42,42 +42,44 @@ export const cancelBookingController = async (
   next: NextFunction
 ) => {
   try {
-    const userId = (req.user as any)._id.toString();
-    await cancelBooking(userId, req.params.id);
+    const userId = requireUserIdString(req);
+    await cancelBooking(userId, String(req.params.id));
     return res.status(200).json({ message: "Booking cancelled" });
-  } catch (err: any) {
-    const status = err.status ?? 500;
-    return res.status(status).json({ message: err.message });
+  } catch (err) {
+    return next(err);
   }
 };
 
-// Manual “mark paid” (for testing without Stripe)
+// Simulated payment success.
+//
+// The amount is never taken from the request: the booking's stored total is the
+// only source of truth, so a crafted body cannot change what is charged or what
+// is marked paid. Ownership is enforced in the service, inside the transaction.
 export const markPaidController = async (
   req: Request,
   res: Response,
   next: NextFunction
 ) => {
   try {
-    // verify ownership here if you want only the owner to mark paid during tests
-    await finalizePaidBooking(req.params.id);
+    const userId = requireUserIdString(req);
+    await finalizePaidBooking(String(req.params.id), userId);
     return res.status(200).json({ message: "Booking marked as PAID" });
-  } catch (err: any) {
-    const status = err.status ?? 500;
-    return res.status(status).json({ message: err.message });
+  } catch (err) {
+    return next(err);
   }
 };
 
-// Manual “mark failed” (for testing)
+// Simulated payment failure. Same ownership and state guards as above.
 export const markFailedController = async (
   req: Request,
   res: Response,
   next: NextFunction
 ) => {
   try {
-    await finalizeFailedBooking(req.params.id);
+    const userId = requireUserIdString(req);
+    await finalizeFailedBooking(String(req.params.id), userId);
     return res.status(200).json({ message: "Booking marked as FAILED" });
-  } catch (err: any) {
-    const status = err.status ?? 500;
-    return res.status(status).json({ message: err.message });
+  } catch (err) {
+    return next(err);
   }
 };

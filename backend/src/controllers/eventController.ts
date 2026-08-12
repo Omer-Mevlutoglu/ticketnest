@@ -3,9 +3,13 @@ import {
   createEvent,
   deleteEvent,
   getEventById,
-  listEvents,
+  getPublishedEventById,
+  listEventsPage,
   updateEvent,
 } from "../services/eventServices";
+import { requireUser, requireUserIdString } from "../utils/requestUser";
+import { validatedQuery } from "../middleware/validate";
+import { PaginationInput } from "../validation/schemas";
 
 export const createEventController = async (
   req: Request,
@@ -13,7 +17,7 @@ export const createEventController = async (
   next: NextFunction
 ) => {
   try {
-    const user = req.user as any;
+    const user = requireUser(req);
     if (!user || !user._id) {
       return res.status(401).json({ message: "Not authenticated" });
     }
@@ -23,24 +27,23 @@ export const createEventController = async (
     };
     const event = await createEvent(dto);
     return res.status(201).json(event);
-  } catch (error: any) {
-    const status = error.status ?? 500;
-    return res.status(status).json({ message: error.message });
+  } catch (err) {
+    return next(err);
   }
 };
 
 export const listPublicEvents = async (
-  _req: Request,
+  req: Request,
   res: Response,
   next: NextFunction
 ) => {
   try {
-    const events = await listEvents({
-      status: "published",
-      // upcomingOnly: true,
-    });
-    return res.status(200).json(events);
-  } catch (err: any) {
+    const page = await listEventsPage(
+      { status: "published" },
+      validatedQuery<PaginationInput>(req)
+    );
+    return res.status(200).json(page);
+  } catch (err) {
     return next(err);
   }
 };
@@ -51,23 +54,26 @@ export const listMyEvents = async (
   next: NextFunction
 ) => {
   try {
-    const user = req.user as any;
-    const events = await listEvents({ organizerId: user.id.toString() });
-    return res.status(200).json(events);
-  } catch (err: any) {
+    // `_id`, not the `id` virtual — one form everywhere (C10).
+    const page = await listEventsPage(
+      { organizerId: requireUserIdString(req) },
+      validatedQuery<PaginationInput>(req)
+    );
+    return res.status(200).json(page);
+  } catch (err) {
     return next(err);
   }
 };
 
 export const listAllEvents = async (
-  _req: Request,
+  req: Request,
   res: Response,
   next: NextFunction
 ) => {
   try {
-    const events = await listEvents({});
-    return res.status(200).json(events);
-  } catch (err: any) {
+    const page = await listEventsPage({}, validatedQuery<PaginationInput>(req));
+    return res.status(200).json(page);
+  } catch (err) {
     return next(err);
   }
 };
@@ -78,8 +84,8 @@ export const getMyEventById = async (
   next: NextFunction
 ) => {
   try {
-    const user = req.user as any;
-    const event = await getEventById(req.params.id);
+    const user = requireUser(req);
+    const event = await getEventById(String(req.params.id));
 
     // Confirm they own it
     if (event.organizerId.toString() !== user._id.toString()) {
@@ -96,14 +102,11 @@ export const getPublicEventById = async (
   next: NextFunction
 ) => {
   try {
-    const event = await getEventById(req.params.id);
-
-    // only allow published (and maybe past) events
-    if (event.status !== "published") {
-      return res.status(404).json({ message: "Event not found" });
-    }
+    // Published and not cancelled — the cancelled check was missing, so a
+    // cancelled event stayed publicly readable.
+    const event = await getPublishedEventById(String(req.params.id));
     return res.status(200).json(event);
-  } catch (err: any) {
+  } catch (err) {
     return next(err);
   }
 };
@@ -115,15 +118,14 @@ export const updateEventController = async (
 ) => {
   try {
     // Extract the authenticated user’s ID
-    const userId = (req.user as any)._id.toString();
+    const userId = requireUserIdString(req);
 
     // Delegate to service (which now checks ownership internally)
-    const event = await updateEvent(req.params.id, req.body, userId);
+    const event = await updateEvent(String(req.params.id), req.body, userId);
 
     return res.status(200).json(event);
-  } catch (error: any) {
-    const status = error.status ?? 500;
-    return res.status(status).json({ message: error.message });
+  } catch (err) {
+    return next(err);
   }
 };
 
@@ -133,11 +135,15 @@ export const deleteEventController = async (
   next: NextFunction
 ) => {
   try {
-    const userId = (req.user as any)._id.toString();
-    await deleteEvent(req.params.id, userId);
-    return res.status(204).json({ message: "Event deleted successfully" });
-  } catch (err: any) {
-    const status = err.status ?? 500;
-    return res.status(status).json({ message: err.message });
+    const userId = requireUserIdString(req);
+    const cancellation = await deleteEvent(String(req.params.id), userId);
+    return res.status(200).json({
+      message: cancellation.alreadyCancelled
+        ? "Event was already cancelled"
+        : "Event cancelled successfully",
+      cancellation,
+    });
+  } catch (err) {
+    return next(err);
   }
 };

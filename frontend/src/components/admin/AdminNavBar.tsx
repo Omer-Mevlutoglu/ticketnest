@@ -1,7 +1,7 @@
 import React from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { LogOut } from "lucide-react";
-import { useAuth } from "../../../context/AuthContext";
+import { useAuth } from "@/context/AuthContext";
 
 const AdminNavBar: React.FC = () => {
   const { logout } = useAuth();
@@ -22,7 +22,7 @@ const AdminNavBar: React.FC = () => {
         <span className="truncate">
           {" "}
           {/* Added truncate for safety */}
-          CrowdJoy <span className="text-primary hidden sm:inline">
+          TicketNest <span className="text-primary hidden sm:inline">
             Admin
           </span>{" "}
           {/* Hide "Admin" below sm */}

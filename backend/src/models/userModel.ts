@@ -1,6 +1,9 @@
 import mongoose, { Schema, Document, model, Types } from "mongoose";
 
 export interface IUser extends Document {
+  // Declared explicitly: `Document` types `_id` as `unknown`, which forces a
+  // cast at every call site that reads it.
+  _id: Types.ObjectId;
   username: string;
   email: string;
   passwordHash: string;
@@ -9,6 +12,20 @@ export interface IUser extends Document {
   isApproved: boolean;
   isSuspended?: boolean;
   favorites?: Types.ObjectId[];
+  /**
+   * Bumped whenever every existing session for this user must stop working:
+   * password reset, suspension, or a privilege change. Sessions carry the
+   * value they were created with and are rejected when it falls behind.
+   */
+  sessionVersion: number;
+  /** Set on every password change; invalidates reset tokens issued earlier. */
+  passwordChangedAt?: Date;
+  /** Seeded admins must set their own password before doing anything else. */
+  mustChangePassword?: boolean;
+  /** Set only by the private ADMIN_EMAILS bootstrap path. */
+  isSystemAdmin: boolean;
+  /** Marks the three public fixture identities created by seed:demo. */
+  isDemoAccount: boolean;
 }
 
 const userSchema = new Schema<IUser>(
@@ -26,6 +43,11 @@ const userSchema = new Schema<IUser>(
     isApproved: { type: Boolean, default: true },
     isSuspended: { type: Boolean, default: false },
     favorites: [{ type: Schema.Types.ObjectId, ref: "Event", default: [] }],
+    sessionVersion: { type: Number, default: 0, required: true },
+    passwordChangedAt: { type: Date },
+    mustChangePassword: { type: Boolean, default: false },
+    isSystemAdmin: { type: Boolean, default: false, required: true },
+    isDemoAccount: { type: Boolean, default: false, required: true },
   },
   { timestamps: true }
 );

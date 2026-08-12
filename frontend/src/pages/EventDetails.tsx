@@ -10,6 +10,8 @@ import EventCard from "../components/EventCard";
 import { useFavorites } from "../hooks/useFavorites";
 import Loading from "../components/Loading";
 import EventTimeWidget from "../components/EventTimeWidget";
+import { useAuth } from "../context/AuthContext";
+import toast from "react-hot-toast";
 // 2. Ensure this is the correct path to your new component
 
 function formatDateRange(startISO?: string, endISO?: string) {
@@ -33,11 +35,24 @@ function formatDateRange(startISO?: string, endISO?: string) {
 
 const EventDetails: React.FC = () => {
   const { ids: favoriteIds, toggle } = useFavorites();
+  const { user } = useAuth();
 
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const { event, venue, loading, error } = useEventDetails(id);
   const isFav = !!(event && favoriteIds.includes(event._id));
+
+  const handleFavorite = () => {
+    if (!event) return;
+    if (!user) {
+      toast("Sign in to add events to your favorites.");
+      navigate("/login", {
+        state: { from: { pathname: `/events/${event._id}` } },
+      });
+      return;
+    }
+    void toggle(event._id);
+  };
 
   // 3. Use the new hook for recommendations
   const { events: allEvents } = useEvents();
@@ -48,7 +63,7 @@ const EventDetails: React.FC = () => {
 
   // Pick a hero image: event poster → venue first image → placeholder
   const heroImage = useMemo(() => {
-    return event?.poster || venue?.images?.[0] || "/placeholder.jpg";
+    return event?.poster || venue?.images?.[0] || "/concert-2527495.jpg";
   }, [event?.poster, venue?.images]);
 
   // Gallery (venue images) for template venues; empty array if none
@@ -130,7 +145,9 @@ const EventDetails: React.FC = () => {
             <button
               className="bg-gray-700 p-2.5 rounded-full transition cursor-pointer active:scale-95"
               title={isFav ? "Remove from favorites" : "Add to favorites"}
-              onClick={() => event && toggle(event._id)}
+              aria-label={isFav ? "Remove from favorites" : "Add to favorites"}
+              aria-pressed={isFav}
+              onClick={handleFavorite}
             >
               <HeartIcon
                 className={`w-5 h-5 transition ${

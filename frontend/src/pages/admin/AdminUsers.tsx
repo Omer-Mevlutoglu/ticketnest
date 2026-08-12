@@ -2,10 +2,10 @@
 import React from "react";
 
 import { useAdminUsers, type Role } from "./hooks/useAdminUsers";
-import { useAuth } from "../../../context/AuthContext"; // <-- 1. IMPORT useAuth
+import { useAuth } from "@/context/AuthContext"; // <-- 1. IMPORT useAuth
 import { CheckIcon, XIcon, UserCheckIcon, UserXIcon } from "lucide-react"; // <-- 2. IMPORT ICONS
-import Loading from "../../components/Loading";
-import BlurCircle from "../../components/BlurCircle";
+import Loading from "@/components/Loading";
+import BlurCircle from "@/components/BlurCircle";
 
 // --- Helper Components (Unchanged) ---
 function RoleBadge({ role }: { role: Role }) {
@@ -39,6 +39,7 @@ function ApprovalBadge({ ok }: { ok?: boolean }) {
 
 const AdminUsers: React.FC = () => {
   const { user: adminUser } = useAuth(); // <-- 3. Get current admin user
+  const demoRestricted = adminUser?.canPerformProtectedWrites === false;
   const {
     loading,
     error,
@@ -65,8 +66,8 @@ const AdminUsers: React.FC = () => {
   }> = ({ onClick, disabled, children, className, title }) => (
     <button
       onClick={onClick}
-      disabled={disabled}
-      title={title}
+      disabled={disabled || demoRestricted}
+      title={demoRestricted ? "Disabled in the hosted demo" : title}
       className={`inline-flex items-center justify-center gap-1 px-2 py-1 text-[10px] sm:text-xs rounded border transition disabled:opacity-50 ${className}`}
     >
       {children}

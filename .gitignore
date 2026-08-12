@@ -1,0 +1,62 @@
+# Dependencies
+**/node_modules/
+
+# Build output and tool caches
+**/dist/
+**/dist-ssr/
+**/build/
+**/.vite/
+**/.cache/
+**/*.tsbuildinfo
+
+# Test output
+**/coverage/
+**/.nyc_output/
+**/playwright-report/
+**/test-results/
+**/blob-report/
+
+# Logs
+**/logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Local environment files. Examples are intentionally committed.
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.*.example
+*.local
+
+# Local runtime uploads. Existing tracked files remain tracked until removed
+# explicitly in the dead-code cleanup work package.
+/backend/uploads/
+
+# Editor and operating-system files
+**/.vscode/*
+!**/.vscode/extensions.json
+**/.idea/
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*~
+
+# Project notes and planning documents are intentionally local-only.
+/docs/
+
+# Keep source, public assets, package manifests, lockfiles, and the root README
+# visible to Git. Do not add broad rules for src/ or public/.

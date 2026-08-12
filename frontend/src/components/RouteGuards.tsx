@@ -1,6 +1,6 @@
 import React from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import { useAuth, type Role } from "../../context/AuthContext";
+import { useAuth, type Role } from "@/context/AuthContext";
 import Loading from "./Loading";
 
 // eslint-disable-next-line react-refresh/only-export-components
@@ -64,6 +64,19 @@ export const RequireRole: React.FC<{
 
   if (needsApprovalCheck && !isApproved) {
     return <Navigate to="/organizer/pending" replace />;
+  }
+
+  return <>{children}</>;
+};
+
+export const RequirePasswordChangeComplete: React.FC<{
+  children: React.ReactNode;
+}> = ({ children }) => {
+  const { user, loading } = useAuth();
+
+  if (loading) return <Loading />;
+  if (user?.role === "admin" && user.mustChangePassword === true) {
+    return <Navigate to="/change-password" replace />;
   }
 
   return <>{children}</>;

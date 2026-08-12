@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+import { requireUser } from "../utils/requestUser";
 
 /**
  * Blocks requests unless the user is authenticated and has one of the allowed roles.
@@ -10,7 +11,7 @@ export const ensureRole = (allowedRoles: string[]) => {
       return res.status(401).json({ message: "Unauthorized" });
     }
     // Must have one of the allowed roles
-    const user = req.user as any;
+    const user = requireUser(req);
     if (!allowedRoles.includes(user.role)) {
       return res.status(403).json({ message: "Forbidden" });
     }

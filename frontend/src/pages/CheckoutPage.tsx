@@ -4,10 +4,11 @@ import { useParams, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { useCheckout } from "../hooks/useCheckout";
 import { useMockPayment } from "../hooks/useMockPayment";
+import { useAppConfig } from "../hooks/useAppConfig";
 import BlurCircle from "../components/BlurCircle";
 import Loading from "../components/Loading";
 
-const PLACEHOLDER = "/placeholder.jpg";
+const PLACEHOLDER = "/concert-2527495.jpg";
 
 const CheckoutPage: React.FC = () => {
   const { id } = useParams(); // bookingId
@@ -44,7 +45,10 @@ const CheckoutPage: React.FC = () => {
     simulatePaymentDelay,
   } = useMockPayment();
 
-  if (loading) return <Loading />;
+  const { config, loading: configLoading } = useAppConfig();
+  const mockPaymentsEnabled = config?.mockPaymentsEnabled ?? true;
+
+  if (loading || configLoading) return <Loading />;
 
   if (error || !booking) {
     return (
@@ -54,7 +58,7 @@ const CheckoutPage: React.FC = () => {
     );
   }
 
-  const disabled = !canPay || submitting || !!posting;
+  const disabled = !canPay || submitting || !!posting || !mockPaymentsEnabled;
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -132,6 +136,8 @@ const CheckoutPage: React.FC = () => {
                     ${
                       booking.status === "paid"
                         ? "border-emerald-400 text-emerald-300"
+                        : booking.status === "refunded"
+                        ? "border-sky-400 text-sky-300"
                         : booking.status === "unpaid"
                         ? "border-yellow-400 text-yellow-300"
                         : booking.status === "expired"
@@ -141,7 +147,9 @@ const CheckoutPage: React.FC = () => {
                 >
                   {isExpired && booking.status === "unpaid"
                     ? "expired"
-                    : booking.status}
+                    : booking.status === "refunded"
+                      ? "closed (demo payment)"
+                      : booking.status}
                 </span>
                 {canPay && countdown && (
                   <span className="text-xs text-gray-400">
@@ -158,7 +166,23 @@ const CheckoutPage: React.FC = () => {
           onSubmit={onSubmit}
           className="rounded-lg border border-white/10 bg-white/5 p-4"
         >
-          <p className="font-medium mb-3">Payment Details (Mock)</p>
+          <p className="font-medium mb-1">Payment Details</p>
+          <div className="mb-3 flex items-center gap-2">
+            <span className="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full border border-sky-400/60 text-sky-300">
+              Simulated
+            </span>
+            <span className="text-xs text-gray-400">
+              Demo checkout — no payment provider is involved.
+            </span>
+          </div>
+
+          {!mockPaymentsEnabled && (
+            <div className="mb-3 text-sm text-yellow-300 border border-yellow-400/40 rounded px-3 py-2">
+              Simulated payments are switched off on this server, so this
+              booking cannot be completed here. Your seats stay held until the
+              countdown ends.
+            </div>
+          )}
 
           {formError && (
             <div className="mb-3 text-sm text-rose-300 border border-rose-400/40 rounded px-3 py-2">
@@ -172,8 +196,10 @@ const CheckoutPage: React.FC = () => {
             </div>
           )}
 
-          <label className="text-sm text-gray-300">Cardholder Name</label>
+          <label htmlFor="cardholder-name" className="text-sm text-gray-300">Cardholder Name</label>
           <input
+            id="cardholder-name"
+            autoComplete="cc-name"
             value={cardName}
             onChange={(e) => setCardName(e.target.value)}
             className="w-full mt-1 mb-3 rounded-md border border-white/10 bg-white/5 px-3 py-2 outline-none"
@@ -181,8 +207,10 @@ const CheckoutPage: React.FC = () => {
             disabled={disabled}
           />
 
-          <label className="text-sm text-gray-300">Card Number</label>
+          <label htmlFor="card-number" className="text-sm text-gray-300">Card Number</label>
           <input
+            id="card-number"
+            autoComplete="cc-number"
             value={formattedNumber}
             onChange={(e) => setCardNumber(e.target.value.replace(/\D/g, ""))}
             inputMode="numeric"
@@ -194,8 +222,10 @@ const CheckoutPage: React.FC = () => {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-sm text-gray-300">Expiry (MM/YY)</label>
+              <label htmlFor="card-expiry" className="text-sm text-gray-300">Expiry (MM/YY)</label>
               <input
+                id="card-expiry"
+                autoComplete="cc-exp"
                 value={expiry}
                 onChange={(e) => setExpiry(e.target.value)}
                 placeholder="09/27"
@@ -204,8 +234,10 @@ const CheckoutPage: React.FC = () => {
               />
             </div>
             <div>
-              <label className="text-sm text-gray-300">CVV</label>
+              <label htmlFor="card-cvv" className="text-sm text-gray-300">CVV</label>
               <input
+                id="card-cvv"
+                autoComplete="cc-csc"
                 value={cvv}
                 onChange={(e) => setCvv(e.target.value.replace(/\D/g, ""))}
                 inputMode="numeric"
@@ -245,8 +277,11 @@ const CheckoutPage: React.FC = () => {
           </div>
 
           <p className="text-xs text-gray-400 mt-3">
-            Test any Luhn-valid card (e.g., 4242 4242 4242 4242). No real
-            payment is made and card data never leaves your browser.
+            Use any Luhn-valid test card (e.g., 4242 4242 4242 4242). No real
+            payment is made, no money moves, and card details never leave your
+            browser — they are validated client-side and never sent to the
+            server. The amount charged is always the booking total stored
+            server-side.
           </p>
         </form>
       </div>

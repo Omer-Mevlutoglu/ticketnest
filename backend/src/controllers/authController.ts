@@ -1,7 +1,11 @@
 import { Request, Response, NextFunction } from "express";
 import passport from "passport";
 import { getAllUsers, logoutUser, registerUser } from "../services/authService";
+import { httpError } from "../utils/httpError";
+import { validatedQuery } from "../middleware/validate";
+import { PaginationInput } from "../validation/schemas";
 import "../strategies/local-strategy";
+import { isDemoMode } from "../configs/features";
 // POST /api/auth/register
 export const register = async (
   req: Request,
@@ -12,9 +16,13 @@ export const register = async (
     // userData must match RegisterDTO shape: { username, email, password, role }
     const newUser = await registerUser(req.body);
     // return safe user info (without passwordHash)
-    res
-      .status(201)
-      .json({ message: "User registered successfully", user: newUser });
+    const message = newUser.emailVerificationRequired
+      ? newUser.verificationEmailSent
+        ? "User registered successfully. Check your email to verify the account."
+        : "User registered successfully, but the verification email could not be sent. Request a new link to continue."
+      : "User registered successfully. You can sign in now.";
+
+    res.status(201).json({ message, user: newUser });
   } catch (err) {
     next(err);
   }
@@ -27,23 +35,45 @@ export const login = (req: Request, res: Response, next: NextFunction) => {
       return next(err);
     }
     if (!user) {
-      // authentication failed
-      return res.status(401).json({ message: info?.message || "Login failed" });
+      return next(
+        httpError(401, info?.message || "Login failed", {
+          code: "LOGIN_FAILED",
+        })
+      );
     }
-    // establish session
-    req.logIn(user, (err) => {
-      if (err) {
-        return next(err);
-      }
-      // success
-      return res.json({
-        message: "Logged in successfully",
-        user: {
-          id: (user as any).id,
-          email: (user as any).email,
-          role: (user as any).role,
-          isApproved: (user as any).isApproved,
-        },
+
+    // Issue a fresh session ID before authenticating, so a session fixed by an
+    // attacker before login cannot become an authenticated one.
+    req.session.regenerate((regenerateErr) => {
+      if (regenerateErr) return next(regenerateErr);
+
+      req.logIn(user, (loginErr) => {
+        if (loginErr) return next(loginErr);
+
+        // Stamp the user's current version. `rejectStaleSessions` compares it
+        // on every later request, so a password reset or a suspension can end
+        // this session immediately.
+        req.session.sessionVersion = user.sessionVersion ?? 0;
+
+        req.session.save((saveErr) => {
+          if (saveErr) return next(saveErr);
+
+          return res.json({
+            message: "Logged in successfully",
+            user: {
+              id: (user as any).id,
+              email: (user as any).email,
+              role: (user as any).role,
+              isApproved: (user as any).isApproved,
+              mustChangePassword: (user as any).mustChangePassword === true,
+              canPerformProtectedWrites:
+                (user as any).mustChangePassword !== true &&
+                (!isDemoMode() ||
+                  ((user as any).role === "admin" &&
+                    (user as any).isSystemAdmin === true)),
+            },
+          });
+        });
       });
     });
   })(req, res, next);
@@ -55,7 +85,7 @@ export const logout = async (
   next: NextFunction
 ) => {
   if (!req.isAuthenticated()) {
-    return res.status(401).json({ message: "User is not authenticated" });
+    return next(httpError(401, "User is not authenticated"));
   }
 
   try {
@@ -79,7 +109,7 @@ export const getUsers = async (
   next: NextFunction
 ) => {
   try {
-    const users = await getAllUsers();
+    const users = await getAllUsers(validatedQuery<PaginationInput>(req));
     return res.status(200).json(users);
   } catch (err) {
     next(err);

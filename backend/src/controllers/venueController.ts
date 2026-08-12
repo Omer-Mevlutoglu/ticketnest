@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+import { requireUserIdString } from "../utils/requestUser";
 import {
   createVenue,
   deleteVenue,
@@ -16,9 +17,8 @@ export const createVenueController = async (
     const venue = await createVenue(req.body);
 
     return res.status(201).json(venue);
-  } catch (err: any) {
-    const status = err.status ?? 500;
-    return res.status(status).json({ message: err.message });
+  } catch (err) {
+    return next(err);
   }
 };
 
@@ -28,11 +28,10 @@ export const updateVenueController = async (
   next: NextFunction
 ) => {
   try {
-    const venue = await updateVenue(req.params.id, req.body);
+    const venue = await updateVenue(String(req.params.id), req.body);
     return res.status(200).json(venue);
-  } catch (err: any) {
-    const status = err.status ?? 500;
-    return res.status(status).json({ message: err.message });
+  } catch (err) {
+    return next(err);
   }
 };
 
@@ -44,9 +43,8 @@ export const getActiveVenues = async (
   try {
     const allActiveVenue = await getVenues();
     res.status(200).json(allActiveVenue);
-  } catch (error: any) {
-    const status = error.status ?? 500;
-    return res.status(status).json({ message: error.message });
+  } catch (err) {
+    return next(err);
   }
 };
 
@@ -56,11 +54,10 @@ export const getVenueByIdController = async (
   next: NextFunction
 ) => {
   try {
-    const venue = await getVenueById(req.params.id);
+    const venue = await getVenueById(String(req.params.id));
     return res.status(200).json(venue);
-  } catch (err: any) {
-    const status = err.status ?? 500;
-    return res.status(status).json({ message: err.message });
+  } catch (err) {
+    return next(err);
   }
 };
 
@@ -70,10 +67,9 @@ export const deleteVenueController = async (
   next: NextFunction
 ) => {
   try {
-    await deleteVenue(req.params.id);
+    await deleteVenue(String(req.params.id), requireUserIdString(req));
     return res.status(200).json({ message: "Venue deleted successfully" });
-  } catch (err: any) {
-    const status = err.status ?? 500;
-    return res.status(status).json({ message: err.message });
+  } catch (err) {
+    return next(err);
   }
 };

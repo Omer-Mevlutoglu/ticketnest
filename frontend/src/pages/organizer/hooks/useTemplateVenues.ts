@@ -1,8 +1,6 @@
 import { useEffect, useState } from "react";
+import { apiGet, errorMessage, isAbortError } from "@/lib/api";
 
-const API_BASE =
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (import.meta as any).env?.VITE_API_BASE || "http://localhost:5000";
 
 export type TemplateVenue = {
   _id: string;
@@ -25,17 +23,11 @@ export function useTemplateVenues() {
       try {
         setLoading(true);
         setError(null);
-        const res = await fetch(`${API_BASE}/api/venues`, {
-          credentials: "include",
-          signal: ac.signal,
-        });
-        if (!res.ok) throw new Error(await res.text());
-        const data: TemplateVenue[] = await res.json();
+        const data = await apiGet<TemplateVenue[]>("/api/venues", ac.signal);
         setVenues(Array.isArray(data) ? data : []);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } catch (e: any) {
-        if (e?.name !== "AbortError") {
-          setError(e?.message || "Failed to load venues");
+            } catch (e) {
+        if (!isAbortError(e)) {
+          setError(errorMessage(e, "Failed to load venues"));
         }
       } finally {
         setLoading(false);

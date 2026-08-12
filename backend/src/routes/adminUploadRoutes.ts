@@ -1,20 +1,18 @@
 import { Router, Request, Response, NextFunction } from "express"; // --- FIX: Import types
 import multer from "multer";
-import { CloudinaryStorage } from "multer-storage-cloudinary";
-import cloudinary from "../configs/cloudinary";
+import { createCloudinaryStorage } from "../configs/cloudinaryStorage";
 import { ensureAuth } from "../middleware/ensureAuth";
 import { ensureRole } from "../middleware/ensureRole";
+import { requireDemoWriteAccess } from "../middleware/demoPolicy";
+import { isHttpError } from "../utils/httpError";
 
 const router = Router();
 
 // Configure storage for venue images
-const venueStorage = new CloudinaryStorage({
-  cloudinary: cloudinary,
-  params: {
-    folder: "venue-images",
-    allowed_formats: ["jpg", "png", "webp", "jpeg"],
-    transformation: [{ width: 1920, height: 1080, crop: "limit" }],
-  } as any, 
+const venueStorage = createCloudinaryStorage({
+  folder: "venue-images",
+  allowed_formats: ["jpg", "png", "webp", "jpeg"],
+  transformation: [{ width: 1920, height: 1080, crop: "limit" }],
 });
 
 const upload = multer({
@@ -32,6 +30,7 @@ router.post(
   "/venue-images",
   ensureAuth,
   ensureRole(["admin"]),
+  requireDemoWriteAccess,
   upload.array("images", 10),
   (req: Request, res: Response) => {
     if (!req.files || !Array.isArray(req.files) || req.files.length === 0) {
@@ -41,13 +40,14 @@ router.post(
     res.status(201).json({ urls });
   },
   (err: any, req: Request, res: Response, next: NextFunction) => {
+    if (isHttpError(err)) return next(err);
     if (err instanceof multer.MulterError) {
-      return res.status(400).json({ message: `Multer error: ${err.message}` });
+      return res.status(400).json({ message: "The image upload was rejected." });
     }
-    if (err) {
-      return res.status(400).json({ message: `Upload error: ${err.message}` });
+    if (err?.message === "File is not an image!") {
+      return res.status(400).json({ message: "Only image files are allowed." });
     }
-    next();
+    return err ? next(err) : next();
   }
 );
 

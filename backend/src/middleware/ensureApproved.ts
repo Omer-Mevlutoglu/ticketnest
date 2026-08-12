@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+import { requireUser } from "../utils/requestUser";
 
 export const ensureApproved = (
   req: Request,
@@ -6,7 +7,7 @@ export const ensureApproved = (
   next: NextFunction
 ) => {
   // Passport puts the user on req.user
-  const user = req.user as any;
+  const user = requireUser(req);
 
   // Only organizers need approval
   if (user.role === "organizer" && !user.isApproved) {

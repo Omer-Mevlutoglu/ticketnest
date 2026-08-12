@@ -1,12 +1,15 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { useAuth } from "../../../context/AuthContext";
-import BlurCircle from "../../components/BlurCircle";
+import { useAuth } from "@/context/AuthContext";
+import BlurCircle from "@/components/BlurCircle";
 import toast from "react-hot-toast";
+import { errorMessage } from "@/lib/api";
+import { useAppConfig } from "@/hooks/useAppConfig";
 
 const Register: React.FC = () => {
   const nav = useNavigate();
   const { register } = useAuth();
+  const { config } = useAppConfig();
 
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -20,11 +23,28 @@ const Register: React.FC = () => {
       return toast.error("All fields are required");
     setBusy(true);
     try {
-      await register({ username, email, password, role });
-      nav("/check-email");
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (err: any) {
-      toast.error(err?.message || "Registration failed");
+      const { verificationEmailSent, emailVerificationRequired } = await register({
+        username,
+        email,
+        password,
+        role,
+      });
+
+      if (emailVerificationRequired) {
+        if (!verificationEmailSent) {
+          toast.error(
+            "Account created, but delivery failed. Request a new verification link."
+          );
+        }
+        nav("/check-email", { state: { email, verificationEmailSent } });
+      } else {
+        // Email is off, so the account is already verified — send them
+        // straight to sign in rather than to an inbox that will stay empty.
+        toast.success("Account created. You can sign in now.");
+        nav("/login");
+      }
+    } catch (err) {
+      toast.error(errorMessage(err, "Registration failed"));
     } finally {
       setBusy(false);
     }
@@ -37,26 +57,42 @@ const Register: React.FC = () => {
 
       <form onSubmit={onSubmit} className="max-w-md space-y-4">
         <div>
-          <label className="text-sm text-gray-300">Username</label>
+          <label htmlFor="register-username" className="text-sm text-gray-300">Username</label>
           <input
+            id="register-username"
+            autoComplete="username"
+            required
             className="w-full mt-1 rounded-md border border-white/10 bg-white/5 px-3 py-2 outline-none"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
           />
         </div>
         <div>
-          <label className="text-sm text-gray-300">Email</label>
+          <label htmlFor="register-email" className="text-sm text-gray-300">Email</label>
           <input
+            id="register-email"
             type="email"
+            autoComplete="email"
+            required
             className="w-full mt-1 rounded-md border border-white/10 bg-white/5 px-3 py-2 outline-none"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
+          {config?.emailEnabled === false && (
+            <p className="text-xs text-gray-400 mt-1">
+              In portfolio mode this is an unverified login identifier. Do not
+              enter a sensitive or private address.
+            </p>
+          )}
         </div>
         <div>
-          <label className="text-sm text-gray-300">Password</label>
+          <label htmlFor="register-password" className="text-sm text-gray-300">Password</label>
           <input
+            id="register-password"
             type="password"
+            autoComplete="new-password"
+            minLength={6}
+            required
             className="w-full mt-1 rounded-md border border-white/10 bg-white/5 px-3 py-2 outline-none"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -92,6 +128,7 @@ const Register: React.FC = () => {
         </div>
 
         <button
+          type="submit"
           disabled={busy}
           className="px-4 py-2 rounded-md bg-primary hover:bg-primary-dull transition disabled:opacity-60"
         >

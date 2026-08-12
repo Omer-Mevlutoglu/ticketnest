@@ -2,7 +2,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ChevronDown } from "lucide-react";
-import { useAuth } from "../../../context/AuthContext"; // Adjusted path
+import { useAuth } from "@/context/AuthContext"; // Adjusted path
 
 // Utility function to derive first name (kept from previous version)
 function deriveFirstName(user: { email?: string } & Record<string, any>) {
@@ -47,7 +47,7 @@ const OrganizerNavBar: React.FC = () => {
       >
         {" "}
         {/* Added min-w-0, mr-2 */}
-        CrowdJoy{" "}
+        TicketNest{" "}
         <span className="text-primary hidden sm:inline">Organizer</span>{" "}
         {/* Hide Organizer on xs */}
       </Link>

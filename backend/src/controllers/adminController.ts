@@ -4,6 +4,7 @@ import {
   approveRequest,
   rejectRequest,
 } from "../services/approvalService";
+import { requireUserIdString } from "../utils/requestUser";
 
 export const listPendingOrganizers = async (
   _req: Request,
@@ -25,10 +26,10 @@ export const approveOrganizer = async (
 ) => {
   try {
     const { organizerId } = req.params;
-    const updated = await approveRequest(organizerId);
-    if (!updated) {
-      return res.status(404).json({ message: "Request not found" });
-    }
+    const updated = await approveRequest(
+      organizerId,
+      requireUserIdString(req)
+    );
     res.json({ message: "Organizer approved", request: updated });
   } catch (err) {
     next(err);
@@ -42,10 +43,10 @@ export const rejectOrganizer = async (
 ) => {
   try {
     const { organizerId } = req.params;
-    const updated = await rejectRequest(organizerId);
-    if (!updated) {
-      return res.status(404).json({ message: "Request not found" });
-    }
+    const updated = await rejectRequest(
+      organizerId,
+      requireUserIdString(req)
+    );
     res.json({ message: "Organizer rejected", request: updated });
   } catch (err) {
     next(err);

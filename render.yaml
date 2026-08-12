@@ -1,0 +1,83 @@
+# Render Blueprint for the TicketNest API.
+#
+# This documents how the backend is deployed. An existing service created
+# through the dashboard is not managed by this file — Render adopts it only if
+# you point a Blueprint at the repo. Either way it is the reference for what
+# the service needs, and it is version-controlled rather than living only in a
+# web form.
+#
+# The frontend is not here: it is deployed by Vercel from the same repo.
+
+services:
+  - type: web
+    name: ticketnest-api
+    runtime: node
+    plan: free
+    rootDir: backend
+
+    # NODE_ENV=production must not make npm omit TypeScript and other build
+    # tooling. The lockfile remains the dependency source of truth.
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm start
+
+    # The free service has no pre-deploy command. Keep deploys manual so the
+    # reviewed commit can be migrated and seeded before it is started.
+    autoDeployTrigger: off
+
+    # Render must not route traffic until MongoDB is reachable and migrations
+    # are current. /healthz remains the process-only diagnostic endpoint.
+    healthCheckPath: /readyz
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DEMO_MODE
+        value: "true"
+
+      # Render provides PORT; the app reads it from config.
+      - key: PORT
+        value: 5000
+
+      # --- set these in the dashboard, never in this file ---
+      - key: MONGO_URI
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: EMAIL_VERIFY_TOKEN_SECRET
+        generateValue: true
+      - key: PASSWORD_RESET_TOKEN_SECRET
+        generateValue: true
+
+      # Absolute origin of the deployed frontend. The API refuses to start
+      # without these two, and CORS is built from them.
+      - key: FRONTEND_URL
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+
+      # The portfolio demo marks bookings paid without a payment provider.
+      # Disable this if a real payment provider is added later.
+      - key: ENABLE_MOCK_PAYMENTS
+        value: "true"
+
+      # Off unless a provider key is supplied — see backend/.env.example.
+      - key: ENABLE_EMAIL
+        value: "false"
+      - key: SENDGRID_API_KEY
+        sync: false
+      - key: FROM_EMAIL
+        sync: false
+
+      # Private operational ownership. Never publish these values in the repo.
+      - key: ADMIN_EMAILS
+        sync: false
+      - key: ADMIN_INITIAL_PASSWORD
+        sync: false
+
+      # Image uploads.
+      - key: CLOUD_NAME
+        sync: false
+      - key: CLOUD_API_KEY
+        sync: false
+      - key: CLOUD_API_SECRET
+        sync: false

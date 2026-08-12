@@ -1,11 +1,10 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+ 
 // src/components/organizer/SingleImageUploader.tsx
 import React, { useState, useRef } from "react";
 import toast from "react-hot-toast";
 import { UploadCloudIcon, XIcon, Loader2Icon } from "lucide-react";
+import { apiUpload, errorMessage } from "@/lib/api";
 
-const API_BASE =
-  (import.meta as any).env.VITE_API_BASE || "http://localhost:5000";
 
 type Props = {
   label: string;
@@ -13,6 +12,7 @@ type Props = {
   onChange: (url: string) => void; // Function to update the parent's URL state
   endpoint: string; // The API endpoint to upload to
   uploadField?: string; // The FormData field name (e.g., "poster")
+  disabled?: boolean;
 };
 
 const SingleImageUploader: React.FC<Props> = ({
@@ -21,6 +21,7 @@ const SingleImageUploader: React.FC<Props> = ({
   onChange,
   endpoint,
   uploadField = "poster",
+  disabled = false,
 }) => {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -34,21 +35,12 @@ const SingleImageUploader: React.FC<Props> = ({
     formData.append(uploadField, file);
 
     try {
-      const res = await fetch(`${API_BASE}${endpoint}`, {
-        method: "POST",
-        credentials: "include",
-        body: formData,
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || "Upload failed");
-      }
+      const data = await apiUpload<{ url: string }>(endpoint, formData);
 
       onChange(data.url); // Update parent state with the new URL
       toast.success("Image uploaded!");
-    } catch (err: any) {
-      toast.error(err.message || "Failed to upload image.");
+    } catch (err) {
+      toast.error(errorMessage(err, "Failed to upload image."));
     } finally {
       setUploading(false);
       // Clear input value to allow re-uploading the same file
@@ -75,7 +67,7 @@ const SingleImageUploader: React.FC<Props> = ({
           <button
             type="button"
             onClick={clearImage}
-            disabled={uploading}
+            disabled={uploading || disabled}
             className="absolute top-2 right-2 p-1.5 bg-black/60 text-white rounded-full hover:bg-red-500/80 transition disabled:opacity-50"
             aria-label="Remove image"
           >
@@ -95,7 +87,7 @@ const SingleImageUploader: React.FC<Props> = ({
             accept="image/png, image/jpeg, image/webp"
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
             onChange={handleFileChange}
-            disabled={uploading}
+            disabled={uploading || disabled}
           />
           {uploading ? (
             <div className="flex flex-col items-center justify-center text-gray-400">

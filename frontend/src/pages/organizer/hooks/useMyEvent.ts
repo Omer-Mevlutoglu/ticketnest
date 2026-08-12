@@ -1,8 +1,6 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { apiGet, errorMessage } from "@/lib/api";
 
-const API_BASE =
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (import.meta as any).env?.VITE_API_BASE || "http://localhost:5000";
 
 export type EventDoc = {
   _id: string;
@@ -42,49 +40,38 @@ export function useMyEvent(eventId: string | undefined) {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  async function load(signal?: AbortSignal) {
+  const load = useCallback(async (signal?: AbortSignal) => {
     if (!eventId) return;
     setError(null);
     setLoading(true);
 
     try {
       // organizer-owned detail
-      const evRes = await fetch(`${API_BASE}/api/events/mine/${eventId}`, {
-        credentials: "include",
-        signal,
-      });
-      if (!evRes.ok) throw new Error(await evRes.text());
-      const ev: EventDoc = await evRes.json();
-      setEvent(ev);
+      setEvent(await apiGet<EventDoc>(`/api/events/mine/${eventId}`, signal));
 
-      // seat map (public endpoint is fine)
+      // A missing seat map is normal for a draft event.
       try {
-        const smRes = await fetch(`${API_BASE}/api/events/${eventId}/seatmap`, {
-          credentials: "include",
-          signal,
-        });
-        if (smRes.ok) {
-          const sm: SeatMapDoc = await smRes.json();
-          setSeatMap(sm);
-        } else {
-          setSeatMap(null);
-        }
+        setSeatMap(
+          await apiGet<SeatMapDoc>(
+            `/api/events/mine/${eventId}/seatmap`,
+            signal
+          )
+        );
       } catch {
         setSeatMap(null);
       }
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (e: any) {
-      setError(e?.message || "Failed to load event");
+          } catch (e) {
+      setError(errorMessage(e, "Failed to load event"));
     } finally {
       setLoading(false);
     }
-  }
+  }, [eventId]);
 
   useEffect(() => {
     const ac = new AbortController();
     load(ac.signal);
     return () => ac.abort();
-  }, [eventId]);
+  }, [load]);
 
   const seatSummary = seatMap
     ? seatMap.seats.reduce(

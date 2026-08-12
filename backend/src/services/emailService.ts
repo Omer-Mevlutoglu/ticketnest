@@ -1,61 +1,124 @@
 import sgMail from "@sendgrid/mail";
-import dotenv from "dotenv";
-dotenv.config();
+import { getConfig } from "../configs/env";
+import { isEmailEnabled } from "../configs/features";
+import { redactSensitive } from "../utils/redactSensitive";
 
-// SET THE API KEY
-sgMail.setApiKey(process.env.SENDGRID_API_KEY as string);
+/**
+ * Transactional email.
+ *
+ * Both the sender address and the link origin come from validated config, so a
+ * deployment cannot silently email `localhost` links to real users — the
+ * process refuses to start without `FRONTEND_URL` in production.
+ *
+ * The SendGrid client is configured lazily on first send rather than at import,
+ * so importing this module never requires an API key (tests, CLI scripts).
+ */
+let configured = false;
 
-const FROM_EMAIL = "crowdjoy45@gmail.com";
+const client = () => {
+  const config = getConfig();
+  if (!configured) {
+    sgMail.setApiKey(config.sendgridApiKey);
+    configured = true;
+  }
+  return config;
+};
 
-const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
+/**
+ * Sends a message, or does nothing when email is switched off.
+ *
+ * Returns whether it was actually dispatched, so callers can adapt — the
+ * signup path uses it to decide between "check your inbox" and verifying
+ * immediately.
+ */
+const dispatch = async (
+  msg: { to: string; from: string; subject: string; html: string },
+  description: string
+): Promise<boolean> => {
+  if (!isEmailEnabled()) {
+    console.log(`✉️  Skipped ${description} — ENABLE_EMAIL is off.`);
+    return false;
+  }
 
-export const sendVerificationEmail = async (email: string, token: string) => {
-  const verifyLink = `${FRONTEND_URL}/verify-email?token=${token}`;
+  try {
+    await sgMail.send(msg);
+    console.log(`${description} sent.`);
+    return true;
+  } catch (error) {
+    console.error("Email sending error:", redactSensitive(error));
+    throw new Error(`Failed to send ${description}.`);
+  }
+};
 
-  const msg = {
-    to: email,
-    from: FROM_EMAIL,
-    subject: "CrowdJoy - Please Verify Your Email",
-    html: `
-      <h1>Welcome to CrowdJoy!</h1>
+export const sendVerificationEmail = async (
+  email: string,
+  token: string
+): Promise<boolean> => {
+  const { frontendUrl, fromEmail } = client();
+  const verifyLink = `${frontendUrl}/verify-email?token=${token}`;
+
+  return dispatch(
+    {
+      to: email,
+      from: fromEmail,
+      subject: "TicketNest - Please Verify Your Email",
+      html: `
+      <h1>Welcome to TicketNest!</h1>
       <p>Please click the link below to verify your email address:</p>
       <a href="${verifyLink}" target="_blank">Verify My Email</a>
       <p>This link will expire in 1 hour.</p>
     `,
-  };
-
-  try {
-    await sgMail.send(msg);
-    console.log(`Verification email sent to ${email}`);
-  } catch (error) {
-    console.error("Email sending error:", error);
-    throw new Error("Failed to send verification email.");
-  }
+    },
+    "verification email"
+  );
 };
 
 /**
  * Sends a pre-made password reset email
  */
-export const sendPasswordResetEmail = async (email: string, token: string) => {
-  const resetLink = `${FRONTEND_URL}/reset-password?token=${token}`;
-  const msg = {
-    to: email,
-    from: FROM_EMAIL,
-    subject: "CrowdJoy - Password Reset Request",
-    html: `
+/** Tells a ticket holder their event is off. */
+export const sendEventCancelledEmail = async (
+  email: string,
+  eventTitle: string
+): Promise<boolean> => {
+  const { frontendUrl, fromEmail } = client();
+
+  return dispatch(
+    {
+      to: email,
+      from: fromEmail,
+      subject: `TicketNest - "${eventTitle}" has been cancelled`,
+      html: `
+      <h1>Your event has been cancelled</h1>
+      <p>The organizer has cancelled <strong>${eventTitle}</strong>, and your booking has been cancelled with it.</p>
+      <p>Your seats have been released. TicketNest's portfolio checkout is simulated, so no real charge was made and no real refund is required.</p>
+      <p><a href="${frontendUrl}/my-bookings" target="_blank">View your bookings</a></p>
+    `,
+    },
+    "event cancellation email"
+  );
+};
+
+export const sendPasswordResetEmail = async (
+  email: string,
+  token: string
+): Promise<boolean> => {
+  const { frontendUrl, fromEmail } = client();
+  const resetLink = `${frontendUrl}/reset-password?token=${token}`;
+
+  return dispatch(
+    {
+      to: email,
+      from: fromEmail,
+      subject: "TicketNest - Password Reset Request",
+      html: `
       <h1>Password Reset</h1>
       <p>You are receiving this because you (or someone else) requested a password reset.</p>
       <p>Click the link below to set a new password:</p>
       <a href="${resetLink}" target="_blank">Reset My Password</a>
       <p>This link will expire in 15 minutes.</p>
     `,
-  };
-
-  try {
-    await sgMail.send(msg);
-    console.log(`Password reset email sent to ${email}`);
-  } catch (error) {
-    console.error("Email sending error:", error);
-    throw new Error("Failed to send password reset email.");
-  }
+    },
+    "password reset email"
+  );
 };

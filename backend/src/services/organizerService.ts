@@ -19,9 +19,11 @@ export const getOrganizerStats = async (
   const orgId = new Types.ObjectId(organizerId);
   const now = new Date();
 
-  // fetch organizer events
+  // Match the organizer's My Events lifecycle boundary. Cancelled events stay
+  // in MongoDB for audit/idempotency, but they are no longer manageable events
+  // and must not inflate dashboard counts or sales figures.
   const events = await eventModel
-    .find({ organizerId: orgId })
+    .find({ organizerId: orgId, isCancelled: { $ne: true } })
     .select("_id status startTime")
     .lean()
     .exec();

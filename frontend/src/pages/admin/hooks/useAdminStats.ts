@@ -1,8 +1,6 @@
 import { useEffect, useState } from "react";
+import { apiGet, errorMessage, isAbortError } from "@/lib/api";
 
-const API_BASE =
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (import.meta as any).env?.VITE_API_BASE || "http://localhost:5000";
 
 export type AdminStats = {
   users: {
@@ -49,12 +47,7 @@ export function useAdminStats() {
 
   async function load(signal?: AbortSignal) {
     setError(null);
-    const res = await fetch(`${API_BASE}/api/admin/stats`, {
-      credentials: "include",
-      signal,
-    });
-    if (!res.ok) throw new Error(await res.text());
-    const json: AdminStats = await res.json();
+    const json = await apiGet<AdminStats>(`/api/admin/stats`, signal);
     setData(json);
   }
 
@@ -64,10 +57,9 @@ export function useAdminStats() {
       try {
         setLoading(true);
         await load(ac.signal);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } catch (e: any) {
-        if (e?.name !== "AbortError")
-          setError(e?.message || "Failed to load admin stats");
+            } catch (e) {
+        if (!isAbortError(e))
+          setError(errorMessage(e, "Failed to load admin stats"));
       } finally {
         setLoading(false);
       }

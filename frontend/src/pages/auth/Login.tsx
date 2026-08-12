@@ -1,16 +1,18 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState } from "react";
 import { Link } from "react-router-dom"; // --- FIX: REMOVED useNavigate ---
-import { useAuth } from "../../../context/AuthContext";
+import { useAuth } from "@/context/AuthContext";
 import toast from "react-hot-toast";
 // Import an icon for the error message
 import { AlertCircleIcon } from "lucide-react";
-import BlurCircle from "../../components/BlurCircle";
+import BlurCircle from "@/components/BlurCircle";
+import { useAppConfig } from "@/hooks/useAppConfig";
+import { errorMessage } from "@/lib/api";
 
 const Login: React.FC = () => {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+   
   // const nav = useNavigate(); // --- FIX: REMOVED UNUSED VARIABLE ---
   const { login, loading } = useAuth(); // Get loading state
+  const { config } = useAppConfig();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -26,9 +28,8 @@ const Login: React.FC = () => {
       await login({ email, password });
       toast.success("Welcome back!");
       // Navigation is now handled by App.tsx
-    } catch (err: any) {
-      const message = err?.message || "Login failed";
-      setFormError(message);
+    } catch (err) {
+      setFormError(errorMessage(err, "Login failed"));
     } finally {
       setBusy(false);
     }
@@ -44,16 +45,22 @@ const Login: React.FC = () => {
 
       <form onSubmit={onSubmit} className="max-w-md space-y-4">
         {formError && (
-          <div className="flex items-center gap-3 p-3 rounded-md border border-red-500/50 bg-red-500/10 text-red-300">
+          <div
+            role="alert"
+            className="flex items-center gap-3 p-3 rounded-md border border-red-500/50 bg-red-500/10 text-red-300"
+          >
             <AlertCircleIcon className="w-5 h-5 flex-shrink-0" />
             <p className="text-sm">{formError}</p>
           </div>
         )}
 
         <div>
-          <label className="text-sm text-gray-300">Email</label>
+          <label htmlFor="login-email" className="text-sm text-gray-300">Email</label>
           <input
+            id="login-email"
             type="email"
+            autoComplete="email"
+            required
             className="w-full mt-1 rounded-md border border-white/10 bg-white/5 px-3 py-2 outline-none"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -61,9 +68,12 @@ const Login: React.FC = () => {
           />
         </div>
         <div>
-          <label className="text-sm text-gray-300">Password</label>
+          <label htmlFor="login-password" className="text-sm text-gray-300">Password</label>
           <input
+            id="login-password"
             type="password"
+            autoComplete="current-password"
+            required
             className="w-full mt-1 rounded-md border border-white/10 bg-white/5 px-3 py-2 outline-none"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -71,14 +81,18 @@ const Login: React.FC = () => {
           />
         </div>
 
-        <div className="text-right">
-          <Link
-            to="/forgot-password"
-            className="text-xs text-gray-400 hover:text-primary"
-          >
-            Forgot Password?
-          </Link>
-        </div>
+        {/* Password reset needs a delivery channel; without one the link
+            would lead to a dead end. */}
+        {config?.emailEnabled && (
+          <div className="text-right">
+            <Link
+              to="/forgot-password"
+              className="text-xs text-gray-400 hover:text-primary"
+            >
+              Forgot Password?
+            </Link>
+          </div>
+        )}
 
         <button
           disabled={isDisabled}

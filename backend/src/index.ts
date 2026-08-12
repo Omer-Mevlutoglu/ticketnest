@@ -1,169 +1,78 @@
-import dotenv from "dotenv";
-import express from "express";
-import cors from "cors";
-import mongoose from "mongoose";
-import session from "express-session";
-import MongoStore from "connect-mongo";
-import passport from "passport";
-import path from "path";
-import errorHandler from "./middleware/errorHandler";
-import "./strategies/local-strategy";
-
-import authRoutes from "./routes/authRoutes";
-import testRoutes from "./routes/testRoutes";
-import adminRoutes from "./routes/adminRoutes";
-import eventRoutes from "./routes/eventRoutes";
-import bookingRoutes from "./routes/bookingRoutes";
-import organizerUploadRoutes from "./routes/organizerUploadRoutes";
-import adminUploadRoutes from "./routes/adminUploadRoutes";
-import { expireOverdueBookings } from "./services/bookingService";
-import userModel from "./models/userModel";
-import { hashPassword } from "./utils/helperHash";
+import "dotenv/config";
+import { redactSensitive } from "./utils/redactSensitive";
+import { createApp } from "./app";
+import { ExpiryWorker } from "./jobs/expiryWorker";
 import connectDB from "./configs/db";
-import venuePublicRoutes from "./routes/venuePublicRoutes";
-import organizerRoutes from "./routes/organizerRoutes";
-import favoritesRoutes from "./routes/favoritesRoutes";
+import { assertFeatureFlags } from "./configs/features";
+import { getConfig } from "./configs/env";
+import { seedAdmins } from "./services/adminSeedService";
+import { pendingMigrationIds } from "./migrations";
+import { createShutdownHandler } from "./utils/gracefulShutdown";
 
-dotenv.config();
 const EXPIRE_JOB_MS = 60 * 1000;
 
-const app = express();
+/**
+ * Warns about migrations that have not been applied.
+ *
+ * Deliberately a warning and not a failure: refusing to boot would take the
+ * whole service down for a schema change that may be additive and harmless.
+ * The readiness probe reports unready instead, so an orchestrator holds traffic
+ * back without killing the process.
+ */
+async function checkMigrations() {
+  const pending = await pendingMigrationIds();
 
-// --- 1. TRUST THE PROXY ---
-app.set("trust proxy", 1);
-// --- END OF CHANGE ---
-
-app.use(
-  cors({
-    origin: [
-      "https://ticketnest-iota.vercel.app",
-      "https://ticketnest-l2l3aajc1-omers-projects-44a866c3.vercel.app",
-      "http://localhost:5173",
-      "http://127.0.0.1:5173",
-    ],
-    credentials: true,
-  })
-);
-app.use(express.json());
+  if (pending.length > 0) {
+    console.warn(
+      `⚠️  ${pending.length} pending migration(s): ${pending.join(", ")}. ` +
+        `Run "npm run migrate". /readyz will report not ready until then.`
+    );
+  } else {
+    console.log("✅ Schema is up to date.");
+  }
+}
 
 async function bootstrap() {
+  // Validate everything the process needs before touching the network. A
+  // missing or malformed value crashes here, naming the variable, rather than
+  // surfacing as broken behaviour hours later.
+  const config = getConfig();
+  assertFeatureFlags();
+
   await connectDB();
+  await checkMigrations();
 
-  // Run migration script
-  (async function migrateUsers() {
-    try {
-      console.log("Checking for user schema migration...");
-      const result = await userModel.updateMany(
-        { isSuspended: { $exists: false } },
-        { $set: { isSuspended: false } }
-      );
-      if (result.modifiedCount > 0) {
-        console.log(
-          `✅ Migrated ${result.modifiedCount} users (added 'isSuspended' field).`
-        );
-      } else {
-        console.log("✅ User schema is up to date.");
-      }
-    } catch (err) {
-      console.error("❌ User migration failed:", err);
-    }
-  })();
+  // Auto-expire unpaid bookings. Single-instance only — see ExpiryWorker.
+  const expiryWorker = new ExpiryWorker({ intervalMs: EXPIRE_JOB_MS });
 
-  app.use(
-    session({
-      secret: process.env.SESSION_SECRET as string,
-      resave: false,
-      saveUninitialized: false,
-      cookie: {
-        maxAge: 1000 * 60 * 60 * 24 * 14, // 14 days
-        secure: process.env.NODE_ENV === "production",
-        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-      },
-      store: MongoStore.create({
-        client: mongoose.connection.getClient(),
-      }),
-    })
-  );
-
-  // 3) Passport
-  app.use(passport.initialize());
-  app.use(passport.session());
-
-  // 4) Routes
-  app.use("/api/auth", authRoutes);
-  app.use("/api/testAuth", testRoutes); 
-  app.use("/api/admin", adminRoutes);
-  app.use("/api/events", eventRoutes);
-  app.use("/api/bookings", bookingRoutes);
-  app.use("/api/venues", venuePublicRoutes);
-  app.use("/api/organizer", organizerRoutes);
-  app.use("/api/favorites", favoritesRoutes);
-  app.use("/api/admin/uploads", adminUploadRoutes);
-  app.use("/api/organizer/uploads", organizerUploadRoutes);
-
-  // ... (rest of the file: seed admins, cron job, listen)
-  // 5) Seed admins once (after DB is connected)
-  (async () => {
-    const adminEmails: string[] = process.env.ADMIN_EMAILS
-      ? JSON.parse(process.env.ADMIN_EMAILS)
-      : [];
-    const missingAdmins: string[] = [];
-    for (const email of adminEmails) {
-      const exists = await userModel.findOne({ email, role: "admin" });
-      if (!exists) missingAdmins.push(email);
-    }
-    if (missingAdmins.length > 0) {
-      for (const email of adminEmails) {
-        const pw = await hashPassword(process.env.ADMIN_INITIAL_PASSWORD!);
-        await userModel.create({
-          username: email.split("@")[0],
-          email,
-          passwordHash: pw,
-          role: "admin",
-          emailVerified: true,
-        });
-        console.log(`✅ Seeded admin account: ${email}`);
-      }
-    }
-  })();
-
-  // 6) Auto-expire unpaid bookings (runs every EXPIRE_JOB_MS)
-  const runExpireJob = async () => {
-    try {
-      const { expiredCount, releasedSeats } = await expireOverdueBookings();
-      if (expiredCount || releasedSeats) {
-        console.log(
-          `🕒 Auto-expire run → bookings expired: ${expiredCount}, seats released: ${releasedSeats}`
-        );
-      }
-    } catch (err) {
-      console.error("expireOverdueBookings error:", err);
-    }
-  };
-
-  runExpireJob();
-  const expireTimer = setInterval(runExpireJob, EXPIRE_JOB_MS);
-
-  // Clean up on shutdown
-  process.on("SIGINT", () => {
-    clearInterval(expireTimer);
-    process.exit(0);
-  });
-  process.on("SIGTERM", () => {
-    clearInterval(expireTimer);
-    process.exit(0);
+  // Built before the worker starts and before listen(), so the readiness probe
+  // can consult the shutdown flag from the first request onwards.
+  let shutdownHandler: { isShuttingDown: () => boolean } | null = null;
+  const app = createApp({
+    isShuttingDown: () => shutdownHandler?.isShuttingDown() ?? false,
   });
 
-  // 7) Error handler & listen
-  app.use(errorHandler);
-
-  const port = Number(process.env.PORT) || 5000;
-  app.listen(port, () => {
-    console.log(`✅ Server is running on port ${port}`);
+  // Awaited: an admin account half-created while requests are already being
+  // served is worse than a slower boot.
+  await seedAdmins({
+    emails: config.adminEmails,
+    initialPassword: config.adminInitialPassword,
   });
+
+  expiryWorker.start();
+
+  const server = app.listen(config.port, () => {
+    console.log(`✅ Server is running on port ${config.port}`);
+  });
+
+  const handler = createShutdownHandler({ server, worker: expiryWorker });
+  shutdownHandler = handler;
+
+  process.on("SIGINT", () => void handler.shutdown("SIGINT"));
+  process.on("SIGTERM", () => void handler.shutdown("SIGTERM"));
 }
 
 bootstrap().catch((err) => {
-  console.error("❌ Failed to bootstrap server:", err);
+  console.error("❌ Failed to bootstrap server:", redactSensitive(err));
   process.exit(1);
 });

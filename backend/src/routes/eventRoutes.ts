@@ -13,21 +13,46 @@ import {
 import { ensureAuth } from "../middleware/ensureAuth";
 import {
   generateSeatMapFromSpecController,
+  getMySeatMapController,
   getSeatMapController,
   upsertSeatMapController,
 } from "../controllers/seatMapController";
 
+import {
+  validateBody,
+  validateParams,
+  validateQuery,
+} from "../middleware/validate";
+import {
+  createEventSchema,
+  generateSeatMapSchema,
+  idParamSchema,
+  paginationSchema,
+  updateEventSchema,
+  upsertSeatMapSchema,
+} from "../validation/schemas";
+import { requireDemoWriteAccess } from "../middleware/demoPolicy";
+
 const router = Router();
 
 // Public listing
-router.get("/", listPublicEvents);
+router.get("/", validateQuery(paginationSchema), listPublicEvents);
 // Organizer’s own
 router.get(
   "/mine",
   ensureAuth,
   ensureRole(["organizer"]),
   ensureApproved,
+  validateQuery(paginationSchema),
   listMyEvents
+);
+router.get(
+  "/mine/:id/seatmap",
+  ensureAuth,
+  ensureRole(["organizer"]),
+  ensureApproved,
+  validateParams(idParamSchema),
+  getMySeatMapController
 );
 router.get(
   "/mine/:id",
@@ -37,13 +62,15 @@ router.get(
   getMyEventById
 );
 // Public detail
-router.get("/:id", getPublicEventById);
+router.get("/:id", validateParams(idParamSchema), getPublicEventById);
 // Organizer create
 router.post(
   "/",
   ensureAuth,
   ensureRole(["organizer"]),
   ensureApproved,
+  requireDemoWriteAccess,
+  validateBody(createEventSchema),
   createEventController
 );
 
@@ -52,6 +79,9 @@ router.put(
   ensureAuth,
   ensureRole(["organizer"]),
   ensureApproved,
+  requireDemoWriteAccess,
+  validateParams(idParamSchema),
+  validateBody(updateEventSchema),
   updateEventController
 );
 
@@ -60,14 +90,23 @@ router.delete(
   ensureAuth,
   ensureRole(["organizer"]),
   ensureApproved,
+  requireDemoWriteAccess,
+  validateParams(idParamSchema),
   deleteEventController
 );
-router.get("/:id/seatmap", getSeatMapController);
+router.get(
+  "/:id/seatmap",
+  validateParams(idParamSchema),
+  getSeatMapController
+);
 router.put(
   "/:id/seatmap",
   ensureAuth,
   ensureRole(["organizer"]),
   ensureApproved,
+  requireDemoWriteAccess,
+  validateParams(idParamSchema),
+  validateBody(upsertSeatMapSchema),
   upsertSeatMapController
 );
 
@@ -76,6 +115,9 @@ router.post(
   ensureAuth,
   ensureRole(["organizer"]),
   ensureApproved,
+  requireDemoWriteAccess,
+  validateParams(idParamSchema),
+  validateBody(generateSeatMapSchema),
   generateSeatMapFromSpecController
 );
 export default router;

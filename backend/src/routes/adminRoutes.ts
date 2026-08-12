@@ -9,7 +9,6 @@ import {
   rejectOrganizer,
 } from "../controllers/adminController";
 
-// User management controller
 import { getUsers } from "../controllers/authController";
 
 // Venue management controllers
@@ -23,92 +22,70 @@ import {
 import { listAllEvents } from "../controllers/eventController";
 import { getStatsController } from "../controllers/adminStatsController";
 import { listAllBookingsController } from "../controllers/adminBookingController";
+import {
+  setApprovalController,
+  suspendUserController,
+  unsuspendUserController,
+} from "../controllers/adminUserController";
 
-// --- 1. IMPORT USER MODEL ---
-import userModel from "../models/userModel";
+import { validateQuery } from "../middleware/validate";
+import {
+  adminBookingQuerySchema,
+  paginationSchema,
+} from "../validation/schemas";
+import {
+  requireDemoWriteAccess,
+  sanitizeDemoAdminResponses,
+} from "../middleware/demoPolicy";
+import { requirePasswordRotationComplete } from "../middleware/requirePasswordRotation";
 
 const router = Router();
 
 router.use(ensureAuth, ensureRole(["admin"]));
+router.use(requirePasswordRotationComplete);
+router.use(sanitizeDemoAdminResponses);
 
-router.get("/users", getUsers); 
+router.get("/users", validateQuery(paginationSchema), getUsers);
 
-// --- 2. ADD NEW ROUTES ---
-
-// PUT /api/admin/users/:id/set-approval
-router.put("/users/:id/set-approval", async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const { isApproved } = req.body; 
-
-    if (typeof isApproved !== "boolean") {
-      return res.status(400).json({ message: "Invalid 'isApproved' value." });
-    }
-
-    const updatedUser = await userModel.findByIdAndUpdate(
-      id,
-      { $set: { isApproved } },
-      { new: true, select: "-passwordHash" } 
-    );
-
-    if (!updatedUser)
-      return res.status(404).json({ message: "User not found." });
-    res.status(200).json(updatedUser);
-  } catch (err) {
-    next(err);
-  }
-});
-
-// PUT /api/admin/users/:id/suspend
-router.put("/users/:id/suspend", async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const updatedUser = await userModel.findByIdAndUpdate(
-      id,
-      { $set: { isSuspended: true } },
-      { new: true, select: "-passwordHash" }
-    );
-    if (!updatedUser)
-      return res.status(404).json({ message: "User not found." });
-    res.status(200).json(updatedUser);
-  } catch (err) {
-    next(err);
-  }
-});
-
-// PUT /api/admin/users/:id/unsuspend
-router.put("/users/:id/unsuspend", async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const updatedUser = await userModel.findByIdAndUpdate(
-      id,
-      { $set: { isSuspended: false } },
-      { new: true, select: "-passwordHash" }
-    );
-    if (!updatedUser)
-      return res.status(404).json({ message: "User not found." });
-    res.status(200).json(updatedUser);
-  } catch (err) {
-    next(err);
-  }
-});
-
-// --- 3. (EXISTING ROUTES) ---
+// User management
+router.put(
+  "/users/:id/set-approval",
+  requireDemoWriteAccess,
+  setApprovalController
+);
+router.put("/users/:id/suspend", requireDemoWriteAccess, suspendUserController);
+router.put(
+  "/users/:id/unsuspend",
+  requireDemoWriteAccess,
+  unsuspendUserController
+);
 
 // --- Organizer Approval ---
 router.get("/organizers/pending", listPendingOrganizers);
-router.put("/organizers/:organizerId/approve", approveOrganizer);
-router.put("/organizers/:organizerId/reject", rejectOrganizer);
+router.put(
+  "/organizers/:organizerId/approve",
+  requireDemoWriteAccess,
+  approveOrganizer
+);
+router.put(
+  "/organizers/:organizerId/reject",
+  requireDemoWriteAccess,
+  rejectOrganizer
+);
 
 // --- Venue Management ---
-router.post("/venues", createVenueController);
-router.put("/venues/:id", updateVenueController);
+router.post("/venues", requireDemoWriteAccess, createVenueController);
+router.put("/venues/:id", requireDemoWriteAccess, updateVenueController);
 router.get("/venues", getActiveVenues);
 router.get("/venues/:id", getVenueByIdController);
-router.delete("/venues/:id", deleteVenueController);
+router.delete("/venues/:id", requireDemoWriteAccess, deleteVenueController);
 router.get("/stats", getStatsController);
 // Events
-router.get("/events", listAllEvents);
-router.get("/bookings", listAllBookingsController);
+router.get("/events", validateQuery(paginationSchema), listAllEvents);
+router.get(
+  "/bookings",
+  validateQuery(adminBookingQuerySchema),
+  listAllBookingsController
+);
 
 export default router;
