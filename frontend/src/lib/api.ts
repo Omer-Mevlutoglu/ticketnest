@@ -10,7 +10,7 @@
  * response into a typed error with a message worth showing a user.
  */
 
-export const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
+export const API_BASE = import.meta.env.VITE_API_BASE?.replace(/\/$/, "") || "";
 
 /** A non-2xx response. `status` and `code` let callers branch without parsing text. */
 export class ApiError extends Error {
@@ -119,7 +119,7 @@ const toApiError = (status: number, body: unknown): ApiError => {
     return new ApiError(
       status,
       shaped.message || shaped.error || `Request failed (${status})`,
-      shaped.code
+      shaped.code,
     );
   }
   if (typeof body === "string" && body.trim()) {
@@ -136,7 +136,7 @@ const toApiError = (status: number, body: unknown): ApiError => {
  */
 export async function api<T = unknown>(
   path: string,
-  options: ApiRequestOptions = {}
+  options: ApiRequestOptions = {},
 ): Promise<T> {
   const method = options.method ?? "GET";
   const isWrite = !SAFE_METHODS.has(method);
@@ -145,7 +145,8 @@ export async function api<T = unknown>(
     const headers: Record<string, string> = { ...options.headers };
 
     // FormData must set its own Content-Type, boundary included.
-    if (options.json !== undefined) headers["Content-Type"] = "application/json";
+    if (options.json !== undefined)
+      headers["Content-Type"] = "application/json";
     if (token) headers[CSRF_HEADER] = token;
 
     return fetch(`${API_BASE}${path}`, {
@@ -191,13 +192,13 @@ export const apiGet = <T = unknown>(path: string, signal?: AbortSignal) =>
 export const apiPost = <T = unknown>(
   path: string,
   json?: unknown,
-  signal?: AbortSignal
+  signal?: AbortSignal,
 ) => api<T>(path, { method: "POST", json, signal });
 
 export const apiPut = <T = unknown>(
   path: string,
   json?: unknown,
-  signal?: AbortSignal
+  signal?: AbortSignal,
 ) => api<T>(path, { method: "PUT", json, signal });
 
 export const apiDelete = <T = unknown>(path: string, signal?: AbortSignal) =>
@@ -207,7 +208,7 @@ export const apiDelete = <T = unknown>(path: string, signal?: AbortSignal) =>
 export const apiUpload = <T = unknown>(
   path: string,
   formData: FormData,
-  signal?: AbortSignal
+  signal?: AbortSignal,
 ) => api<T>(path, { method: "POST", body: formData, signal });
 
 /**
@@ -228,7 +229,7 @@ export interface Page<T> {
 export const apiGetAll = async <T>(
   path: string,
   signal?: AbortSignal,
-  limit = 100
+  limit = 100,
 ): Promise<T[]> => {
   const sep = path.includes("?") ? "&" : "?";
   const page = await apiGet<Page<T>>(`${path}${sep}limit=${limit}`, signal);
@@ -236,5 +237,7 @@ export const apiGetAll = async <T>(
 };
 
 /** Message for a caught error, safe to show a user. */
-export const errorMessage = (err: unknown, fallback = "Something went wrong") =>
-  err instanceof Error && err.message ? err.message : fallback;
+export const errorMessage = (
+  err: unknown,
+  fallback = "Something went wrong",
+) => (err instanceof Error && err.message ? err.message : fallback);

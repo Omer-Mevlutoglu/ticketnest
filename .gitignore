@@ -50,6 +50,7 @@ Desktop.ini
 *.sw?
 
 # Temporary files
+/tmp/
 *.tmp
 *.temp
 *.bak
