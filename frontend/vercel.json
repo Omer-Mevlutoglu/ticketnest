@@ -1,10 +1,6 @@
 {
     "rewrites": [
         {
-            "source": "/(.*)",
-            "destination": "/index.html"
-        },
-        {
             "source": "/api/:path*",
             "destination": "https://ticketnest-3wfx.onrender.com/api/:path*"
         },
@@ -15,6 +11,10 @@
         {
             "source": "/healthz",
             "destination": "https://ticketnest-3wfx.onrender.com/healthz"
+        },
+        {
+            "source": "/(.*)",
+            "destination": "/index.html"
         }
     ]
 }
